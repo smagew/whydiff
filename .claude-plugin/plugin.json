@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "whydiff",
+  "version": "0.1.0",
+  "description": "Interactive review maps for git diffs: cause-grouped changes, causal story, diff-marked diagrams, standards, tests and ops reports — built for reviewing LLM-written code without losing project comprehension.",
+  "author": {
+    "name": "Alisher Gafurov",
+    "url": "https://github.com/smagew"
+  },
+  "homepage": "https://github.com/smagew/whydiff",
+  "repository": "https://github.com/smagew/whydiff",
+  "license": "MIT",
+  "keywords": [
+    "code-review",
+    "git-diff",
+    "review-map",
+    "mermaid",
+    "visualization",
+    "ai-code-review",
+    "llm"
+  ]
+}

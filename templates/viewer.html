@@ -1,0 +1,709 @@
+<title>__TITLE__</title>
+<style>
+  :root {
+    --bg: #eef1f4; --surface: #ffffff; --surface-2: #f6f8fa; --ink: #1b232c;
+    --muted: #5b6874; --line: #d8dee5; --accent: #22697a; --accent-ink: #ffffff;
+    --p1: #b45309; --p1b: #fdf3e4;
+    --p2: #6d4fa8; --p2b: #f0ecf8;
+    --p3: #a84457; --p3b: #f9ebee;
+    --p4: #3f6ea5; --p4b: #edf3fa;
+    --p5: #b0246c; --p5b: #f9e9f1;
+    --p6: #4a7c59; --p6b: #ecf4ee;
+    --p7: #75708a; --p7b: #f0eff4;
+    --p8: #8a6a1f; --p8b: #f7f1e2;
+    --add: #1a7f37; --add-bg: #e2f2e6; --del: #b3392e; --del-bg: #f9e7e5;
+    --warn: #b45309; --warn-bg: #fdf3e4; --info: #3f6ea5; --info-bg: #edf3fa;
+    --ok: #1a7f37; --ok-bg: #e2f2e6;
+    --code-bg: #f2f4f7;
+    --shadow: 0 1px 2px rgba(20,30,40,.06), 0 4px 16px rgba(20,30,40,.07);
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12161b; --surface: #1a2027; --surface-2: #20272f; --ink: #e6ebf0;
+      --muted: #97a4b0; --line: #303a44; --accent: #5fb3c4; --accent-ink: #0e1417;
+      --p1: #e0a355; --p1b: #2d2416;
+      --p2: #a893d6; --p2b: #241e30;
+      --p3: #d98a99; --p3b: #2c1d21;
+      --p4: #7ba7d4; --p4b: #1a2532;
+      --p5: #d77bab; --p5b: #2e1a25;
+      --p6: #8fb494; --p6b: #1c261e;
+      --p7: #a29cc0; --p7b: #221f2e;
+      --p8: #cbb26a; --p8b: #2a2414;
+      --add: #57ab5a; --add-bg: #17281a; --del: #e5726a; --del-bg: #301b19;
+      --warn: #e0a355; --warn-bg: #2d2416; --info: #7ba7d4; --info-bg: #1a2532;
+      --ok: #57ab5a; --ok-bg: #17281a;
+      --code-bg: #161c22;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 4px 18px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12161b; --surface: #1a2027; --surface-2: #20272f; --ink: #e6ebf0;
+    --muted: #97a4b0; --line: #303a44; --accent: #5fb3c4; --accent-ink: #0e1417;
+    --p1: #e0a355; --p1b: #2d2416; --p2: #a893d6; --p2b: #241e30;
+    --p3: #d98a99; --p3b: #2c1d21; --p4: #7ba7d4; --p4b: #1a2532;
+    --p5: #d77bab; --p5b: #2e1a25; --p6: #8fb494; --p6b: #1c261e;
+    --p7: #a29cc0; --p7b: #221f2e; --p8: #cbb26a; --p8b: #2a2414;
+    --add: #57ab5a; --add-bg: #17281a; --del: #e5726a; --del-bg: #301b19;
+    --warn: #e0a355; --warn-bg: #2d2416; --info: #7ba7d4; --info-bg: #1a2532;
+    --ok: #57ab5a; --ok-bg: #17281a; --code-bg: #161c22;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 4px 18px rgba(0,0,0,.35);
+  }
+  :root[data-theme="light"] {
+    --bg: #eef1f4; --surface: #ffffff; --surface-2: #f6f8fa; --ink: #1b232c;
+    --muted: #5b6874; --line: #d8dee5; --accent: #22697a; --accent-ink: #ffffff;
+    --p1: #b45309; --p1b: #fdf3e4; --p2: #6d4fa8; --p2b: #f0ecf8;
+    --p3: #a84457; --p3b: #f9ebee; --p4: #3f6ea5; --p4b: #edf3fa;
+    --p5: #b0246c; --p5b: #f9e9f1; --p6: #4a7c59; --p6b: #ecf4ee;
+    --p7: #75708a; --p7b: #f0eff4; --p8: #8a6a1f; --p8b: #f7f1e2;
+    --add: #1a7f37; --add-bg: #e2f2e6; --del: #b3392e; --del-bg: #f9e7e5;
+    --warn: #b45309; --warn-bg: #fdf3e4; --info: #3f6ea5; --info-bg: #edf3fa;
+    --ok: #1a7f37; --ok-bg: #e2f2e6; --code-bg: #f2f4f7;
+    --shadow: 0 1px 2px rgba(20,30,40,.06), 0 4px 16px rgba(20,30,40,.07);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 15px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 1360px; margin: 0 auto; padding: 28px 24px 64px; }
+
+  .kicker { font-family: var(--mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); margin: 0 0 6px; }
+  h1 { margin: 0 0 4px; font-size: 26px; font-weight: 650; letter-spacing: -.015em; text-wrap: balance; }
+  .sub { margin: 0; color: var(--muted); max-width: 74ch; }
+  code { font-family: var(--mono); font-size: .88em; background: var(--code-bg); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
+
+  .statbar { display: flex; flex-wrap: wrap; gap: 10px; margin: 20px 0 22px; }
+  .stat { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 16px; box-shadow: var(--shadow); min-width: 118px; }
+  .stat b { display: block; font-size: 20px; font-weight: 650; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+  .stat span { font-size: 12.5px; color: var(--muted); }
+  .stat.hl { border-color: var(--accent); }
+  .stat.hl b { color: var(--accent); }
+
+  .layout { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(340px, 1fr); gap: 20px; align-items: start; }
+  @media (max-width: 960px) { .layout { grid-template-columns: 1fr; } }
+
+  .main-panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); padding: 18px; position: relative; }
+  .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 16px; }
+  .tab { font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; border-radius: 7px; padding: 6px 13px; border: 1px solid var(--line); background: var(--surface-2); color: var(--muted); transition: background .12s, border-color .12s, color .12s; }
+  .tab:hover { border-color: var(--accent); }
+  .tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .tab.active { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .tab .cnt { font-family: var(--mono); font-size: 11px; opacity: .75; margin-left: 4px; }
+
+  .pane-hint { color: var(--muted); font-size: 12.5px; margin: -6px 0 14px; }
+
+  /* story */
+  .story { display: flex; flex-direction: column; }
+  .step { border: 1.5px solid var(--sc, var(--line)); border-radius: 10px; background: color-mix(in srgb, var(--sb, var(--surface-2)) 45%, var(--surface)); padding: 12px 14px; }
+  .step-label { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--sc); font-weight: 700; margin: 0 0 4px; }
+  .step-text { font-size: 14px; margin: 0; }
+  .branches { display: grid; gap: 6px; margin: 10px 0 0; }
+  .branch { border-left: 3px solid var(--sc); border-radius: 0 6px 6px 0; background: var(--surface-2); padding: 5px 11px; font-size: 12.5px; }
+  .branch b { font-family: var(--mono); font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--sc); margin-right: 6px; }
+  .step-files { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 0; }
+  .fchip { font: inherit; font-family: var(--mono); font-size: 11px; cursor: pointer; border: 1px solid var(--line); border-radius: 99px; padding: 2.5px 10px; background: var(--surface); color: var(--ink); transition: border-color .12s, transform .12s; }
+  .fchip:hover { border-color: var(--sc, var(--accent)); transform: translateY(-1px); }
+  .fchip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .fchip .dot { display: inline-block; width: 7px; height: 7px; border-radius: 99px; margin-right: 6px; background: var(--sc, var(--accent)); }
+  .link-row { display: flex; gap: 9px; align-items: baseline; color: var(--muted); font-size: 12.5px; font-style: italic; padding: 7px 4px 7px 18px; position: relative; }
+  .link-row::before { content: ''; position: absolute; left: 24px; top: 0; bottom: 0; width: 2px; background: var(--line); }
+  .link-row .la { font-style: normal; color: var(--accent); position: relative; z-index: 1; background: var(--surface); padding: 0 1px; margin-left: 1px; }
+
+  /* diagrams */
+  .diagram { border: 1px solid var(--line); border-radius: 10px; padding: 14px; margin: 0 0 16px; background: var(--surface); }
+  .diagram h3 { margin: 0 0 2px; font-size: 15px; font-weight: 650; }
+  .diagram .cap { margin: 0 0 10px; font-size: 12.5px; color: var(--muted); }
+  .diagram .mermaid-box { overflow-x: auto; background: var(--surface-2); border-radius: 8px; padding: 10px; }
+  pre.mermaid { margin: 0; text-align: center; }
+  .mermaid-box .clickable { cursor: pointer; }
+  .mermaid-box .clickable:hover { opacity: .75; }
+  .diagram .step-files { margin-top: 10px; }
+
+  /* map (files tab) */
+  #map { position: relative; }
+  #edges { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; z-index: 2; }
+  #edges path { fill: none; stroke: var(--ec, var(--muted)); stroke-width: 1.6; opacity: 0; transition: opacity .15s, stroke-width .15s; }
+  #edges.all path { opacity: .3; }
+  #edges path.on { opacity: 1; stroke-width: 2.6; }
+  #edges .arrow { fill: var(--ec, var(--muted)); opacity: 0; transition: opacity .15s; }
+  #edges.all .arrow { opacity: .4; }
+  #edges .arrow.on { opacity: 1; }
+  .groups { display: flex; flex-direction: column; gap: 20px; position: relative; z-index: 1; }
+  .group { border: 1.5px solid var(--gc, var(--line)); border-radius: 10px; background: color-mix(in srgb, var(--gbg, var(--surface-2)) 55%, var(--surface)); padding: 12px 14px 14px; }
+  .group.collapsed { padding-bottom: 12px; }
+  .group.collapsed .nodes { display: none; }
+  .group-row { display: flex; align-items: center; gap: 6px; margin: 0 0 10px; }
+  .group.collapsed .group-row { margin-bottom: 0; }
+  .fold { flex: none; width: 26px; height: 26px; border-radius: 6px; border: 1px solid transparent; background: none; cursor: pointer; color: var(--gc); font-size: 12px; display: grid; place-items: center; transition: transform .15s, background .12s; }
+  .fold:hover { background: color-mix(in srgb, var(--gc) 14%, transparent); }
+  .fold:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .group.collapsed .fold { transform: rotate(-90deg); }
+  .group-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; flex: 1; min-width: 0; background: none; border: none; padding: 4px 6px; margin: -4px 0; border-radius: 8px; cursor: pointer; text-align: left; color: inherit; font: inherit; }
+  .group-head:hover, .group-head:focus-visible { background: color-mix(in srgb, var(--gc) 12%, transparent); }
+  .group-head:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .group-tag { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--gc); font-weight: 700; }
+  .group-name { font-weight: 650; font-size: 14.5px; }
+  .group-hint { color: var(--muted); font-size: 12.5px; margin-left: auto; }
+  .nodes { display: flex; flex-wrap: wrap; gap: 10px; }
+  .node { display: flex; flex-direction: column; gap: 3px; align-items: stretch; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px 10px; cursor: pointer; font: inherit; color: inherit; text-align: left; max-width: 320px; transition: border-color .12s, transform .12s, box-shadow .12s; }
+  .node:hover { border-color: var(--gc); transform: translateY(-1px); box-shadow: var(--shadow); }
+  .node:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .node.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), var(--shadow); }
+  .node-top { display: flex; align-items: baseline; gap: 8px; }
+  .node .fname { font-family: var(--mono); font-size: 12.5px; font-weight: 600; overflow-wrap: anywhere; }
+  .node .fstat { font-family: var(--mono); font-size: 11px; font-variant-numeric: tabular-nums; margin-left: auto; white-space: nowrap; }
+  .a { color: var(--add); } .d { color: var(--del); }
+  .node-meta { display: flex; align-items: center; gap: 8px; }
+  .svc { font-family: var(--mono); font-size: 9.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); border: 1px solid var(--line); border-radius: 99px; padding: 0 7px; }
+  .node .frole { font-size: 11.5px; color: var(--muted); }
+  .fprev { margin-top: 5px; border-radius: 6px; background: var(--code-bg); border: 1px solid var(--line); padding: 4px 0; overflow: hidden; }
+  .fprev .cl { font-size: 10.5px; line-height: 1.5; padding: 0 8px; overflow: hidden; text-overflow: ellipsis; max-width: 292px; }
+  .toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); cursor: pointer; user-select: none; }
+  .toggle input { accent-color: var(--accent); cursor: pointer; }
+  .files-hint { display: flex; gap: 14px; align-items: baseline; flex-wrap: wrap; margin: 0 0 12px; }
+
+  .manifest { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 10px; }
+  .manifest summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--muted); }
+  .manifest summary:hover { color: var(--ink); }
+  .manifest[open] summary { margin-bottom: 8px; }
+  .mrow { display: flex; gap: 10px; align-items: baseline; width: 100%; font-family: var(--mono); font-size: 12px; padding: 3.5px 4px; background: none; border: none; cursor: pointer; color: inherit; text-align: left; border-radius: 6px; }
+  .mrow:hover { background: var(--surface-2); }
+  .mrow:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .mrow .dot { flex: none; width: 8px; height: 8px; border-radius: 99px; background: var(--mc, var(--line)); position: relative; top: -1px; }
+  .mrow .mpath { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .mrow .mstat { white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .mrow .mnew { color: var(--add); font-size: 10.5px; }
+
+  /* standards */
+  .finding { display: flex; gap: 12px; align-items: flex-start; border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin: 0 0 10px; background: var(--surface); }
+  .sev { flex: none; font-family: var(--mono); font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; border-radius: 99px; padding: 2px 10px; position: relative; top: 2px; }
+  .sev.warn { background: var(--warn-bg); color: var(--warn); }
+  .sev.info { background: var(--info-bg); color: var(--info); }
+  .sev.ok { background: var(--ok-bg); color: var(--ok); }
+  .finding .fbody { min-width: 0; font-size: 13.5px; }
+  .finding .floc { margin-top: 4px; font-size: 12px; }
+  .finding .fpattern { margin-top: 4px; font-size: 12px; color: var(--muted); }
+  .loclink { font: inherit; font-family: var(--mono); font-size: 12px; font-weight: 600; background: none; border: none; padding: 0; cursor: pointer; color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+  .loclink:hover { filter: brightness(1.15); }
+
+  /* tests / ops / blast */
+  .cols2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 760px) { .cols2 { grid-template-columns: 1fr; } }
+  .listcard { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; background: var(--surface); }
+  .listcard h3 { margin: 0 0 8px; font-size: 14px; font-weight: 650; }
+  .listcard h3 .cnt { font-family: var(--mono); font-size: 12px; color: var(--muted); font-weight: 600; }
+  .listcard ul { margin: 0; padding: 0 0 0 18px; font-size: 13px; }
+  .listcard li { margin: 0 0 6px; }
+  .listcard.good { border-color: color-mix(in srgb, var(--ok) 45%, var(--line)); }
+  .listcard.bad { border-color: color-mix(in srgb, var(--warn) 55%, var(--line)); }
+  .empty-good { border: 1px solid color-mix(in srgb, var(--ok) 45%, var(--line)); background: var(--ok-bg); color: var(--ok); border-radius: 10px; padding: 10px 14px; font-size: 13.5px; margin: 0 0 12px; }
+  .brow { border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; margin: 0 0 10px; background: var(--surface); font-size: 13px; }
+  .brow .bpath { font-family: var(--mono); font-size: 12px; font-weight: 600; overflow-wrap: anywhere; }
+  .brow .bwhy { margin-top: 3px; color: var(--muted); }
+  .section-note { background: var(--surface-2); border-left: 3px solid var(--accent); border-radius: 0 8px 8px 0; padding: 10px 14px; margin: 0 0 14px; font-size: 13.5px; }
+  #blastTitle { font-size: 15px; margin: 18px 0 4px; }
+
+  /* inspector */
+  .inspector { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); padding: 18px 18px 20px; position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow-y: auto; }
+  .insp-tag { font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; font-weight: 700; margin: 0 0 6px; }
+  .inspector h3 { margin: 0 0 10px; font-size: 15.5px; font-weight: 650; letter-spacing: -.01em; font-family: var(--mono); overflow-wrap: anywhere; }
+  .inspector h3.prose { font-family: var(--sans); }
+  .why { background: var(--surface-2); border-left: 3px solid var(--accent); border-radius: 0 8px 8px 0; padding: 10px 14px; margin: 0 0 14px; font-size: 14px; }
+  .filelist { margin: 10px 0 14px; padding: 0; list-style: none; }
+  .filelist li { font-family: var(--mono); font-size: 12.5px; padding: 3px 0; color: var(--muted); overflow-wrap: anywhere; }
+  .filelist li::before { content: "· "; color: var(--accent); }
+  .rels { margin: 0 0 14px; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
+  .rels li { font-size: 12.5px; color: var(--muted); line-height: 1.45; }
+  .rels-title { font-size: 12px; font-weight: 650; color: var(--ink); margin: 0 0 4px; }
+  .rel-file { font: inherit; font-family: var(--mono); font-size: 12px; font-weight: 600; background: none; border: none; padding: 0; cursor: pointer; color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+  .rel-file:hover { filter: brightness(1.15); }
+  .codebox { background: var(--code-bg); border: 1px solid var(--line); border-radius: 8px; overflow-x: auto; margin: 0 0 14px; }
+  .codebox-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 6px 12px; border-bottom: 1px solid var(--line); font-family: var(--mono); font-size: 11px; color: var(--muted); position: sticky; left: 0; }
+  .codebox pre { margin: 0; padding: 10px 0; font-family: var(--mono); font-size: 12px; line-height: 1.6; min-width: max-content; }
+  .cl { display: block; padding: 0 14px; white-space: pre; font-family: var(--mono); }
+  .cl.add { background: var(--add-bg); color: var(--add); }
+  .cl.del { background: var(--del-bg); color: var(--del); text-decoration: line-through; text-decoration-thickness: 1px; }
+  .cl.ctx { color: var(--muted); }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn { font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; border-radius: 7px; padding: 7px 14px; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); transition: background .12s, border-color .12s; }
+  .btn:hover { border-color: var(--accent); }
+  .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .btn.primary:hover { filter: brightness(1.08); }
+  .note { font-size: 12.5px; color: var(--muted); margin: 12px 0 0; }
+
+  dialog { border: 1px solid var(--line); border-radius: 12px; padding: 0; background: var(--surface); color: var(--ink); width: min(820px, calc(100vw - 32px)); max-height: 84vh; box-shadow: 0 12px 48px rgba(0,0,0,.35); }
+  dialog::backdrop { background: rgba(10, 14, 18, .55); }
+  .modal-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 18px; border-bottom: 1px solid var(--line); font-family: var(--mono); font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
+  .modal-body { overflow: auto; max-height: calc(84vh - 52px); }
+  .modal-body pre { margin: 0; padding: 14px 18px; font-family: var(--mono); font-size: 12px; line-height: 1.6; min-width: max-content; }
+
+  .consistency { border: 1px solid var(--del); background: var(--del-bg); color: var(--del); border-radius: 10px; padding: 10px 14px; font-size: 13px; margin: 0 0 14px; display: none; }
+  .consistency.show { display: block; }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <p class="kicker" id="metaLine"></p>
+  <h1 id="title"></h1>
+  <p class="sub" id="intent"></p>
+  <div class="statbar" id="statbar"></div>
+  <div class="consistency" id="consistency"></div>
+
+  <div class="layout">
+    <section class="main-panel">
+      <div class="tabs" id="tabs" role="tablist"></div>
+
+      <div id="pane-story" class="pane">
+        <div class="story" id="story"></div>
+      </div>
+
+      <div id="pane-diagrams" class="pane" hidden>
+        <p class="pane-hint" id="diagramsHint"></p>
+        __DIAGRAMS_HTML__
+      </div>
+
+      <div id="pane-standards" class="pane" hidden>
+        <div id="standards"></div>
+      </div>
+
+      <div id="pane-tests" class="pane" hidden>
+        <div class="section-note" id="testsSummary"></div>
+        <div class="cols2">
+          <div class="listcard good"><h3><span id="fixedTitle"></span> <span class="cnt" id="fixedCnt"></span></h3><ul id="testsFixed"></ul></div>
+          <div class="listcard bad"><h3><span id="gapsTitle"></span> <span class="cnt" id="gapsCnt"></span></h3><ul id="testsGaps"></ul></div>
+        </div>
+        <div class="step-files" id="testsFiles" style="margin-top:12px"></div>
+      </div>
+
+      <div id="pane-ops" class="pane" hidden>
+        <div id="ops"></div>
+        <h3 id="blastTitle"></h3>
+        <p class="pane-hint" id="blastHint"></p>
+        <div id="blast"></div>
+      </div>
+
+      <div id="pane-files" class="pane" hidden>
+        <div class="files-hint">
+          <label class="toggle"><input type="checkbox" id="allEdges"> <span id="edgesToggleLabel"></span></label>
+          <small style="color:var(--muted)" id="filesHintText"></small>
+        </div>
+        <div id="map">
+          <svg id="edges" aria-hidden="true"></svg>
+          <div class="groups" id="groups"></div>
+        </div>
+        <details class="manifest">
+          <summary id="manifestSummary"></summary>
+          <div id="manifestRows"></div>
+        </details>
+      </div>
+    </section>
+
+    <aside class="inspector" id="inspector" aria-live="polite"></aside>
+  </div>
+</div>
+
+<dialog id="fileModal">
+  <div class="modal-head">
+    <span id="modalName"></span>
+    <button class="btn" id="modalClose"></button>
+  </div>
+  <div class="modal-body"><pre id="modalCode"></pre></div>
+</dialog>
+
+__MERMAID_BUNDLE__
+
+<script>
+const RM = __REVIEW_MAP_JSON__
+
+// ── i18n: viewer chrome follows the report language (meta.lang), default en ──
+const I18N = {
+  en: {
+    titlePrefix: 'Change map: ',
+    statFiles: (c, n) => `files (${c} mod. + ${n} new)`,
+    statLines: 'lines', statGroups: 'cause groups',
+    statAttention: 'files need careful reading', statEnv: 'env changes',
+    consistency: '⚠ Manifest entries missing a description on the map: ',
+    tabs: { story: 'Logic', diagrams: 'Diagrams', standards: 'Standards', tests: 'Tests', ops: 'Ops & risks', files: 'Files' },
+    diagramsHint: 'Red (dashed) — removed, green — added. Diagrams exist only where a control or data flow changed. Nodes tied to a changed file are clickable — details open in the inspector.',
+    fixedTitle: 'Fixed by tests', gapsTitle: 'Not covered',
+    envTitle: 'Env vars', migrTitle: 'Migrations', deployTitle: 'Deploy',
+    envNone: '✓ No env changes', migrNone: '✓ No migrations',
+    envStatus: { added: 'added', removed: 'removed', changed: 'changed' },
+    blastTitle: 'Blast radius — depends on the change but is not in the diff',
+    blastHint: 'These files did not change; look here if something goes wrong.',
+    edgesToggle: 'show all links',
+    filesHint: 'hover or select a file to highlight its links · chevron collapses a group',
+    groupHint: (n) => `${n} file${n === 1 ? '' : 's'}`,
+    manifestSummary: (n) => `All diff files: ${n} of ${n} on the map ✓`,
+    newMark: '· new',
+    relsTitle: 'Links', back: '← overview', openFull: 'Open full file', fragment: 'fragment', close: 'Close',
+    fold: (name) => `Collapse/expand: ${name}`,
+    overviewTag: 'Overview', overviewTitle: 'How to read this map',
+    overviewBody: 'The <b>Logic</b> tab reads top to bottom: each block exists <i>because of</i> the previous one. Click any file on any tab — details and code appear here. Groups are reviewer roles: ',
+    completeness: (n) => `Completeness: ${n} of ${n} diff files described (Files tab).`,
+    roles: { read: 'read carefully', 'verify-pattern': 'verify one pattern and list completeness', context: 'context, read first', ops: 'deploy checklist', spec: 'specification on demand', plumbing: 'mechanics' },
+  },
+  ru: {
+    titlePrefix: 'Карта изменений: ',
+    statFiles: (c, n) => `файлов (${c} изм. + ${n} новых)`,
+    statLines: 'строк', statGroups: 'групп причин',
+    statAttention: 'файла внимательного чтения', statEnv: 'env-изменений',
+    consistency: '⚠ В манифесте есть файлы без описания на карте: ',
+    tabs: { story: 'Логика', diagrams: 'Диаграммы', standards: 'Стандарты', tests: 'Тесты', ops: 'Операции и риски', files: 'Файлы' },
+    diagramsHint: 'Красное (пунктир) — удалено, зелёное — добавлено. Диаграммы есть только там, где меняется поток управления или данных. Ноды изменённых файлов кликабельны — детали откроются в инспекторе.',
+    fixedTitle: 'Зафиксировано', gapsTitle: 'Не покрыто',
+    envTitle: 'Env-переменные', migrTitle: 'Миграции', deployTitle: 'Деплой',
+    envNone: '✓ Env-переменные не менялись', migrNone: '✓ Миграций нет',
+    envStatus: { added: 'добавлена', removed: 'удалена', changed: 'изменена' },
+    blastTitle: 'Blast radius — зависит от изменённого, но в дифф не попало',
+    blastHint: 'Эти файлы не менялись; сюда стоит заглянуть, если что-то пойдёт не так.',
+    edgesToggle: 'показать все связи',
+    filesHint: 'наведите или выберите файл — подсветятся его связи · шеврон сворачивает группу',
+    groupHint: (n) => `${n} ф.`,
+    manifestSummary: (n) => `Все файлы диффа: ${n} из ${n} на карте ✓`,
+    newMark: '· новый',
+    relsTitle: 'Связи', back: '← к обзору', openFull: 'Открыть файл целиком', fragment: 'фрагмент', close: 'Закрыть',
+    fold: (name) => `Свернуть/развернуть: ${name}`,
+    overviewTag: 'Обзор', overviewTitle: 'Как читать эту карту',
+    overviewBody: 'Вкладка <b>«Логика»</b> читается сверху вниз: каждый блок существует <i>из-за</i> предыдущего. Клик по файлу в любой вкладке — детали и код здесь. Группы — это роли: ',
+    completeness: (n) => `Полнота: ${n} из ${n} файлов диффа описаны (вкладка «Файлы»).`,
+    roles: { read: 'читать внимательно', 'verify-pattern': 'проверить паттерн и полноту', context: 'контекст, читать первым', ops: 'чеклист деплоя', spec: 'спецификация по запросу', plumbing: 'механика' },
+  },
+}
+const L = I18N[RM.meta.lang] || I18N.en
+
+// ── group palette: color assigned by group ordinal ──────────────────────────
+const groupIndex = {}
+RM.groups.forEach((g, i) => { groupIndex[g.id] = (i % 8) + 1 })
+const gcolor = (gid) => `var(--p${groupIndex[gid] || 7})`
+const gbg = (gid) => `var(--p${groupIndex[gid] || 7}b)`
+const fileGroup = {}
+for (const g of RM.groups) for (const p of g.files) fileGroup[p] = g.id
+
+const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+const shortName = (p) => { const parts = p.split('/'); return parts.length > 2 ? '…/' + parts.slice(-2).join('/') : p }
+const chip = (path) => `<button class="fchip" data-goto="${esc(path)}" style="--sc:${gcolor(fileGroup[path])}"><span class="dot"></span>${esc(shortName(path))}</button>`
+
+// ── header ───────────────────────────────────────────────────────────────────
+document.getElementById('metaLine').textContent = `${RM.meta.project} · ${RM.meta.ref} · ${RM.meta.generatedAt}`
+document.getElementById('title').textContent = L.titlePrefix + (RM.meta.title || RM.meta.project)
+document.getElementById('intent').innerHTML = RM.intent
+const st = RM.meta.stats || {}
+const totalFiles = (st.filesChanged || 0) + (st.filesNew || 0)
+document.getElementById('statbar').innerHTML = [
+  [totalFiles, L.statFiles(st.filesChanged || 0, st.filesNew || 0)],
+  [`+${st.added || 0} / −${st.deleted || 0}`, L.statLines],
+  [RM.groups.length, L.statGroups, true],
+  [st.attentionFiles ?? '—', L.statAttention, true],
+  [(RM.ops?.env || []).length, L.statEnv],
+].map(([v, l, hl]) => `<div class="stat${hl ? ' hl' : ''}"><b>${v}</b><span>${l}</span></div>`).join('')
+
+// ── integrity: every manifest entry must be described (principle 5) ──────────
+{
+  const missing = (RM.manifest || []).map(r => r[0]).filter(p => !RM.files[p])
+  if (missing.length) {
+    const el = document.getElementById('consistency')
+    el.classList.add('show')
+    el.textContent = L.consistency + missing.join(', ')
+  }
+}
+
+// ── static chrome strings ────────────────────────────────────────────────────
+document.getElementById('diagramsHint').textContent = L.diagramsHint
+document.getElementById('fixedTitle').textContent = L.fixedTitle
+document.getElementById('gapsTitle').textContent = L.gapsTitle
+document.getElementById('blastTitle').textContent = L.blastTitle
+document.getElementById('blastHint').textContent = L.blastHint
+document.getElementById('edgesToggleLabel').textContent = L.edgesToggle
+document.getElementById('filesHintText').textContent = L.filesHint
+document.getElementById('modalClose').textContent = L.close
+
+// ── tabs ─────────────────────────────────────────────────────────────────────
+const PANES = [
+  ['story', L.tabs.story, null],
+  ['diagrams', L.tabs.diagrams, (RM.diagrams || []).length],
+  ['standards', L.tabs.standards, (RM.standards || []).filter(s => s.severity !== 'ok').length],
+  ['tests', L.tabs.tests, (RM.tests?.gaps || []).length ? `${(RM.tests.fixed || []).length}/${(RM.tests.gaps || []).length}` : (RM.tests?.fixed || []).length],
+  ['ops', L.tabs.ops, (RM.ops?.env || []).length + (RM.blastRadius || []).length],
+  ['files', L.tabs.files, (RM.manifest || []).length],
+]
+const tabsEl = document.getElementById('tabs')
+for (const [id, name, cnt] of PANES) {
+  const b = document.createElement('button')
+  b.className = 'tab' + (id === 'story' ? ' active' : '')
+  b.innerHTML = esc(name) + (cnt ? ` <span class="cnt">${cnt}</span>` : '')
+  b.addEventListener('click', () => setTab(id))
+  b.dataset.pane = id
+  tabsEl.appendChild(b)
+}
+let diagramsRendered = false
+function setTab(id) {
+  for (const b of tabsEl.children) b.classList.toggle('active', b.dataset.pane === id)
+  for (const [pid] of PANES) document.getElementById('pane-' + pid).hidden = pid !== id
+  if (id === 'files') requestAnimationFrame(drawEdges)
+  // Mermaid renders lazily on first open: hidden panes have no layout to measure.
+  if (id === 'diagrams' && !diagramsRendered && window.mermaid) {
+    diagramsRendered = true
+    requestAnimationFrame(() => mermaid.run({ nodes: document.querySelectorAll('#pane-diagrams pre.mermaid') }))
+  }
+}
+if (window.mermaid) {
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'neutral',
+    // 'loose' is required for `click <id> call whydiffOpen(...)` directives;
+    // the page is self-contained and its mermaid source is our own generator output.
+    securityLevel: 'loose',
+  })
+}
+
+// ── story ────────────────────────────────────────────────────────────────────
+const storyEl = document.getElementById('story')
+for (const item of RM.story) {
+  if (item.link) {
+    const row = document.createElement('div')
+    row.className = 'link-row'
+    row.innerHTML = `<span class="la">↓</span><span>${esc(item.link)}</span>`
+    storyEl.appendChild(row)
+    continue
+  }
+  const step = document.createElement('div')
+  step.className = 'step'
+  step.style.setProperty('--sc', gcolor(item.group))
+  step.style.setProperty('--sb', gbg(item.group))
+  const branches = item.branches?.length
+    ? `<div class="branches">${item.branches.map(([t, x]) => `<div class="branch"><b>${esc(t)}</b>${esc(x)}</div>`).join('')}</div>` : ''
+  step.innerHTML = `<p class="step-label">${esc(item.label)}</p><p class="step-text">${item.text}</p>${branches}
+    <div class="step-files">${(item.files || []).map(chip).join('')}</div>`
+  storyEl.appendChild(step)
+}
+
+// ── standards ────────────────────────────────────────────────────────────────
+document.getElementById('standards').innerHTML = (RM.standards || []).map(s => `
+  <div class="finding">
+    <span class="sev ${s.severity}">${s.severity}</span>
+    <div class="fbody">${esc(s.finding)}
+      ${s.file ? `<div class="floc"><button class="loclink" data-goto="${esc(s.file)}">${esc(s.file)}${s.line ? ':' + s.line : ''}</button></div>` : ''}
+      ${s.pattern ? `<div class="fpattern">${esc(s.pattern)}</div>` : ''}
+    </div>
+  </div>`).join('')
+
+// ── tests ────────────────────────────────────────────────────────────────────
+document.getElementById('testsSummary').innerHTML = esc(RM.tests?.summary || '')
+document.getElementById('testsFixed').innerHTML = (RM.tests?.fixed || []).map(x => `<li>${esc(x)}</li>`).join('')
+document.getElementById('testsGaps').innerHTML = (RM.tests?.gaps || []).map(x => `<li>${esc(x)}</li>`).join('')
+document.getElementById('fixedCnt').textContent = (RM.tests?.fixed || []).length
+document.getElementById('gapsCnt').textContent = (RM.tests?.gaps || []).length
+document.getElementById('testsFiles').innerHTML = (RM.tests?.files || []).map(chip).join('')
+
+// ── ops & blast radius ───────────────────────────────────────────────────────
+{
+  const ops = RM.ops || {}
+  let html = ''
+  if (ops.note) html += `<div class="section-note">${esc(ops.note)}</div>`
+  html += (ops.env || []).length
+    ? `<div class="listcard" style="margin-bottom:12px"><h3>${L.envTitle}</h3><ul>${ops.env.map(e => `<li><code>${esc(e.name)}</code> — ${L.envStatus[e.status] || esc(e.status)}${e.note ? ': ' + esc(e.note) : ''}</li>`).join('')}</ul></div>`
+    : `<div class="empty-good">${L.envNone}</div>`
+  html += (ops.migrations || []).length
+    ? `<div class="listcard" style="margin-bottom:12px"><h3>${L.migrTitle}</h3><ul>${ops.migrations.map(m => `<li>${esc(m)}</li>`).join('')}</ul></div>`
+    : `<div class="empty-good">${L.migrNone}</div>`
+  if ((ops.deploy || []).length) html += `<div class="listcard" style="margin-bottom:12px"><h3>${L.deployTitle}</h3><ul>${ops.deploy.map(d => `<li>${esc(d)}</li>`).join('')}</ul></div>`
+  document.getElementById('ops').innerHTML = html
+  document.getElementById('blast').innerHTML = (RM.blastRadius || []).map(b => `
+    <div class="brow"><span class="bpath">${esc(b.path)}</span><div class="bwhy">${esc(b.why)}</div></div>`).join('')
+}
+
+// ── files: groups, nodes, edges, manifest ────────────────────────────────────
+const groupsEl = document.getElementById('groups')
+const svg = document.getElementById('edges')
+const inspector = document.getElementById('inspector')
+const nodeEls = {}, groupEls = {}, headEls = {}
+let activeId = null, hoverId = null
+
+function previewHTML(f) {
+  if (!f.preview?.length) return ''
+  return `<div class="fprev">${f.preview.map(([c, t]) => `<span class="cl ${c}">${c === 'add' ? '+ ' : '− '}${esc(t)}</span>`).join('')}</div>`
+}
+
+for (const g of RM.groups) {
+  const sec = document.createElement('div')
+  sec.className = 'group' + (g.collapsed ? ' collapsed' : '')
+  sec.style.setProperty('--gc', gcolor(g.id))
+  sec.style.setProperty('--gbg', gbg(g.id))
+  groupEls[g.id] = sec
+  const row = document.createElement('div')
+  row.className = 'group-row'
+  const fold = document.createElement('button')
+  fold.className = 'fold'; fold.innerHTML = '▼'
+  fold.setAttribute('aria-label', L.fold(g.name))
+  fold.addEventListener('click', () => { sec.classList.toggle('collapsed'); requestAnimationFrame(drawEdges) })
+  row.appendChild(fold)
+  const head = document.createElement('button')
+  head.className = 'group-head'
+  head.innerHTML = `<span class="group-tag">${esc(g.tag || g.role)}</span><span class="group-name">${esc(g.name)}</span><span class="group-hint">${L.groupHint(g.files.length)}</span>`
+  head.addEventListener('click', () => showGroup(g))
+  headEls[g.id] = head
+  row.appendChild(head)
+  sec.appendChild(row)
+  const box = document.createElement('div')
+  box.className = 'nodes'
+  for (const path of g.files) {
+    const f = RM.files[path]
+    if (!f) continue
+    const el = document.createElement('button')
+    el.className = 'node'
+    el.innerHTML = `<span class="node-top"><span class="fname">${esc(shortName(path))}</span>
+      <span class="fstat"><span class="a">+${f.add}</span> <span class="d">−${f.del}</span></span></span>
+      <span class="node-meta">${f.service ? `<span class="svc">${esc(f.service)}</span>` : ''}<span class="frole">${esc(f.role || '')}</span></span>
+      ${previewHTML(f)}`
+    el.addEventListener('click', () => showFile(path))
+    el.addEventListener('mouseenter', () => { hoverId = path; refreshEdges() })
+    el.addEventListener('mouseleave', () => { hoverId = null; refreshEdges() })
+    nodeEls[path] = el
+    box.appendChild(el)
+  }
+  sec.appendChild(box)
+  groupsEl.appendChild(sec)
+}
+
+// Edge anchor: the node itself, or the group header when the group is collapsed.
+function anchorEl(path) {
+  const gid = fileGroup[path]
+  return groupEls[gid]?.classList.contains('collapsed') ? headEls[gid] : nodeEls[path]
+}
+function drawEdges() {
+  const mapBox = document.getElementById('map').getBoundingClientRect()
+  svg.innerHTML = ''
+  for (const [from, to] of RM.edges) {
+    const fromEl = anchorEl(from), toEl = anchorEl(to)
+    if (!fromEl || !toEl || fromEl === toEl) continue
+    const a = fromEl.getBoundingClientRect(), b = toEl.getBoundingClientRect()
+    const down = a.top < b.top
+    const x1 = a.left + Math.min(a.width * .5, 130) - mapBox.left
+    const y1 = (down ? a.bottom : a.top) - mapBox.top
+    const x2 = b.left + Math.min(b.width * .5, 130) - mapBox.left
+    const y2 = (down ? b.top : b.bottom) - mapBox.top
+    const my = (y1 + y2) / 2
+    const color = gcolor(fileGroup[from])
+    const p = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+    p.setAttribute('d', `M ${x1} ${y1} C ${x1} ${my}, ${x2} ${my}, ${x2} ${y2 + (down ? -5 : 5)}`)
+    p.style.setProperty('--ec', color); p.dataset.from = from; p.dataset.to = to
+    svg.appendChild(p)
+    const dir = down ? 1 : -1
+    const ar = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+    ar.setAttribute('d', `M ${x2 - 4.5} ${y2 - 6 * dir} L ${x2} ${y2} L ${x2 + 4.5} ${y2 - 6 * dir} Z`)
+    ar.setAttribute('class', 'arrow')
+    ar.style.setProperty('--ec', color); ar.dataset.from = from; ar.dataset.to = to
+    svg.appendChild(ar)
+  }
+  refreshEdges()
+}
+// An edge is visible when its file is hovered or selected; the checkbox shows all.
+function refreshEdges() {
+  for (const p of svg.children) {
+    const touches = (id) => id && (p.dataset.from === id || p.dataset.to === id)
+    p.classList.toggle('on', touches(hoverId) || touches(activeId))
+  }
+}
+document.getElementById('allEdges').addEventListener('change', (e) => svg.classList.toggle('all', e.target.checked))
+
+const manifestRows = document.getElementById('manifestRows')
+document.getElementById('manifestSummary').textContent = L.manifestSummary(RM.manifest.length)
+for (const [path, add, del, gid, isNew] of RM.manifest) {
+  const row = document.createElement('button')
+  row.className = 'mrow'
+  row.style.setProperty('--mc', gcolor(gid))
+  row.innerHTML = `<span class="dot"></span><span class="mpath">${esc(path)}${isNew ? ` <span class="mnew">${L.newMark}</span>` : ''}</span>
+    <span class="mstat"><span class="a">+${add}</span> <span class="d">−${del}</span></span>`
+  row.addEventListener('click', () => showFile(path))
+  manifestRows.appendChild(row)
+}
+
+// ── inspector ────────────────────────────────────────────────────────────────
+function codeboxHTML(path, f) {
+  if (!f.frag?.length) return ''
+  const lines = f.frag.map(([c, t]) => `<span class="cl ${c}">${c === 'add' ? '+ ' : c === 'del' ? '− ' : '  '}${esc(t)}</span>`).join('')
+  return `<div class="codebox"><div class="codebox-head"><span>${esc(path)}</span><span>${L.fragment}</span></div><pre>${lines}</pre></div>`
+}
+function relsHTML(path) {
+  const out = RM.edges.filter(([f]) => f === path)
+  const inc = RM.edges.filter(([, t]) => t === path)
+  if (!out.length && !inc.length) return ''
+  const row = ([f, t, label], dir) => {
+    const other = dir === 'out' ? t : f
+    return `<li>${dir === 'out' ? '→' : '←'} <button class="rel-file" data-goto="${esc(other)}">${esc(shortName(other))}</button> — ${esc(label)}</li>`
+  }
+  return `<p class="rels-title">${L.relsTitle}</p><ul class="rels">${out.map(e => row(e, 'out')).join('')}${inc.map(e => row(e, 'in')).join('')}</ul>`
+}
+function showFile(path) {
+  const f = RM.files[path]
+  if (!f) return
+  const g = RM.groups.find(g => g.id === fileGroup[path])
+  setActive(path)
+  const hasFull = !!RM.fullFiles?.[path]
+  inspector.innerHTML = `
+    <p class="insp-tag" style="color:${gcolor(g?.id)}">${esc(g?.tag || '')}</p>
+    <h3>${esc(path)}</h3>
+    <div class="why">${f.why}</div>
+    ${codeboxHTML(path, f)}
+    ${relsHTML(path)}
+    <div class="actions">
+      ${hasFull ? `<button class="btn primary" id="openFull">${L.openFull}</button>` : ''}
+      <button class="btn" id="backBtn">${L.back}</button>
+    </div>`
+  if (hasFull) document.getElementById('openFull').addEventListener('click', () => openFull(path))
+  document.getElementById('backBtn').addEventListener('click', showOverview)
+}
+function showGroup(g) {
+  setActive(null)
+  inspector.innerHTML = `
+    <p class="insp-tag" style="color:${gcolor(g.id)}">${esc(g.tag || g.role)}</p>
+    <h3 class="prose">${esc(g.name)}</h3>
+    <div class="why">${g.why}</div>
+    <ul class="filelist">${g.files.map(p => `<li>${esc(p)}</li>`).join('')}</ul>
+    <div class="actions"><button class="btn" id="backBtn">${L.back}</button></div>`
+  document.getElementById('backBtn').addEventListener('click', showOverview)
+}
+function showOverview() {
+  setActive(null)
+  inspector.innerHTML = `
+    <p class="insp-tag" style="color:var(--accent)">${L.overviewTag}</p>
+    <h3 class="prose">${L.overviewTitle}</h3>
+    <div class="why">${RM.intent}</div>
+    <p style="font-size:13.5px">${L.overviewBody}${RM.groups.map(g =>
+      `<b style="color:${gcolor(g.id)}">${esc(g.name.split(':')[0])}</b> — ${esc(L.roles[g.role] || g.role)}`).join('; ')}.</p>
+    <p class="note">${L.completeness(RM.manifest.length)}</p>`
+}
+function setActive(id) {
+  activeId = id
+  for (const [k, el] of Object.entries(nodeEls)) el.classList.toggle('active', k === id)
+  refreshEdges()
+}
+
+const modal = document.getElementById('fileModal')
+function openFull(path) {
+  document.getElementById('modalName').textContent = path
+  document.getElementById('modalCode').textContent = RM.fullFiles?.[path] || ''
+  modal.showModal()
+}
+document.getElementById('modalClose').addEventListener('click', () => modal.close())
+modal.addEventListener('click', e => { if (e.target === modal) modal.close() })
+
+// File navigation from any tab: [data-goto] chips and mermaid click directives.
+function gotoFile(path) {
+  const gid = fileGroup[path]
+  if (gid) groupEls[gid]?.classList.remove('collapsed')
+  showFile(path)
+}
+document.addEventListener('click', (e) => {
+  const el = e.target.closest('[data-goto]')
+  if (el) gotoFile(el.dataset.goto)
+})
+// Mermaid binds `click <id> call whydiffOpen("<path>")` to this global.
+window.whydiffOpen = gotoFile
+
+showOverview()
+addEventListener('resize', () => { if (!document.getElementById('pane-files').hidden) drawEdges() })
+</script>

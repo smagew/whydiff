@@ -1,0 +1,550 @@
+{
+  "meta": {
+    "project": "acme-api",
+    "lang": "en",
+    "ref": "main..feature/rate-limit",
+    "generatedAt": "2026-08-04",
+    "title": "Per-key API rate limiting",
+    "stats": {
+      "filesChanged": 4,
+      "filesNew": 3,
+      "added": 354,
+      "deleted": 6,
+      "attentionFiles": 2
+    }
+  },
+  "intent": "Public API endpoints had no throttling — a single client could exhaust the service. This change adds a <b>token-bucket rate limiter</b> keyed by API key (IP as fallback): limits come from config, bucket state lives in atomic Redis counters, and a throttled request gets a <code>429</code> with <code>Retry-After</code> in the project's shared error shape. Main risks: naive get+set counters losing increments under load (closed with an atomic Lua script) and accidentally throttling health checks (closed by scoping the middleware to <code>/api/*</code>).",
+  "story": [
+    {
+      "label": "Goal",
+      "group": "docs",
+      "text": "Protect the public API from a single client exhausting the service: per-key rate limiting with a token bucket, off by default in development.",
+      "files": [
+        "docs/rate-limiting.md"
+      ]
+    },
+    {
+      "link": "a limiter needs a decision point on the request path — that is a middleware in this codebase"
+    },
+    {
+      "label": "Step 1 · middleware",
+      "group": "core",
+      "text": "New <code>rateLimit</code> middleware on the <code>/api/*</code> route group: refills the bucket from elapsed time, takes a token, sets <code>X-RateLimit-Remaining</code>. Two outcomes:",
+      "branches": [
+        [
+          "allowed",
+          "request passes through, remaining tokens reported in the response headers"
+        ],
+        [
+          "throttled",
+          "429 with Retry-After; the body follows the project-wide error shape from errorHandler"
+        ]
+      ],
+      "files": [
+        "src/middleware/rateLimit.ts",
+        "src/routes/api.ts",
+        "src/middleware/errorHandler.ts"
+      ]
+    },
+    {
+      "link": "counters must stay correct across instances — a naive GET+SET loses increments under concurrent load"
+    },
+    {
+      "label": "Consequence · Redis",
+      "group": "infra",
+      "text": "Bucket state is an <code>INCR</code>-and-<code>EXPIRE</code> pair executed as one atomic Lua script; keys are <code>rl:{key}:{window}</code> with a TTL, so state cleans itself up.",
+      "files": [
+        "src/lib/redis.ts"
+      ]
+    },
+    {
+      "link": "limits differ per environment, so they come from config rather than constants"
+    },
+    {
+      "label": "Consequence · config",
+      "group": "ops",
+      "text": "Two new env vars: <code>RATE_LIMIT_RPM</code> (requests per minute) and <code>RATE_LIMIT_BURST</code>. Unset RPM disables the limiter — development stays friction-free, and the rollout is a config change.",
+      "files": [
+        "src/config.ts"
+      ]
+    },
+    {
+      "link": "fixing the behavior"
+    },
+    {
+      "label": "Confirmation",
+      "group": "test",
+      "text": "12 tests: refill math including burst, both middleware outcomes, per-key isolation, the 429 response shape, and the limiter staying off when RPM is unset.",
+      "files": [
+        "test/rateLimit.test.ts"
+      ]
+    }
+  ],
+  "groups": [
+    {
+      "id": "docs",
+      "name": "Decision record",
+      "role": "context",
+      "tag": "Context · read first",
+      "why": "Fixes the scope decisions: token bucket over sliding window (cheaper, burst-friendly), fail-open when Redis is down (availability over strictness for a public API), health checks and webhooks stay outside the limiter.",
+      "files": [
+        "docs/rate-limiting.md"
+      ]
+    },
+    {
+      "id": "core",
+      "name": "Core: token bucket and the 429 path",
+      "role": "read",
+      "tag": "Cause · read carefully",
+      "why": "The middleware is the decision point: refill math, key derivation (API key, IP fallback), and the throttled response. Two things worth checking by hand: the refill formula under burst, and that the 429 body reuses the shared error shape instead of inventing its own.",
+      "files": [
+        "src/middleware/rateLimit.ts",
+        "src/routes/api.ts",
+        "src/middleware/errorHandler.ts"
+      ]
+    },
+    {
+      "id": "infra",
+      "name": "Redis: atomic counters",
+      "role": "verify-pattern",
+      "tag": "One pattern · verify atomicity",
+      "why": "One new helper, one pattern to verify: the INCR+EXPIRE pair must be a single atomic script, and every key must carry a TTL — a keyless EXPIRE or a two-step counter reintroduces the race this exists to close.",
+      "files": [
+        "src/lib/redis.ts"
+      ]
+    },
+    {
+      "id": "ops",
+      "name": "Config & rollout",
+      "role": "ops",
+      "tag": "Ops · deploy checklist",
+      "why": "The limiter ships dark: with RATE_LIMIT_RPM unset nothing changes. Turning it on is a config-only rollout, and turning it off again is deleting one env var.",
+      "files": [
+        "src/config.ts"
+      ]
+    },
+    {
+      "id": "test",
+      "name": "Behavior fixed by tests",
+      "role": "spec",
+      "tag": "Tests · collapsed",
+      "collapsed": true,
+      "why": "12 tests pin the refill math (including burst), both middleware outcomes, per-key isolation, the 429 shape with Retry-After, and the disabled-by-default behavior.",
+      "files": [
+        "test/rateLimit.test.ts"
+      ]
+    }
+  ],
+  "files": {
+    "docs/rate-limiting.md": {
+      "service": "docs",
+      "role": "new file — scope decisions",
+      "add": 84,
+      "del": 0,
+      "isNew": true,
+      "why": "<b>Key decisions:</b> token bucket over sliding window (constant memory, burst-friendly); fail-open when Redis is unavailable — for a public API, availability wins over strict limiting; health checks and webhooks deliberately stay outside <code>/api/*</code> scope.",
+      "frag": [
+        [
+          "ctx",
+          "## Scope decisions"
+        ],
+        [
+          "ctx",
+          "- Token bucket, not sliding window: constant memory, allows bursts."
+        ],
+        [
+          "ctx",
+          "- Fail-open on Redis outage: availability over strictness."
+        ],
+        [
+          "ctx",
+          "- Health checks and webhooks are not throttled (outside /api/*)."
+        ]
+      ],
+      "preview": [
+        [
+          "add",
+          "Scope: token bucket, fail-open, /api/* only"
+        ]
+      ]
+    },
+    "src/middleware/rateLimit.ts": {
+      "service": "backend",
+      "role": "new file — the limiter",
+      "add": 96,
+      "del": 0,
+      "isNew": true,
+      "why": "<b>What happened:</b> the middleware derives the bucket key (API key, IP fallback), refills tokens from elapsed time, and either passes the request through with <code>X-RateLimit-Remaining</code> or throws a 429. <b>Review focus:</b> the refill formula caps at burst size — check the rounding; and the 429 goes through the shared <code>ApiError</code>, not a hand-rolled response.",
+      "frag": [
+        [
+          "add",
+          "const key = req.get('x-api-key') ?? req.ip;"
+        ],
+        [
+          "add",
+          "const tokens = await takeToken(redis, `rl:${key}`, config.rateLimit);"
+        ],
+        [
+          "add",
+          "if (tokens < 0) {"
+        ],
+        [
+          "add",
+          "  res.set('Retry-After', String(retryAfterSeconds));"
+        ],
+        [
+          "add",
+          "  throw new ApiError(429, 'RATE_LIMITED', 'Too many requests');"
+        ],
+        [
+          "add",
+          "}"
+        ],
+        [
+          "add",
+          "res.set('X-RateLimit-Remaining', String(tokens));"
+        ]
+      ],
+      "preview": [
+        [
+          "add",
+          "takeToken() → pass with headers | 429 Retry-After"
+        ]
+      ]
+    },
+    "src/routes/api.ts": {
+      "service": "backend",
+      "role": "wires the middleware",
+      "add": 9,
+      "del": 2,
+      "why": "<b>What happened:</b> the limiter is mounted on the <code>/api/*</code> router group, after auth (so the key is known) and before handlers. Health and webhook routes live outside the group and stay unthrottled.",
+      "frag": [
+        [
+          "ctx",
+          "apiRouter.use(requireAuth);"
+        ],
+        [
+          "add",
+          "apiRouter.use(rateLimit(config.rateLimit));"
+        ],
+        [
+          "ctx",
+          "apiRouter.get('/projects', listProjects);"
+        ]
+      ],
+      "preview": [
+        [
+          "add",
+          "apiRouter.use(rateLimit(...)) after auth"
+        ]
+      ]
+    },
+    "src/middleware/errorHandler.ts": {
+      "service": "backend",
+      "role": "429 in the shared shape",
+      "add": 14,
+      "del": 3,
+      "why": "<b>What happened:</b> the shared error handler learns the 429 case: it keeps <code>Retry-After</code> set by the limiter and renders the standard <code>{ code, message }</code> body, so clients parse one error shape everywhere.",
+      "frag": [
+        [
+          "ctx",
+          "if (err instanceof ApiError) {"
+        ],
+        [
+          "add",
+          "  // Retry-After is already on the response when the limiter threw."
+        ],
+        [
+          "add",
+          "  return res.status(err.status).json({ code: err.code, message: err.message });"
+        ],
+        [
+          "ctx",
+          "}"
+        ]
+      ],
+      "preview": [
+        [
+          "add",
+          "429 renders the standard { code, message } body"
+        ]
+      ]
+    },
+    "src/lib/redis.ts": {
+      "service": "backend",
+      "role": "atomic take-token helper",
+      "add": 18,
+      "del": 0,
+      "why": "<b>What happened:</b> <code>takeToken</code> runs INCR and EXPIRE as one Lua script — the counter and its TTL can never diverge, and concurrent requests cannot lose increments. <b>Review focus:</b> the script is the whole point; a JS-side two-step would silently reintroduce the race.",
+      "frag": [
+        [
+          "add",
+          "const TAKE_TOKEN_LUA = `"
+        ],
+        [
+          "add",
+          "  local n = redis.call('INCR', KEYS[1])"
+        ],
+        [
+          "add",
+          "  if n == 1 then redis.call('EXPIRE', KEYS[1], ARGV[1]) end"
+        ],
+        [
+          "add",
+          "  return n`;"
+        ],
+        [
+          "add",
+          "export const takeToken = (redis, key, cfg) =>"
+        ],
+        [
+          "add",
+          "  redis.eval(TAKE_TOKEN_LUA, 1, key, cfg.windowSeconds);"
+        ]
+      ],
+      "preview": [
+        [
+          "add",
+          "INCR + EXPIRE as one Lua script (atomic)"
+        ]
+      ]
+    },
+    "src/config.ts": {
+      "service": "backend",
+      "role": "limits from env",
+      "add": 12,
+      "del": 1,
+      "why": "<b>What happened:</b> <code>rateLimit</code> config block: <code>RATE_LIMIT_RPM</code> and <code>RATE_LIMIT_BURST</code>, both optional. Unset RPM yields <code>enabled: false</code> — the middleware becomes a no-op, which is also the rollback path.",
+      "frag": [
+        [
+          "add",
+          "rateLimit: {"
+        ],
+        [
+          "add",
+          "  enabled: process.env.RATE_LIMIT_RPM !== undefined,"
+        ],
+        [
+          "add",
+          "  rpm: Number(process.env.RATE_LIMIT_RPM ?? 0),"
+        ],
+        [
+          "add",
+          "  burst: Number(process.env.RATE_LIMIT_BURST ?? 10),"
+        ],
+        [
+          "add",
+          "},"
+        ]
+      ],
+      "preview": [
+        [
+          "add",
+          "RATE_LIMIT_RPM unset → limiter off"
+        ]
+      ]
+    },
+    "test/rateLimit.test.ts": {
+      "service": "test",
+      "role": "new file — 12 tests",
+      "add": 121,
+      "del": 0,
+      "isNew": true,
+      "why": "<b>What happened:</b> fake clock plus in-memory Redis stub; covers refill math (burst cap, partial refill), both middleware outcomes, per-key isolation (one client cannot drain another's bucket), the 429 shape with Retry-After, and the limiter staying off when RPM is unset.",
+      "frag": [
+        [
+          "ctx",
+          "test('burst cap: bucket never refills above RATE_LIMIT_BURST')"
+        ],
+        [
+          "ctx",
+          "test('throttled request → 429, Retry-After, standard error body')"
+        ],
+        [
+          "ctx",
+          "test('keys are isolated: client A cannot exhaust client B')"
+        ],
+        [
+          "ctx",
+          "test('RATE_LIMIT_RPM unset → middleware is a no-op')"
+        ]
+      ],
+      "preview": [
+        [
+          "add",
+          "12 tests: refill math, both outcomes, isolation"
+        ]
+      ]
+    }
+  },
+  "edges": [
+    [
+      "src/routes/api.ts",
+      "src/middleware/rateLimit.ts",
+      "the /api/* group mounts the limiter after auth"
+    ],
+    [
+      "src/middleware/rateLimit.ts",
+      "src/lib/redis.ts",
+      "bucket state lives in the atomic take-token counter"
+    ],
+    [
+      "src/middleware/rateLimit.ts",
+      "src/config.ts",
+      "rpm and burst come from config, not constants"
+    ],
+    [
+      "src/middleware/rateLimit.ts",
+      "src/middleware/errorHandler.ts",
+      "the 429 renders through the shared error shape"
+    ],
+    [
+      "test/rateLimit.test.ts",
+      "src/middleware/rateLimit.ts",
+      "pins refill math and both outcomes"
+    ]
+  ],
+  "diagrams": [
+    {
+      "kind": "flow-diff",
+      "title": "Request path: before / after",
+      "caption": "Red (dashed) removed, green added. Requests used to go straight to the handler; now the bucket decides.",
+      "mermaid": "flowchart TD\n    A[\"Request to /api/*\"] --> B[\"Auth\"]\n    B --> D[\"(before) straight to handler\"]:::removed\n    D --> C[\"Handler\"]\n    B --> RL{\"Tokens left<br/>in the bucket?\"}:::added\n    RL -- \"yes\" --> C\n    RL -- \"no\" --> R[\"429 Too Many Requests<br/>Retry-After + standard error body\"]:::added\n    click RL call whydiffOpen(\"src/middleware/rateLimit.ts\")\n    click R call whydiffOpen(\"src/middleware/errorHandler.ts\")\n    classDef added fill:#e2f2e6,stroke:#1a7f37,color:#14521f\n    classDef removed fill:#f9e7e5,stroke:#b3392e,color:#7a2620,stroke-dasharray: 5 5",
+      "files": [
+        "src/middleware/rateLimit.ts",
+        "src/middleware/errorHandler.ts",
+        "src/routes/api.ts"
+      ]
+    },
+    {
+      "kind": "components",
+      "title": "Where bucket state lives",
+      "caption": "Counters are ephemeral Redis keys with a TTL; config is the only knob (green — new).",
+      "mermaid": "flowchart LR\n    subgraph REDIS[\"Redis\"]\n        K[\"rl:{key}:{window} counters<br/>INCR + EXPIRE, one Lua script\"]:::added\n    end\n    API[\"routes /api/*\"] --> MW[\"rateLimit middleware\"]:::added\n    MW -- \"take token\" --> K\n    CFG[\"config: RATE_LIMIT_RPM / BURST<br/>unset → limiter off\"]:::added --> MW\n    MW -- \"429 via shared shape\" --> EH[\"errorHandler\"]\n    click MW call whydiffOpen(\"src/middleware/rateLimit.ts\")\n    click K call whydiffOpen(\"src/lib/redis.ts\")\n    click CFG call whydiffOpen(\"src/config.ts\")\n    click EH call whydiffOpen(\"src/middleware/errorHandler.ts\")\n    classDef added fill:#e2f2e6,stroke:#1a7f37,color:#14521f",
+      "files": [
+        "src/middleware/rateLimit.ts",
+        "src/lib/redis.ts",
+        "src/config.ts",
+        "src/middleware/errorHandler.ts"
+      ]
+    }
+  ],
+  "standards": [
+    {
+      "severity": "warn",
+      "finding": "The 60-second window is a literal inside the middleware while every other limit comes from config. A second call site (e.g. a per-route override) would silently disagree with it.",
+      "file": "src/middleware/rateLimit.ts",
+      "line": 41,
+      "pattern": "config-first: all tunables live in src/config.ts"
+    },
+    {
+      "severity": "info",
+      "finding": "takeToken returns the raw counter and the middleware derives tokens from it; an explicit { remaining, retryAfter } return would read better, but this matches the thin-helper style of src/lib.",
+      "file": "src/lib/redis.ts",
+      "line": 12
+    },
+    {
+      "severity": "ok",
+      "finding": "Project conventions hold: middleware pattern for cross-cutting concerns, shared ApiError shape, config-driven behavior with a safe default (off)."
+    }
+  ],
+  "tests": {
+    "summary": "12 tests in one new file. The bucket math and both middleware outcomes are pinned; what is NOT covered is concurrency against a real Redis and the fail-open path.",
+    "fixed": [
+      "Refill math: partial refill over elapsed time, capped at RATE_LIMIT_BURST",
+      "Throttled request → 429 with Retry-After and the standard { code, message } body",
+      "Per-key isolation: one client cannot drain another client's bucket",
+      "IP fallback is used when no API key header is present",
+      "RATE_LIMIT_RPM unset → middleware is a no-op (rollout/rollback path)"
+    ],
+    "gaps": [
+      "Concurrency against a real Redis (tests use an in-memory stub; the Lua atomicity itself is unverified)",
+      "Fail-open when Redis is down — the decision exists in docs, not in a test",
+      "Retry-After correctness across a window boundary (clock skew)"
+    ],
+    "files": [
+      "test/rateLimit.test.ts"
+    ]
+  },
+  "ops": {
+    "env": [
+      {
+        "name": "RATE_LIMIT_RPM",
+        "status": "added",
+        "note": "requests per minute per key; unset = limiter off"
+      },
+      {
+        "name": "RATE_LIMIT_BURST",
+        "status": "added",
+        "note": "bucket size; defaults to 10"
+      }
+    ],
+    "migrations": [],
+    "deploy": [
+      "Ships dark: deploy first, then set RATE_LIMIT_RPM to enable — rollback is deleting the var",
+      "Redis 6.2+ required (Lua script uses INCR/EXPIRE semantics verified there)"
+    ],
+    "note": "No migrations — counters are ephemeral Redis keys with a TTL; nothing persistent changes shape."
+  },
+  "blastRadius": [
+    {
+      "path": "src/routes/webhooks.ts",
+      "why": "Lives outside /api/* and stays unthrottled — verify that is intended, or a noisy webhook sender can still exhaust the service."
+    },
+    {
+      "path": "ops/nginx.conf",
+      "why": "The proxy already has a coarse limit_req zone; two layers can double-throttle bursts near the limit."
+    },
+    {
+      "path": "src/middleware/auth.ts",
+      "why": "Runs before the limiter, so unauthenticated floods hit auth (and its DB lookups) unthrottled — the limiter only protects what is behind it."
+    }
+  ],
+  "manifest": [
+    [
+      "docs/rate-limiting.md",
+      84,
+      0,
+      "docs",
+      true
+    ],
+    [
+      "src/config.ts",
+      12,
+      1,
+      "ops"
+    ],
+    [
+      "src/lib/redis.ts",
+      18,
+      0,
+      "infra"
+    ],
+    [
+      "src/middleware/errorHandler.ts",
+      14,
+      3,
+      "core"
+    ],
+    [
+      "src/middleware/rateLimit.ts",
+      96,
+      0,
+      "core",
+      true
+    ],
+    [
+      "src/routes/api.ts",
+      9,
+      2,
+      "core"
+    ],
+    [
+      "test/rateLimit.test.ts",
+      121,
+      0,
+      "test",
+      true
+    ]
+  ]
+}

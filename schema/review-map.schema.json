@@ -1,0 +1,179 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "review-map.schema.json",
+  "title": "review-map",
+  "description": "Контракт между генератором (/whydiff) и вьюером (templates/viewer.html). Файлы адресуются repo-относительным путём — синтетических id нет.",
+  "type": "object",
+  "required": ["meta", "intent", "story", "groups", "files", "edges", "manifest"],
+  "properties": {
+    "meta": {
+      "type": "object",
+      "required": ["project", "ref", "generatedAt"],
+      "properties": {
+        "project": { "type": "string" },
+        "lang": { "type": "string", "default": "en", "description": "Язык отчёта (BCP-47: 'en', 'ru'…). Генератор берёт язык общения в чате; если определить не удалось — 'en'. Управляет и языком контента (why/story/…), и языком интерфейса вьюера. Исходный код инструмента и идентификаторы — всегда английский." },
+        "ref": { "type": "string", "description": "Что сравнивалось: 'working tree', 'HEAD~3..HEAD', 'PR #14'…" },
+        "generatedAt": { "type": "string" },
+        "title": { "type": "string", "description": "Человеческое имя изменения" },
+        "stats": {
+          "type": "object",
+          "properties": {
+            "filesChanged": { "type": "integer" },
+            "filesNew": { "type": "integer" },
+            "added": { "type": "integer" },
+            "deleted": { "type": "integer" },
+            "attentionFiles": { "type": "integer", "description": "Сколько файлов требуют внимательного чтения" }
+          }
+        }
+      }
+    },
+
+    "intent": { "type": "string", "description": "Суть изменения одним абзацем: что + почему + что могло сломаться. Допустим <b>/<code>." },
+
+    "story": {
+      "type": "array",
+      "description": "Причинная цепочка, вид по умолчанию. Шаги перемежаются связками-«почему» (принцип 4).",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object", "required": ["label", "text"],
+            "properties": {
+              "label": { "type": "string", "description": "Цель / Шаг N / Следствие / Подтверждение" },
+              "group": { "type": "string", "description": "id группы — задаёт цвет шага" },
+              "text": { "type": "string" },
+              "branches": {
+                "type": "array", "description": "Ветки исхода: [тег, текст]",
+                "items": { "type": "array", "prefixItems": [{ "type": "string" }, { "type": "string" }], "minItems": 2, "maxItems": 2 }
+              },
+              "files": { "type": "array", "items": { "type": "string" }, "description": "Пути файлов-участников шага" }
+            }
+          },
+          {
+            "type": "object", "required": ["link"],
+            "properties": { "link": { "type": "string", "description": "Связка между шагами: ПОЧЕМУ следующий блок существует" } }
+          }
+        ]
+      }
+    },
+
+    "groups": {
+      "type": "array",
+      "description": "Группы = роли в ревью, не типы файлов (принцип 2).",
+      "items": {
+        "type": "object", "required": ["id", "name", "role", "why", "files"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "role": {
+            "type": "string",
+            "description": "Что ревьюеру делать: read (читать внимательно) | verify-pattern (проверить один паттерн и полноту списка) | context (контекст, читать первым) | ops (чеклист деплоя) | spec (спецификация по запросу, можно свернуть) | plumbing (механика)",
+            "examples": ["read", "verify-pattern", "context", "ops", "spec", "plumbing"]
+          },
+          "tag": { "type": "string", "description": "Короткая шапка группы: «Причина · читать внимательно»" },
+          "why": { "type": "string" },
+          "collapsed": { "type": "boolean", "default": false },
+          "files": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+
+    "files": {
+      "type": "object",
+      "description": "Ключ — repo-относительный путь.",
+      "additionalProperties": {
+        "type": "object", "required": ["add", "del", "why"],
+        "properties": {
+          "service": { "type": "string", "description": "backend / devops / mcp / docs / test…" },
+          "role": { "type": "string", "description": "Роль файла в изменении, коротко" },
+          "add": { "type": "integer" },
+          "del": { "type": "integer" },
+          "isNew": { "type": "boolean" },
+          "why": { "type": "string", "description": "Что произошло и почему; допустим <b>/<code>" },
+          "frag": {
+            "type": "array", "description": "Фрагмент для инспектора: [класс, текст], класс: add|del|ctx",
+            "items": { "type": "array", "prefixItems": [{ "enum": ["add", "del", "ctx"] }, { "type": "string" }] }
+          },
+          "preview": { "type": "array", "description": "1–2 строки на карточку (принцип 1: превью сразу, текст лениво)", "items": { "type": "array" } },
+          "embedFull": { "type": "boolean", "description": "assemble.mjs встроит полный текст файла из --repo" }
+        }
+      }
+    },
+
+    "edges": {
+      "type": "array",
+      "description": "Триплеты (из, в, почему связь существует) — принцип 3. Пути файлов.",
+      "items": { "type": "array", "prefixItems": [{ "type": "string" }, { "type": "string" }, { "type": "string" }], "minItems": 3, "maxItems": 3 }
+    },
+
+    "diagrams": {
+      "type": "array",
+      "description": "Только там, где меняется поток управления/данных (принцип 6). Diff-маркировка в одном графе (принцип 7): classDef added/removed/changed.",
+      "items": {
+        "type": "object", "required": ["kind", "title", "mermaid"],
+        "properties": {
+          "kind": { "enum": ["flow-diff", "sequence", "components"] },
+          "title": { "type": "string" },
+          "caption": { "type": "string", "description": "Одно предложение: что здесь видно" },
+          "mermaid": { "type": "string", "description": "Во flowchart-диаграммах ноды-файлы делаются кликабельными строкой `click <id> call whydiffOpen(\"<repo-relative path>\")`; путь обязан существовать в files (проверяется validate.mjs)." },
+          "files": { "type": "array", "items": { "type": "string" }, "description": "К каким файлам ведёт drill-down" }
+        }
+      }
+    },
+
+    "standards": {
+      "type": "array",
+      "items": {
+        "type": "object", "required": ["severity", "finding"],
+        "properties": {
+          "severity": { "enum": ["warn", "info", "ok"] },
+          "finding": { "type": "string" },
+          "file": { "type": "string" },
+          "line": { "type": "integer" },
+          "pattern": { "type": "string", "description": "Ссылка на конвенцию проекта: «в проекте принято X, см. Y»" }
+        }
+      }
+    },
+
+    "tests": {
+      "type": "object",
+      "properties": {
+        "summary": { "type": "string" },
+        "fixed": { "type": "array", "items": { "type": "string" }, "description": "Какие утверждения зафиксированы — человеческим языком" },
+        "gaps": { "type": "array", "items": { "type": "string" }, "description": "Что НЕ покрыто — ценнее процента покрытия" },
+        "files": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+
+    "ops": {
+      "type": "object",
+      "description": "Операционный чеклист. Пустые списки значимы: «env не менялись» — тоже информация.",
+      "properties": {
+        "env": { "type": "array", "items": { "type": "object", "properties": { "name": { "type": "string" }, "status": { "enum": ["added", "removed", "changed"] }, "note": { "type": "string" } } } },
+        "migrations": { "type": "array", "items": { "type": "string" } },
+        "deploy": { "type": "array", "items": { "type": "string" } },
+        "note": { "type": "string" }
+      }
+    },
+
+    "blastRadius": {
+      "type": "array",
+      "description": "Зависит от изменённого, но в дифф не попало.",
+      "items": {
+        "type": "object", "required": ["path", "why"],
+        "properties": { "path": { "type": "string" }, "why": { "type": "string" } }
+      }
+    },
+
+    "manifest": {
+      "type": "array",
+      "description": "Каждый файл диффа: [путь, +, −, groupId, isNew]. Полнота проверяется скриптом против git diff --numstat (принцип 5).",
+      "items": { "type": "array", "minItems": 4 }
+    },
+
+    "fullFiles": {
+      "type": "object",
+      "description": "Заполняется assemble.mjs из embedFull-флагов; вручную не пишется.",
+      "additionalProperties": { "type": "string" }
+    }
+  }
+}

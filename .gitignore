@@ -1,0 +1,6 @@
+node_modules/
+.whydiff/
+examples/**/*.html
+.idea/
+.DS_Store
+examples-private/
