@@ -1,8 +1,21 @@
 // Shared helpers for the whydiff scripts.
 
 import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { readFileSync, appendFileSync, existsSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
+
+/**
+ * Appends a timing event to <dir>/timing.jsonl. By default it only logs when
+ * the file already exists (i.e. an instrumented run is in progress), so ad-hoc
+ * script invocations — tests, examples — stay silent. timing.mjs passes
+ * {create: true} to start the log.
+ */
+export function logTiming(dir, event, meta = {}, { create = false } = {}) {
+  const file = join(dir, 'timing.jsonl')
+  if (!create && !existsSync(file)) return
+  mkdirSync(dir, { recursive: true })
+  appendFileSync(file, JSON.stringify({ t: Date.now(), event, meta }) + '\n')
+}
 
 /**
  * Structural integrity checks for a review-map object (principle 5:

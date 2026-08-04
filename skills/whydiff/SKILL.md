@@ -33,9 +33,15 @@ without the user's go-ahead).
 ### 1. Deterministic data
 
 ```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/timing.mjs log run_start --repo <repo> --meta ref="<spec or working-tree>"
 node ${CLAUDE_PLUGIN_ROOT}/scripts/manifest.mjs --repo <repo> [--ref <spec>] > <repo>/.whydiff/manifest.json
 git -C <repo> diff [<spec>] > <repo>/.whydiff/diff.patch
+node ${CLAUDE_PLUGIN_ROOT}/scripts/timing.mjs log deterministic_done --repo <repo> --meta diff_lines=$(wc -l < <repo>/.whydiff/diff.patch)
 ```
+
+Every pipeline run is timed via `timing.mjs` (events land in
+`.whydiff/timing.jsonl`). This is measurement ONLY — never skip or shorten an
+analysis step to make the numbers look better.
 
 For working-tree mode also capture untracked file contents (they are absent from
 the patch): list them from the manifest (`isNew: true`) — agents will Read them
@@ -63,7 +69,12 @@ consult it before exploratory grepping.
 
 ### 3. Parallel analysis passes
 
-Spawn all four plugin agents IN ONE MESSAGE (they are independent):
+You are done reading: `timing.mjs log briefing_done --repo <repo>`.
+
+Spawn all four plugin agents IN ONE MESSAGE (they are independent), logging
+`timing.mjs log agents_spawned --repo <repo>` right before the spawn message and
+`timing.mjs log agents_done --repo <repo>` in your first tool call after all
+four return:
 
 | Agent | Returns (JSON) |
 |---|---|
@@ -109,9 +120,13 @@ Assemble `<repo>/.whydiff/review-map.json`:
 
 ### 5. Validate — script, not judgment
 
+After writing the JSON: `timing.mjs log map_written --repo <repo>`. Then:
+
 ```bash
 node ${CLAUDE_PLUGIN_ROOT}/scripts/validate.mjs <repo>/.whydiff/review-map.json --repo <repo> [--ref <spec>]
 ```
+
+(validate.mjs and assemble.mjs log their own timing events automatically.)
 
 Fix every reported error and re-run until clean. Never hand-wave a failure: the
 whole point is that completeness is enforced deterministically.
@@ -131,8 +146,16 @@ node ${CLAUDE_PLUGIN_ROOT}/scripts/assemble.mjs <repo>/.whydiff/review-map.json 
 ```
 
 Then: `open` the HTML locally, and if artifact publishing is available, publish it
-too. Finish with a chat summary in the report language: the intent paragraph, how
-many files need careful reading and which, the test gaps, and any deploy notes.
+too. Generate the timing report:
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/timing.mjs report --repo <repo>
+```
+
+Finish with a chat summary in the report language: the intent paragraph, how
+many files need careful reading and which, the test gaps, any deploy notes —
+and one line pointing at `.whydiff/timing-report.md` (total time + slowest
+phase) so performance can be discussed with data.
 
 ## Quality bar (from the project principles)
 

@@ -12,7 +12,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs'
 import { resolve, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { validateStructure } from './lib.mjs'
+import { validateStructure, logTiming } from './lib.mjs'
 
 const args = process.argv.slice(2)
 const jsonPath = args.find(a => !a.startsWith('--'))
@@ -81,4 +81,6 @@ const html = template
 
 mkdirSync(dirname(resolve(out)), { recursive: true })
 writeFileSync(out, html)
+// Timing instrumentation: appends to an existing timing.jsonl only (see lib.mjs).
+logTiming(dirname(resolve(jsonPath)), 'assembled', { html_kb: Math.round(html.length / 1024), files: Object.keys(rm.files).length, diagrams: diagrams.length })
 console.log(`OK: ${out} (${(html.length / 1024).toFixed(0)} KB, files: ${Object.keys(rm.files).length}, diagrams: ${diagrams.length}, mermaid: ${mermaidBundle ? 'inlined' : 'no'})`)

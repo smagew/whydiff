@@ -7,7 +7,8 @@
 // Exit code 0 = valid. Errors are printed one per line, prefixed with "- ".
 
 import { readFileSync } from 'node:fs'
-import { validateStructure, crossCheckManifest } from './lib.mjs'
+import { dirname, resolve } from 'node:path'
+import { validateStructure, crossCheckManifest, logTiming } from './lib.mjs'
 
 const args = process.argv.slice(2)
 const jsonPath = args.find(a => !a.startsWith('--'))
@@ -27,6 +28,9 @@ try { rm = JSON.parse(readFileSync(jsonPath, 'utf8')) } catch (e) {
 
 const errors = validateStructure(rm)
 if (repo) errors.push(...crossCheckManifest(rm, repo, ref))
+
+// Timing instrumentation: appends to an existing timing.jsonl only (see lib.mjs).
+logTiming(dirname(resolve(jsonPath)), errors.length ? 'validate_fail' : 'validate_pass', { errors: errors.length })
 
 if (errors.length) {
   console.error(errors.map(e => '- ' + e).join('\n'))

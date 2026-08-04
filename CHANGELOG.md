@@ -4,6 +4,16 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.2.0] — 2026-08-04
+
+### Added
+- Timing instrumentation for every `/whydiff` run: `scripts/timing.mjs` logs
+  pipeline events to `.whydiff/timing.jsonl` (script-side timestamps;
+  `validate.mjs`/`assemble.mjs` log their events automatically) and
+  `timing.mjs report` renders `.whydiff/timing-report.md` — a per-phase
+  wall-clock breakdown with artifact sizes, meant to be shared when
+  discussing performance. Measurement only: analysis steps are unchanged.
+
 ## [0.1.0] — 2026-08-04
 
 First public release.

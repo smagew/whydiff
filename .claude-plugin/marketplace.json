@@ -11,7 +11,7 @@
       "name": "whydiff",
       "source": "./",
       "description": "Interactive review maps for git diffs: cause-grouped changes, causal story, diff-marked diagrams with drill-down, standards, tests and ops reports — built for reviewing LLM-written code.",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "author": {
         "name": "Alisher Gafurov"
       },
