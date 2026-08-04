@@ -4,6 +4,20 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.3.0] — 2026-08-04
+
+### Added
+- `er-diff` diagram kind: when the diff contains schema-changing migrations,
+  the diagrammer must produce a mermaid `erDiagram` of the affected tables
+  (diff marking via attribute comments: `"+ added"` / `"- removed"` /
+  `"~ was: …"`), only the affected tables and their direct relations.
+
+### Changed
+- Viewer: the "How to read this map" prose moved out of the default inspector
+  into a help dialog (the `?` button in the tabs row and a link under the
+  legend). The default inspector is now a compact clickable group legend with
+  reviewer roles and the completeness line.
+
 ## [0.2.0] — 2026-08-04
 
 ### Added

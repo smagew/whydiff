@@ -111,7 +111,7 @@
       "items": {
         "type": "object", "required": ["kind", "title", "mermaid"],
         "properties": {
-          "kind": { "enum": ["flow-diff", "sequence", "components"] },
+          "kind": { "enum": ["flow-diff", "sequence", "components", "er-diff"], "description": "er-diff — mermaid erDiagram изменений схемы данных; обязателен, когда дифф содержит миграции, меняющие структуру таблиц" },
           "title": { "type": "string" },
           "caption": { "type": "string", "description": "Одно предложение: что здесь видно" },
           "mermaid": { "type": "string", "description": "Во flowchart-диаграммах ноды-файлы делаются кликабельными строкой `click <id> call whydiffOpen(\"<repo-relative path>\")`; путь обязан существовать в files (проверяется validate.mjs)." },

@@ -164,6 +164,7 @@ phase) so performance can be discussed with data.
 2. Every edge is a labeled triple — an unlabeled arrow carries no information.
 3. The story is a causal chain; each `link` says WHY the next block exists.
 4. Diagrams only where control/data flow changes; one graph with diff marking,
-   never two side-by-side versions.
+   never two side-by-side versions. Exception that is REQUIRED, not optional:
+   schema-changing migrations get an `er-diff` (tables/columns before/after).
 5. Empty ops sections are information ("no env changes") — never omit `ops`.
 6. Completeness is proven by `validate.mjs`, not asserted.

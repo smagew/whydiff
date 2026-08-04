@@ -39,6 +39,21 @@ Kinds and when to use them:
   real actors (user, services, DB, external APIs); use `alt/else` for branches.
 - `components` — where state lives / sources of truth changed. `flowchart LR`
   with subgraphs for stores; mark new/changed elements with the same classDefs.
+- `er-diff` — the DATA SHAPE changed: the diff contains schema migrations, ORM
+  entity/schema files, or DDL. `erDiagram` with ONLY the affected tables and
+  their direct relations — never the whole schema. erDiagram has no classDef
+  styling, so diff-mark via attribute comments:
+  ```
+  users {
+    string email "+ added"
+    int legacy_score "- removed"
+    string plan "~ was: enum tier"
+  }
+  ```
+  The caption names the migration file(s) and states the marking convention.
+  When the manifest contains migrations that change table structure, an
+  er-diff is REQUIRED (this is the one exception to the budget rule below);
+  skip it only for data-only migrations (backfills) that change no shape.
 
 **Drill-down clicks** (flowchart kinds only — `flow-diff` and `components`;
 `sequenceDiagram` has no click support): for every node that represents ONE

@@ -89,6 +89,19 @@
   .tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .tab.active { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
   .tab .cnt { font-family: var(--mono); font-size: 11px; opacity: .75; margin-left: 4px; }
+  .help-btn { margin-left: auto; flex: none; width: 28px; height: 28px; align-self: center; border-radius: 99px; border: 1px solid var(--line); background: var(--surface-2); color: var(--muted); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; transition: border-color .12s, color .12s; }
+  .help-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .help-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .glegend { margin: 0 0 14px; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 2px; }
+  .gleg-row { display: flex; align-items: baseline; gap: 8px; width: 100%; font: inherit; font-size: 13px; background: none; border: none; padding: 4px 6px; margin: 0 -6px; border-radius: 6px; cursor: pointer; color: inherit; text-align: left; }
+  .gleg-row:hover { background: var(--surface-2); }
+  .gleg-row:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .gleg-row .dot { flex: none; width: 8px; height: 8px; border-radius: 99px; position: relative; top: -1px; }
+  .gleg-row .gleg-role { color: var(--muted); font-size: 12px; }
+  .linklike { background: none; border: none; padding: 0; font: inherit; font-size: inherit; color: var(--accent); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+  .linklike:hover { filter: brightness(1.15); }
+  #helpBody { padding: 14px 18px 18px; font-size: 13.5px; }
+  #helpBody p { margin: 0 0 12px; }
 
   .pane-hint { color: var(--muted); font-size: 12.5px; margin: -6px 0 14px; }
 
@@ -312,6 +325,14 @@
   <div class="modal-body"><pre id="modalCode"></pre></div>
 </dialog>
 
+<dialog id="helpModal">
+  <div class="modal-head">
+    <span id="helpTitle"></span>
+    <button class="btn" id="helpClose"></button>
+  </div>
+  <div class="modal-body"><div id="helpBody"></div></div>
+</dialog>
+
 __MERMAID_BUNDLE__
 
 <script>
@@ -341,7 +362,8 @@ const I18N = {
     relsTitle: 'Links', back: '← overview', openFull: 'Open full file', fragment: 'fragment', close: 'Close',
     fold: (name) => `Collapse/expand: ${name}`,
     overviewTag: 'Overview', overviewTitle: 'How to read this map',
-    overviewBody: 'The <b>Logic</b> tab reads top to bottom: each block exists <i>because of</i> the previous one. Click any file on any tab — details and code appear here. Groups are reviewer roles: ',
+    overviewBody: 'The <b>Logic</b> tab reads top to bottom: each block exists <i>because of</i> the previous one. Click any file on any tab — details and code appear in the inspector. Groups are reviewer roles:',
+    helpLink: 'how to read this map',
     completeness: (n) => `Completeness: ${n} of ${n} diff files described (Files tab).`,
     roles: { read: 'read carefully', 'verify-pattern': 'verify one pattern and list completeness', context: 'context, read first', ops: 'deploy checklist', spec: 'specification on demand', plumbing: 'mechanics' },
   },
@@ -367,7 +389,8 @@ const I18N = {
     relsTitle: 'Связи', back: '← к обзору', openFull: 'Открыть файл целиком', fragment: 'фрагмент', close: 'Закрыть',
     fold: (name) => `Свернуть/развернуть: ${name}`,
     overviewTag: 'Обзор', overviewTitle: 'Как читать эту карту',
-    overviewBody: 'Вкладка <b>«Логика»</b> читается сверху вниз: каждый блок существует <i>из-за</i> предыдущего. Клик по файлу в любой вкладке — детали и код здесь. Группы — это роли: ',
+    overviewBody: 'Вкладка <b>«Логика»</b> читается сверху вниз: каждый блок существует <i>из-за</i> предыдущего. Клик по файлу в любой вкладке — детали и код в инспекторе. Группы — это роли:',
+    helpLink: 'как читать карту',
     completeness: (n) => `Полнота: ${n} из ${n} файлов диффа описаны (вкладка «Файлы»).`,
     roles: { read: 'читать внимательно', 'verify-pattern': 'проверить паттерн и полноту', context: 'контекст, читать первым', ops: 'чеклист деплоя', spec: 'спецификация по запросу', plumbing: 'механика' },
   },
@@ -438,6 +461,14 @@ for (const [id, name, cnt] of PANES) {
   b.dataset.pane = id
   tabsEl.appendChild(b)
 }
+const helpBtn = document.createElement('button')
+helpBtn.className = 'help-btn'
+helpBtn.textContent = '?'
+helpBtn.title = L.overviewTitle
+helpBtn.setAttribute('aria-label', L.overviewTitle)
+helpBtn.addEventListener('click', () => helpModal.showModal())
+tabsEl.appendChild(helpBtn)
+
 let diagramsRendered = false
 function setTab(id) {
   for (const b of tabsEl.children) b.classList.toggle('active', b.dataset.pane === id)
@@ -666,15 +697,17 @@ function showGroup(g) {
     <div class="actions"><button class="btn" id="backBtn">${L.back}</button></div>`
   document.getElementById('backBtn').addEventListener('click', showOverview)
 }
+// The default inspector is a compact group legend — the long "how to read"
+// prose lives in the help dialog (the "?" button), not on screen by default.
+const legendHTML = () => `<ul class="glegend">${RM.groups.map(g => `
+  <li><button class="gleg-row" data-group="${esc(g.id)}"><span class="dot" style="background:${gcolor(g.id)}"></span><b>${esc(g.name)}</b><span class="gleg-role">${esc(L.roles[g.role] || g.role)}</span></button></li>`).join('')}</ul>`
 function showOverview() {
   setActive(null)
   inspector.innerHTML = `
     <p class="insp-tag" style="color:var(--accent)">${L.overviewTag}</p>
-    <h3 class="prose">${L.overviewTitle}</h3>
-    <div class="why">${RM.intent}</div>
-    <p style="font-size:13.5px">${L.overviewBody}${RM.groups.map(g =>
-      `<b style="color:${gcolor(g.id)}">${esc(g.name.split(':')[0])}</b> — ${esc(L.roles[g.role] || g.role)}`).join('; ')}.</p>
-    <p class="note">${L.completeness(RM.manifest.length)}</p>`
+    <h3 class="prose">${esc(RM.meta.title || RM.meta.project)}</h3>
+    ${legendHTML()}
+    <p class="note">${L.completeness(RM.manifest.length)} · <button class="linklike" data-help>${L.helpLink}</button></p>`
 }
 function setActive(id) {
   activeId = id
@@ -691,6 +724,16 @@ function openFull(path) {
 document.getElementById('modalClose').addEventListener('click', () => modal.close())
 modal.addEventListener('click', e => { if (e.target === modal) modal.close() })
 
+const helpModal = document.getElementById('helpModal')
+document.getElementById('helpTitle').textContent = L.overviewTitle
+document.getElementById('helpClose').textContent = L.close
+document.getElementById('helpBody').innerHTML = `
+  <p>${L.overviewBody}</p>
+  ${legendHTML()}
+  <p class="note">${L.completeness(RM.manifest.length)}</p>`
+document.getElementById('helpClose').addEventListener('click', () => helpModal.close())
+helpModal.addEventListener('click', e => { if (e.target === helpModal) helpModal.close() })
+
 // File navigation from any tab: [data-goto] chips and mermaid click directives.
 function gotoFile(path) {
   const gid = fileGroup[path]
@@ -699,7 +742,14 @@ function gotoFile(path) {
 }
 document.addEventListener('click', (e) => {
   const el = e.target.closest('[data-goto]')
-  if (el) gotoFile(el.dataset.goto)
+  if (el) return gotoFile(el.dataset.goto)
+  const gl = e.target.closest('[data-group]')
+  if (gl) {
+    const g = RM.groups.find((x) => x.id === gl.dataset.group)
+    if (g) { helpModal.close(); showGroup(g) }
+    return
+  }
+  if (e.target.closest('[data-help]')) helpModal.showModal()
 })
 // Mermaid binds `click <id> call whydiffOpen("<path>")` to this global.
 window.whydiffOpen = gotoFile

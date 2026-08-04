@@ -1,6 +1,6 @@
 {
   "name": "whydiff",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Runtime dependencies for the whydiff Claude Code plugin (mermaid for the HTML assembler)",
   "main": "index.js",
   "directories": {
