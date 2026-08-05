@@ -10,7 +10,8 @@
 //         open <…>/.whydiff/<…>.html                 (opening the built map)
 //   Write/Edit: files inside a .whydiff/ directory   (the pipeline's outputs)
 //
-// Never approved: any command with chaining or substitution (; & | ` $( ).
+// Never approved: any command with chaining or substitution (; & | ` $( ), and
+// any output redirect whose target is outside a .whydiff/ directory.
 
 let input = ''
 process.stdin.on('data', (d) => (input += d))
@@ -23,7 +24,10 @@ process.stdin.on('end', () => {
       const cmd = String(evt.tool_input?.command || '').trim()
       const root = process.env.CLAUDE_PLUGIN_ROOT
       const unsafe = /[;`&|]|\$\(/.test(cmd)
-      if (cmd && !unsafe) {
+      // A redirect may only write into the pipeline's own working directory.
+      const redirects = [...cmd.matchAll(/>>?\s*(\S+)/g)].map((m) => m[1])
+      const badRedirect = redirects.some((t) => !t.includes('.whydiff/'))
+      if (cmd && !unsafe && !badRedirect) {
         if (root && cmd.startsWith(`node ${root}/scripts/`)) reason = 'whydiff: bundled pipeline script'
         else if (/^git (-C \S+ )?(diff|log|show|ls-files|status)( |$)/.test(cmd)) reason = 'whydiff: read-only git'
         else if (/^mkdir -p \S*\/?\.whydiff\/?$/.test(cmd)) reason = 'whydiff: working directory'
