@@ -72,7 +72,19 @@
   .sub { margin: 0; color: var(--muted); max-width: 74ch; }
   code { font-family: var(--mono); font-size: .88em; background: var(--code-bg); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
 
-  .statbar { display: flex; flex-wrap: wrap; gap: 10px; margin: 20px 0 22px; }
+  .statbar { display: flex; flex-wrap: wrap; gap: 10px; margin: 20px 0 12px; }
+  .scopebar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 22px; }
+  .scope-chip { font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; border: 1px solid var(--line); border-radius: 99px; padding: 3px 12px; background: var(--surface); color: var(--ink); transition: border-color .12s, background .12s; }
+  .scope-chip .cnt { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-left: 4px; }
+  .scope-chip:hover { border-color: var(--accent); }
+  .scope-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .scope-chip.active { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .scope-chip.active .cnt { color: var(--accent-ink); opacity: .8; }
+  .scope-sep { width: 1px; height: 18px; background: var(--line); margin: 0 2px; }
+  .lang-chip { display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 11px; color: var(--muted); border: 1px dashed var(--line); border-radius: 99px; padding: 2.5px 10px; }
+  .ldot { display: inline-block; width: 8px; height: 8px; border-radius: 99px; flex: none; }
+  .node .ldot { width: 7px; height: 7px; margin-right: 6px; position: relative; top: -0.5px; }
+  .node.dim { opacity: .3; }
   .stat { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 16px; box-shadow: var(--shadow); min-width: 118px; }
   .stat b { display: block; font-size: 20px; font-weight: 650; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
   .stat span { font-size: 12.5px; color: var(--muted); }
@@ -125,6 +137,14 @@
   /* diagrams */
   .diagram { border: 1px solid var(--line); border-radius: 10px; padding: 14px; margin: 0 0 16px; background: var(--surface); }
   .diagram h3 { margin: 0 0 2px; font-size: 15px; font-weight: 650; }
+  .dg-head { display: flex; align-items: baseline; gap: 10px; }
+  .dg-head h3 { flex: 1; min-width: 0; }
+  .dg-actions { display: flex; gap: 6px; flex: none; }
+  .dg-btn { width: 28px; height: 28px; border-radius: 7px; border: 1px solid var(--line); background: var(--surface-2); color: var(--muted); font-size: 14px; line-height: 1; cursor: pointer; transition: border-color .12s, color .12s; }
+  .dg-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .dg-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .mermaid-box:fullscreen { background: var(--bg); display: grid; place-items: center; overflow: auto; padding: 24px; }
+  .mermaid-box:fullscreen svg { max-width: 96vw !important; width: 96vw; height: auto; }
   .diagram .cap { margin: 0 0 10px; font-size: 12.5px; color: var(--muted); }
   .diagram .mermaid-box { overflow-x: auto; background: var(--surface-2); border-radius: 8px; padding: 10px; }
   pre.mermaid { margin: 0; text-align: center; }
@@ -262,6 +282,7 @@
   <h1 id="title"></h1>
   <p class="sub" id="intent"></p>
   <div class="statbar" id="statbar"></div>
+  <div class="scopebar" id="scopebar"></div>
   <div class="consistency" id="consistency"></div>
 
   <div class="layout">
@@ -364,6 +385,8 @@ const I18N = {
     overviewTag: 'Overview', overviewTitle: 'How to read this map',
     overviewBody: 'The <b>Logic</b> tab reads top to bottom: each block exists <i>because of</i> the previous one. Click any file on any tab — details and code appear in the inspector. Groups are reviewer roles:',
     helpLink: 'how to read this map',
+    scopeTitle: (s) => `Highlight only "${s}" files on the Files tab`,
+    dgFullscreen: 'Fullscreen (Esc to exit)', dgNewWindow: 'Open in a new window',
     completeness: (n) => `Completeness: ${n} of ${n} diff files described (Files tab).`,
     roles: { read: 'read carefully', 'verify-pattern': 'verify one pattern and list completeness', context: 'context, read first', ops: 'deploy checklist', spec: 'specification on demand', plumbing: 'mechanics' },
   },
@@ -391,6 +414,8 @@ const I18N = {
     overviewTag: 'Обзор', overviewTitle: 'Как читать эту карту',
     overviewBody: 'Вкладка <b>«Логика»</b> читается сверху вниз: каждый блок существует <i>из-за</i> предыдущего. Клик по файлу в любой вкладке — детали и код в инспекторе. Группы — это роли:',
     helpLink: 'как читать карту',
+    scopeTitle: (s) => `Подсветить только файлы «${s}» на вкладке «Файлы»`,
+    dgFullscreen: 'На весь экран (Esc — выход)', dgNewWindow: 'Открыть в новом окне',
     completeness: (n) => `Полнота: ${n} из ${n} файлов диффа описаны (вкладка «Файлы»).`,
     roles: { read: 'читать внимательно', 'verify-pattern': 'проверить паттерн и полноту', context: 'контекст, читать первым', ops: 'чеклист деплоя', spec: 'спецификация по запросу', plumbing: 'механика' },
   },
@@ -422,6 +447,56 @@ document.getElementById('statbar').innerHTML = [
   [st.attentionFiles ?? '—', L.statAttention, true],
   [(RM.ops?.env || []).length, L.statEnv],
 ].map(([v, l, hl]) => `<div class="stat${hl ? ' hl' : ''}"><b>${v}</b><span>${l}</span></div>`).join('')
+
+// ── scopes & languages: which parts of the project the change touches ────────
+// Language colors follow GitHub linguist; label falls back to the extension.
+const LANG_COLORS = {
+  ts: ['TS', '#3178c6'], tsx: ['TSX', '#3178c6'], js: ['JS', '#f1e05a'], jsx: ['JSX', '#f1e05a'],
+  mjs: ['JS', '#f1e05a'], cjs: ['JS', '#f1e05a'], php: ['PHP', '#4F5D95'], py: ['PY', '#3572A5'],
+  rb: ['RB', '#701516'], go: ['GO', '#00ADD8'], rs: ['RS', '#dea584'], java: ['JAVA', '#b07219'],
+  kt: ['KT', '#A97BFF'], swift: ['SWIFT', '#F05138'], cs: ['C#', '#178600'], cpp: ['C++', '#f34b7d'],
+  c: ['C', '#555555'], sql: ['SQL', '#e38c00'], prisma: ['PRISMA', '#5a67d8'], md: ['MD', '#4a80c9'],
+  yml: ['YML', '#cb171e'], yaml: ['YML', '#cb171e'], json: ['JSON', '#8a919a'], html: ['HTML', '#e34c26'],
+  css: ['CSS', '#563d7c'], scss: ['SCSS', '#c6538c'], sh: ['SH', '#89e051'], vue: ['VUE', '#41b883'],
+  svelte: ['SVELTE', '#ff3e00'], tf: ['TF', '#844FBA'], twig: ['TWIG', '#c1d026'], env: ['ENV', '#8a919a'],
+}
+function langOf(path) {
+  const base = path.split('/').pop().toLowerCase()
+  if (base === 'dockerfile') return ['DOCKER', '#384d54']
+  if (base === 'makefile') return ['MAKE', '#427819']
+  const ext = base.includes('.') ? base.split('.').pop() : ''
+  return LANG_COLORS[ext] || (ext ? [ext.toUpperCase().slice(0, 6), '#8a919a'] : null)
+}
+let scopeFilter = null
+{
+  const services = new Map(), langs = new Map()
+  for (const [p, f] of Object.entries(RM.files)) {
+    if (f.service) services.set(f.service, (services.get(f.service) || 0) + 1)
+    const l = langOf(p)
+    if (l) { const e = langs.get(l[0]) || { n: 0, color: l[1] }; e.n++; langs.set(l[0], e) }
+  }
+  const bar = document.getElementById('scopebar')
+  for (const [svc, n] of [...services].sort((a, b) => b[1] - a[1])) {
+    const b = document.createElement('button')
+    b.className = 'scope-chip'
+    b.innerHTML = `${esc(svc)}<span class="cnt">×${n}</span>`
+    b.title = L.scopeTitle(svc)
+    b.addEventListener('click', () => {
+      scopeFilter = scopeFilter === svc ? null : svc
+      setTab('files')
+      for (const c of bar.querySelectorAll('.scope-chip')) c.classList.toggle('active', c === b && scopeFilter !== null)
+      for (const [path, el] of Object.entries(nodeEls)) el.classList.toggle('dim', !!scopeFilter && RM.files[path]?.service !== scopeFilter)
+    })
+    bar.appendChild(b)
+  }
+  if (services.size && langs.size) { const s = document.createElement('span'); s.className = 'scope-sep'; bar.appendChild(s) }
+  for (const [label, e] of [...langs].sort((a, b) => b[1].n - a[1].n)) {
+    const span = document.createElement('span')
+    span.className = 'lang-chip'
+    span.innerHTML = `<span class="ldot" style="background:${e.color}"></span>${esc(label)}${e.n > 1 ? ` ×${e.n}` : ''}`
+    bar.appendChild(span)
+  }
+}
 
 // ── integrity: every manifest entry must be described (principle 5) ──────────
 {
@@ -585,7 +660,8 @@ for (const g of RM.groups) {
     if (!f) continue
     const el = document.createElement('button')
     el.className = 'node'
-    el.innerHTML = `<span class="node-top"><span class="fname">${esc(shortName(path))}</span>
+    const lang = langOf(path)
+    el.innerHTML = `<span class="node-top">${lang ? `<span class="ldot" style="background:${lang[1]}" title="${esc(lang[0])}"></span>` : ''}<span class="fname">${esc(shortName(path))}</span>
       <span class="fstat"><span class="a">+${f.add}</span> <span class="d">−${f.del}</span></span></span>
       <span class="node-meta">${f.service ? `<span class="svc">${esc(f.service)}</span>` : ''}<span class="frole">${esc(f.role || '')}</span></span>
       ${previewHTML(f)}`
@@ -749,8 +825,31 @@ document.addEventListener('click', (e) => {
     if (g) { helpModal.close(); showGroup(g) }
     return
   }
-  if (e.target.closest('[data-help]')) helpModal.showModal()
+  if (e.target.closest('[data-help]')) return helpModal.showModal()
+  const fs = e.target.closest('[data-fs]')
+  if (fs) return fs.closest('.diagram')?.querySelector('.mermaid-box')?.requestFullscreen?.()
+  const pop = e.target.closest('[data-pop]')
+  if (pop) openDiagramWindow(pop.closest('.diagram'))
 })
+
+// A rendered diagram, alone in its own window — no mermaid needed, the SVG is
+// already there; big graphs get the whole viewport instead of a column.
+function openDiagramWindow(diagEl) {
+  const svg = diagEl?.querySelector('svg')
+  if (!svg) return
+  const title = diagEl.querySelector('h3')?.textContent || 'diagram'
+  const dark = document.documentElement.dataset.theme === 'dark'
+    || (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches)
+  const w = window.open('', '_blank')
+  if (!w) return
+  w.document.write(`<!doctype html><title>${esc(title)}</title><style>
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: ${dark ? '#12161b' : '#f6f8fa'}; }
+    svg { width: 96vw; height: auto; max-width: none !important; }
+  </style>${svg.outerHTML}`)
+  w.document.close()
+}
+for (const b of document.querySelectorAll('[data-fs]')) b.title = L.dgFullscreen
+for (const b of document.querySelectorAll('[data-pop]')) b.title = L.dgNewWindow
 // Mermaid binds `click <id> call whydiffOpen("<path>")` to this global.
 window.whydiffOpen = gotoFile
 

@@ -48,7 +48,10 @@ const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
 const diagrams = rm.diagrams || []
 const diagramsHtml = diagrams.map(d => `
   <div class="diagram">
-    <h3>${esc(d.title)}</h3>
+    <div class="dg-head">
+      <h3>${esc(d.title)}</h3>
+      <span class="dg-actions"><button class="dg-btn" data-fs>⛶</button><button class="dg-btn" data-pop>⧉</button></span>
+    </div>
     ${d.caption ? `<p class="cap">${esc(d.caption)}</p>` : ''}
     <div class="mermaid-box"><pre class="mermaid">${esc(d.mermaid)}</pre></div>
     ${(d.files || []).length ? `<div class="step-files">${d.files.map(p =>

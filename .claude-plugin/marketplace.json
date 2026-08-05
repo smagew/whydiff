@@ -1,7 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
   "name": "whydiff",
-  "description": "whydiff — interactive review maps for git diffs, built for reviewing LLM-written code.",
+  "description": "whydiff — follow the meaning of a change instead of reading every file an LLM touched.",
   "owner": {
     "name": "Alisher Gafurov",
     "url": "https://github.com/smagew"
@@ -10,8 +10,8 @@
     {
       "name": "whydiff",
       "source": "./",
-      "description": "Interactive review maps for git diffs: cause-grouped changes, causal story, diff-marked diagrams with drill-down, standards, tests and ops reports — built for reviewing LLM-written code.",
-      "version": "0.3.0",
+      "description": "Follow the meaning of a change — its architectural and logical decisions — without reading every file an LLM touched. /whydiff turns a git diff into an interactive review map: causal story, cause-grouped changes, diff-marked flow and schema diagrams, standards, tests and ops reports, blast radius — all with drill-down to the code.",
+      "version": "0.4.0",
       "author": {
         "name": "Alisher Gafurov"
       },

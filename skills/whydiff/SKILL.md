@@ -1,13 +1,17 @@
 ---
 name: whydiff
-description: Generate an interactive review map for a git diff — cause-grouped changes, a causal story, diff-marked mermaid diagrams, standards/tests/ops reports, all with drill-down to code. Use when the user asks to build a change map, review a diff/PR visually, or understand what recent changes do and why.
+description: Generate an interactive review map for a git diff so the reviewer can follow the MEANING of a change — its architectural and logical decisions — without reading every file an LLM touched: causal story, cause-grouped changes, diff-marked flow and schema diagrams, standards/tests/ops reports, blast radius, all with drill-down to code. Use when the user asks to build a change map, review a diff/PR visually, or understand what recent changes do and why.
 ---
 
 # whydiff: generate a review map for a diff
 
 You are building a `review-map.json` (contract: `${CLAUDE_PLUGIN_ROOT}/schema/review-map.schema.json`)
-and rendering it to a self-contained HTML page. The map exists to make reviewing
-LLM-written code faster than reading the raw diff: structure first, text lazily.
+and rendering it to a self-contained HTML page.
+
+**What the map is for.** The reviewer must be able to follow the *meaning* of the
+change — which architectural and logical decisions were made, and why — without
+reading every file the LLM touched. So: decisions and causal structure first,
+code lazily behind a click; every claim traceable to a real line of the diff.
 
 ## Inputs
 
@@ -36,7 +40,7 @@ without the user's go-ahead).
 node ${CLAUDE_PLUGIN_ROOT}/scripts/timing.mjs log run_start --repo <repo> --meta ref="<spec or working-tree>"
 node ${CLAUDE_PLUGIN_ROOT}/scripts/manifest.mjs --repo <repo> [--ref <spec>] > <repo>/.whydiff/manifest.json
 git -C <repo> diff [<spec>] > <repo>/.whydiff/diff.patch
-node ${CLAUDE_PLUGIN_ROOT}/scripts/timing.mjs log deterministic_done --repo <repo> --meta diff_lines=$(wc -l < <repo>/.whydiff/diff.patch)
+node ${CLAUDE_PLUGIN_ROOT}/scripts/timing.mjs log deterministic_done --repo <repo>
 ```
 
 Every pipeline run is timed via `timing.mjs` (events land in

@@ -1,7 +1,7 @@
 {
   "name": "whydiff",
-  "version": "0.3.0",
-  "description": "Runtime dependencies for the whydiff Claude Code plugin (mermaid for the HTML assembler)",
+  "version": "0.4.0",
+  "description": "Follow the meaning of a change instead of reading every file an LLM touched — runtime deps for the whydiff Claude Code plugin (mermaid for the HTML assembler)",
   "main": "index.js",
   "directories": {
     "example": "examples"

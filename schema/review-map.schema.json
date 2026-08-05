@@ -83,7 +83,7 @@
       "additionalProperties": {
         "type": "object", "required": ["add", "del", "why"],
         "properties": {
-          "service": { "type": "string", "description": "backend / devops / mcp / docs / test…" },
+          "service": { "type": "string", "description": "Логический scope файла — вьюер строит по ним панель тегов: frontend / backend / api / mcp / devops / infra / docs / test… Обязателен для каждого файла; lowercase, консистентно по всему диффу." },
           "role": { "type": "string", "description": "Роль файла в изменении, коротко" },
           "add": { "type": "integer" },
           "del": { "type": "integer" },

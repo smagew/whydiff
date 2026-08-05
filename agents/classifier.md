@@ -42,6 +42,11 @@ Return ONLY a JSON object (no prose, no code fences) with these keys:
   one group.
 - `files`: object keyed by repo-relative path, each
   `{ "service", "role", "add", "del", "isNew"?, "why", "frag": [[cls, text]...], "preview": [[cls, text]...] }`.
+  `service` is REQUIRED for every file: the logical scope tag the viewer surfaces
+  in its scope bar — `frontend`, `backend`, `api`, `mcp`, `devops`, `infra`,
+  `docs`, `test`, … Lowercase, short, and consistent: the same part of the
+  project must get the same tag on every file (derive from the repo's real
+  top-level structure, not ad hoc).
   `add`/`del` copied from the manifest. `why`: what happened and why, flag review
   focus points with `<b>Review focus:</b>` (translated to REPORT_LANGUAGE).
   `frag`: 4–12 real lines from the diff, cls one of `add`/`del`/`ctx`. `preview`:

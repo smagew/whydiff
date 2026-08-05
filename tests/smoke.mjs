@@ -53,7 +53,25 @@ await page.waitForTimeout(300)
 const insp = (await page.locator('#inspector h3').textContent()) || ''
 if (!insp.includes('/')) fail(`inspector did not open a file after node click (got: "${insp}")`)
 
+// Scope bar: service chips exist and filter the Files tab.
+const scopeChips = await page.locator('#scopebar .scope-chip').count()
+if (scopeChips < 2) fail(`expected >=2 scope chips, got ${scopeChips}`)
+await page.locator('#scopebar .scope-chip').first().click()
+await page.waitForTimeout(200)
+const dimmed = await page.locator('.node.dim').count()
+if (dimmed < 1) fail('scope filter did not dim non-matching file nodes')
+
+// Diagram pop-out: opens a standalone window with the rendered SVG.
+await page.locator('#tabs .tab').nth(1).click()
+const [popup] = await Promise.all([
+  page.waitForEvent('popup'),
+  page.locator('.diagram [data-pop]').first().click(),
+])
+await popup.waitForLoadState()
+if ((await popup.locator('svg').count()) !== 1) fail('diagram pop-out window has no svg')
+await popup.close()
+
 if (errors.length) fail('page errors:\n' + errors.join('\n'))
 
 await browser.close()
-console.log(`OK: 6 tabs, ${clickable} clickable diagram nodes, node click opened ${insp.trim()}, no page errors`)
+console.log(`OK: 6 tabs, ${clickable} clickable diagram nodes, node click opened ${insp.trim()}, ${scopeChips} scope chips (filter dims ${dimmed}), diagram pop-out works, no page errors`)
