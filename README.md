@@ -69,15 +69,45 @@ opening the built map. Commands with chaining or substitution
 goes through the normal permission flow (see `scripts/approve.mjs` — it is
 deliberately short and reviewable).
 
-Local development (changes picked up without reinstalling):
+## Development loop (no push required)
+
+Installing from a marketplace copies the plugin into
+`~/.claude/plugins/cache/…`, so a *copy* is what runs. To test the working tree
+instead, load it directly — `--plugin-dir` reads from disk and overrides an
+installed copy of the same plugin for that session:
 
 ```bash
-cd /path/to/whydiff && npm install   # pulls mermaid for the assembler
-claude --plugin-dir /path/to/whydiff
-# inside the session: /reload-plugins after edits
-claude plugin validate /path/to/whydiff   # schema check before distributing
-npx playwright install chromium && npm test   # browser smoke test (CI runs it too)
+make check              # contract + viewer + manifest checks, no LLM (~20s)
+make preview            # assemble the reference example and open it
+make fixtures           # list the fixture projects
+make run-synthetic      # build a fixture and open Claude with THIS working tree
+make report-synthetic   # per-phase timing of the last run there
+make map-synthetic      # open the HTML map that run produced
 ```
+
+Inside the session: `/whydiff HEAD~1..HEAD`. Skill edits apply immediately;
+after editing `agents/` or `hooks/`, run `/reload-plugins`.
+
+**Fixtures** (`tests/fixtures/fixtures.json`) are real diffs from popular
+open-source repos, pinned by SHA and fetched with `--depth 2`, so preparing one
+takes seconds and the diff is always `HEAD~1..HEAD`. Their recorded GitHub
+stats are cross-checked against our own manifest, so a fixture also tests
+`manifest.mjs`:
+
+| fixture | diff | what it exercises |
+|---|---|---|
+| `synthetic` | 10 files, TS/PHP/SQL/MD (generated locally, no network) | scope tags, language dots, `er-diff`, ops/migrations |
+| `quick` | expressjs/express — 3 files | smallest end-to-end sanity run |
+| `feature` | honojs/hono — 4 files | cause groups, story chain, tests tab |
+| `migration` | zulip/zulip — 8 files, Django migration | schema diagram, cross-layer edges |
+| `big` | mastodon/mastodon — 63 files, Rails migration | classifier sharding, verify-pattern, blast radius |
+
+Fixtures land in `.fixtures/` (gitignored); `make clean-fixtures` removes them.
+`synthetic` and `quick` are a few hundred KB to ~2 MB; `migration` and `big`
+pull ~150–200 MB each because those repos have large trees even at depth 2.
+
+Prerequisites: `npm install` (mermaid for the assembler) and
+`npx playwright install chromium` (for `npm test`).
 
 To update an installed copy after new commits: `/plugin marketplace update whydiff`.
 

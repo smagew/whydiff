@@ -1,0 +1,43 @@
+{
+  "_comment": "Real diffs from popular open-source repos, pinned by full SHA so a fixture is reproducible. `expect` mirrors the GitHub API stats for that commit at pinning time — prepare.mjs cross-checks our own manifest against it, so a fixture doubles as a manifest correctness test. Fetched with --depth 2, so the diff to analyze is always HEAD~1..HEAD.",
+  "fixtures": {
+    "quick": {
+      "repo": "expressjs/express",
+      "sha": "ae6dd37680e3a00618d6c8a3e522f0ee4eeba1a4",
+      "title": "feat: allow conditional revalidation for QUERY requests",
+      "why": "Smallest useful end-to-end run: 3 files, one behavior change plus its test. Use it to check that the pipeline works at all after a change.",
+      "lang": "JavaScript",
+      "expect": { "files": 3, "added": 50, "deleted": 2 }
+    },
+    "feature": {
+      "repo": "honojs/hono",
+      "sha": "1f707c56378a4497bc0a6a44fef5f5a8517fdf6b",
+      "title": "feat(middleware): add method-not-allowed middleware",
+      "why": "A new module with its tests and package registration — exercises cause groups, the story chain and the tests tab on a clean, small diff.",
+      "lang": "TypeScript",
+      "expect": { "files": 4, "added": 442, "deleted": 0 }
+    },
+    "migration": {
+      "repo": "zulip/zulip",
+      "sha": "42c2accc0cde4ba3bd1af5203ca355f59ff534b6",
+      "title": "streams: Add default_push_notifications field to Stream",
+      "why": "A schema change with a Django migration plus the model, API types and docs that follow from it — the fixture for er-diff, ops/migrations and cross-layer edges. Still small enough to iterate on.",
+      "lang": "Python",
+      "expect": { "files": 8, "added": 76, "deleted": 0 }
+    },
+    "big": {
+      "repo": "mastodon/mastodon",
+      "sha": "ad245adf510cf56953ebb8a7dfc5db16c0f58403",
+      "title": "Add requested_deletion_at attribute to Account for deleted-but-not-suspended accounts",
+      "why": "63 files: a Rails migration + schema dump + a repeated guard across dozens of controllers. The stress test — classifier sharding, verify-pattern groups, plumbing, blast radius, er-diff. Slow; run it before a release, not on every edit.",
+      "lang": "Ruby",
+      "expect": { "files": 63, "added": 757, "deleted": 120 }
+    },
+    "synthetic": {
+      "generator": "tests/fixtures/synthetic.mjs",
+      "title": "acme-shop: refunds recorded as rows, order status renamed to state (generated locally)",
+      "why": "No network, ~1s to build, 10 files across TS/PHP/SQL/MD with a schema migration that adds a table AND renames a column — the deterministic way to exercise scope tags, language dots, er-diff and ops/migrations.",
+      "lang": "TypeScript + PHP + SQL"
+    }
+  }
+}

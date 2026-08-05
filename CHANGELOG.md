@@ -4,6 +4,21 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.4.1] — 2026-08-05
+
+### Development (no change to plugin behavior)
+- `Makefile` with the local development loop: `make check` (contract + viewer +
+  manifest checks, no LLM), `make preview`, `make fixtures`, `make run-<name>`
+  (prepares a fixture and opens Claude with the working tree via
+  `--plugin-dir`), `make report-<name>`, `make map-<name>`, `make clean-fixtures`.
+- `tests/fixtures/`: fixture projects for end-to-end runs before pushing.
+  `synthetic` is generated locally (10 files across TS/PHP/SQL/MD with a schema
+  migration that adds a table and renames a column); `quick`, `feature`,
+  `migration` and `big` are real commits from expressjs/express, honojs/hono,
+  zulip/zulip and mastodon/mastodon, pinned by SHA and fetched with `--depth 2`.
+  Each fixture's recorded GitHub stats are cross-checked against our own
+  manifest, so preparing one also tests `manifest.mjs` in ref mode.
+
 ## [0.4.0] — 2026-08-05
 
 ### Added

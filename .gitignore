@@ -4,3 +4,4 @@ examples/**/*.html
 .idea/
 .DS_Store
 examples-private/
+.fixtures/
