@@ -4,6 +4,84 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.9.1] — 2026-08-07
+
+Two small fixes to the chrome around the map.
+
+### Fixed
+- **Thread bookmarks no longer pile over the header.** A question's marker belongs
+  beside its own content or, when that content is on another tab, as a count on
+  that tab — and a thread whose anchor is gone (the map was regenerated) has
+  nothing to sit beside at all. The rail had been dropping those lost markers at
+  the top-left corner, on top of the title. Now they are not floated: detached
+  threads live in the Review view (their `questions` group), and the rail — with
+  the left margin reserved for it — appears only when a bookmark can actually sit
+  beside content on the current tab.
+
+### Added
+- **The footer names the version that produced the map** — `whydiff <version>`,
+  stamped by `assemble.mjs` from `.claude-plugin/plugin.json`, so a served or
+  exported report says which whydiff built it.
+
+## [0.9.0] — 2026-08-07
+
+**The report generates lazily.** A default run now builds only the core — Logic,
+Diagrams, Files and Ops (env) — and leaves the heavier passes for when they are
+actually wanted. The other tabs stay in the menu, but opening one that has not run
+shows what it is and a **Generate** button that produces just that section and
+folds it into the existing map. A big diff no longer pays for standards, tests and
+user-story analysis it may never look at; a reviewer who wants the whole picture is
+one click (or one word — "full") away.
+
+### Added
+- **Lazy sections with on-demand generation.** The default pipeline spawns only the
+  two core agents (`classifier` + `diagrammer`). The three optional passes —
+  `standards-reviewer`, `tests-analyst`, `story-writer` — are not run up front:
+  their tabs render a one-line explanation and, in served mode, a **Generate**
+  button. Clicking it runs that pass against the same diff and adds its section to
+  the report without re-running anything else.
+- **`POST /api/generate` (`scripts/serve.mjs`).** Runs the section's own agent
+  through `claude -p` with the read-only allowlist, streams its progress to the
+  page, parses the section JSON, patches `review-map.json`, re-assembles the served
+  HTML, and the viewer reloads to show it. It writes only the report's own JSON in
+  `.whydiff/` — never the repo — so it keeps the same read-only guarantee as ask,
+  instruct and propose.
+- **`generated` on the map.** `merge.mjs` records which optional passes actually
+  ran — by whether their agent file exists, so "ran and found nothing" stays
+  distinct from "not run" — and the viewer offers Generate for the rest. The schema
+  documents the field; maps written before it fall back to key presence.
+- **A bounded board, and connections that say what they are.** The tab strip and
+  the content beneath it now read as one outlined, filled card, so it is
+  unmistakable that the content belongs to the selected tab. On the Files map every
+  dependency line carries its relationship in words — on a solid pill so it stays
+  legible over a card — shown with its edge on hover/select or with "show all links".
+
+### Changed
+- **The skill defaults to core; the optional passes are opt-in.** `SKILL.md`
+  documents core vs full-only in the agent table and spawns the three optional
+  passes only when the user asks for a **full** report.
+
+### Fixed
+- **The permission hook stops interrupting a run.** `hooks/hooks.json` now also
+  matches `Task`, and `scripts/approve.mjs` auto-approves the plugin's own bundled
+  agents (`whydiff:*`) and read-only `gh pr diff|view`. Under *accept edits* a
+  `/whydiff` run no longer prompts on each of the agent spawns or a PR fetch;
+  anything outside the plugin's own operations still defers to the normal flow.
+
+## [0.8.0] — 2026-08-07
+
+Housekeeping, and the reason it needed a version: the screenshots.
+
+### Changed
+- **Screenshots carry the version they show** — `assets/story-0.8.png` and friends.
+  The 0.7.0 shots replaced the old files at the same paths, so a browser (and any
+  CDN in front of it) kept serving the previous picture: the README looked stale
+  when the repository was not. A changed picture now gets a new filename, which is
+  a URL nothing can have cached, and the README says so where whoever re-shoots
+  will read it.
+- No behaviour changes. The version bump exists so an installed copy picks up the
+  0.7.0 review loop even if it was installed while that release was in flight.
+
 ## [0.7.0] — 2026-08-06
 
 **The map becomes a review, not just a report.** Until now whydiff explained a

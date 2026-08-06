@@ -6,9 +6,11 @@
 // Approved:
 //   Bash: node <plugin-root>/scripts/<x>.mjs …      (this plugin's own scripts)
 //         git [-C <path>] diff|log|show|ls-files|status …   (read-only git)
+//         gh pr diff|view …                          (read-only PR fetch)
 //         mkdir -p <…>/.whydiff                      (the working directory)
 //         open <…>/.whydiff/<…>.html                 (opening the built map)
 //   Write/Edit: files inside a .whydiff/ directory   (the pipeline's outputs)
+//   Task: the plugin's own bundled agents (whydiff:*) — the five analysis passes
 //
 // Never approved: any command with chaining or substitution (; & | ` $( ), and
 // any output redirect whose target is outside a .whydiff/ directory.
@@ -30,12 +32,18 @@ process.stdin.on('end', () => {
       if (cmd && !unsafe && !badRedirect) {
         if (root && cmd.startsWith(`node ${root}/scripts/`)) reason = 'whydiff: bundled pipeline script'
         else if (/^git (-C \S+ )?(diff|log|show|ls-files|status)( |$)/.test(cmd)) reason = 'whydiff: read-only git'
+        else if (/^gh pr (diff|view)( |$)/.test(cmd)) reason = 'whydiff: read-only PR fetch'
         else if (/^mkdir -p \S*\/?\.whydiff\/?$/.test(cmd)) reason = 'whydiff: working directory'
         else if (/^open \S*\/\.whydiff\/\S+\.html$/.test(cmd)) reason = 'whydiff: open the built map'
       }
     } else if (tool === 'Write' || tool === 'Edit') {
       const p = String(evt.tool_input?.file_path || '')
       if (/\/\.whydiff\//.test(p)) reason = 'whydiff: pipeline output file'
+    } else if (tool === 'Task') {
+      // Only the plugin's own analysis passes; any other agent defers to the
+      // normal permission flow.
+      const at = String(evt.tool_input?.subagent_type || '')
+      if (/^whydiff:/.test(at)) reason = 'whydiff: bundled analysis agent'
     }
   } catch {}
   if (reason) {

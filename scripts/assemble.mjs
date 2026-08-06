@@ -89,8 +89,13 @@ if (diagrams.length) {
 // Replacements go through functions: string replacements interpret $-patterns
 // ($&, $', …), and both the JSON and the mermaid bundle contain them.
 const json = JSON.stringify(rm).replace(/<\//g, '<\\/')
+// The plugin version, stamped into the footer so a served or exported map says
+// which whydiff produced it. Read from the plugin manifest; empty if unavailable.
+let version = ''
+try { version = JSON.parse(readFileSync(join(rootDir, '.claude-plugin', 'plugin.json'), 'utf8')).version || '' } catch {}
 const html = template
   .replace('__TITLE__', () => esc(`${rm.meta.project}: ${rm.meta.title || rm.meta.ref} — change map`))
+  .replace('__WHYDIFF_VERSION__', () => esc(version))
   .replace('__DIAGRAMS_HTML__', () => diagramsHtml)
   .replace('__MERMAID_BUNDLE__', () => mermaidBundle)
   .replace('__REVIEW_MAP_JSON__', () => json)

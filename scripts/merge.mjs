@@ -54,6 +54,11 @@ const parts = {
   tests: read('tests.json')?.tests || null,
   userStories: read('stories.json')?.userStories || null,
 }
+// Which optional passes actually ran — by whether their file exists, so a pass that
+// ran and found nothing still counts as generated (and shows its empty result, not
+// a Generate button). Lets the viewer offer to generate the rest on demand.
+const SECTION_FILE = { standards: 'standards.json', tests: 'tests.json', stories: 'stories.json' }
+const generated = Object.entries(SECTION_FILE).filter(([, f]) => read(f) != null).map(([s]) => s)
 
 const S = {
   unclassifiedGroup: 'Not described by any pass',
@@ -208,6 +213,7 @@ const rm = {
   ...(parts.blastRadius.length ? { blastRadius: parts.blastRadius } : {}),
   ...(parts.tests ? { tests: parts.tests } : {}),
   ...(parts.userStories ? { userStories: parts.userStories } : {}),
+  generated,
   ops,
   manifest: rows.map(r => [r[0], r[1], r[2], groupOf.get(r[0]) || 'unclassified', r[3]]),
 }

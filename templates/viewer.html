@@ -144,6 +144,7 @@
   .footstrip { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; display: flex; align-items: center; gap: 14px;
     padding: 6px 16px; background: var(--panel); border-top: 1px solid var(--line); font-size: 13px; color: var(--ink-2); }
   .footstrip .fs-bar { position: absolute; left: 0; top: -1px; height: 2px; background: var(--accent); transition: width var(--t); }
+  .footstrip .fs-ver { font-family: var(--mono); font-size: 13px; color: var(--ink-3); }
   .footstrip .fs-keys { margin-left: auto; font-family: var(--mono); font-size: 13px; color: var(--ink-3); }
   .footstrip kbd { font-family: var(--mono); font-size: 13px; border: 1px solid var(--line); border-radius: var(--r-input);
     padding: 0 4px; background: var(--sunken); color: var(--ink-2); }
@@ -284,6 +285,16 @@
   #edges .arrow { fill: var(--ec, var(--muted)); opacity: 0; transition: opacity var(--t); }
   #edges.all .arrow { opacity: .4; }
   #edges .arrow.on { opacity: 1; }
+  /* the relationship, spelled out on the line — a solid pill behind the text keeps
+     it readable where the curve crosses a card. Shown with its own (on) edge, and
+     whenever "show all links" is on. */
+  #edges .elabel-bg { fill: var(--surface); stroke: var(--line-strong); stroke-width: 1px;
+    opacity: 0; transition: opacity var(--t); }
+  #edges .elabel { opacity: 0; font-family: var(--mono); font-size: 13px; font-weight: 500;
+    fill: var(--ink); text-anchor: middle; dominant-baseline: middle;
+    pointer-events: none; transition: opacity var(--t); }
+  #edges .elabel.on, #edges .elabel-bg.on { opacity: 1; }
+  #edges.all .elabel, #edges.all .elabel-bg { opacity: 1; }
   .groups { display: flex; flex-direction: column; gap: 20px; position: relative; z-index: 1; }
   .group { border: 1.5px solid var(--gc, var(--line)); border-radius: 3px; background: color-mix(in srgb, var(--gbg, var(--surface-2)) 55%, var(--surface)); padding: 12px 14px 14px; }
   .group.collapsed { padding-bottom: 12px; }
@@ -586,6 +597,20 @@
   .listcard.good { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
   .listcard.bad { border-color: color-mix(in srgb, var(--flag) 50%, var(--line)); }
   .empty-good { border: 1px solid var(--line); background: var(--accent-bg); color: var(--accent); border-radius: var(--r-panel); padding: 10px 14px; font-size: 13px; margin: 0 0 12px; }
+  /* an optional pass that has not been run: what it is, and a button that runs it */
+  .lazy { max-width: 62ch; padding: 8px 0; }
+  .lazy-title { font-size: 15px; font-weight: 500; color: var(--ink); margin: 0 0 6px; }
+  .lazy-what { color: var(--ink-2); font-size: 14px; line-height: 1.55; margin: 0 0 14px; }
+  .lazy-gen { font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; color: var(--accent-ink);
+    background: var(--accent); border: 1px solid var(--accent); border-radius: 5px; padding: 7px 16px;
+    transition: filter var(--t); }
+  .lazy-gen:hover { filter: brightness(1.08); }
+  .lazy-gen:disabled { cursor: default; opacity: .7; }
+  .lazy-gen:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .lazy-steps { font-family: var(--mono); font-size: 13px; color: var(--ink-3); margin-top: 10px; }
+  .lazy-err { color: var(--flag); font-size: 13px; margin-top: 10px; }
+  .lazy-inline { padding: 0; }
+  .lazy-inline .lazy-what { margin: 0 0 10px; font-size: 13px; }
   .brow { border: 1px solid var(--line); border-radius: 3px; padding: 10px 14px; margin: 0 0 10px; background: var(--surface); font-size: 13px; }
   .brow .bpath { font-family: var(--mono); font-size: 13px; font-weight: 500; overflow-wrap: anywhere; }
   .brow .bwhy { margin-top: 3px; color: var(--muted); }
@@ -633,10 +658,13 @@
 
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
   /* ── structure ─────────────────────────────────────────────────────────────
-     Only the chrome carries a border and its own background: the tab strip, the
-     bookmark rail, the right rail and the bottom strip. Everything in the
-     reading column sits directly on the canvas, one level deep, and a callout
-     is a 2px left rule rather than a box inside a box. */
+     The tabs and the content below them are one bounded region — an outlined,
+     filled board with the tab strip as its header — so it is unmistakable that the
+     content belongs to the selected tab. The reading column still sits on its own
+     surface inside that frame; a callout is a 2px left rule, not a nested box. */
+  .board { border: 1px solid var(--line-strong); border-radius: 5px; background: var(--surface); }
+  .board > .tabs { margin: 0; padding: 0 16px; }
+  .board > .layout { padding: 18px; }
   .main-panel { background: none; border: none; border-radius: 0; padding: 0; }
   .step, .group, .finding, .listcard, .brow, .ustory, .diagram, .node {
     background: none; box-shadow: none; }
@@ -742,6 +770,7 @@
   <div class="scopebar" id="scopebar"></div>
   <div class="consistency" id="consistency"></div>
 
+  <div class="board">
   <div class="tabs" id="tabs" role="tablist"></div>
   <div class="layout">
     <section class="main-panel">
@@ -799,6 +828,7 @@
     <div class="rightcol" id="rightcol">
       <aside class="inspector" id="inspector" aria-live="polite"></aside>
     </div>
+  </div>
   </div>
 </div>
 
@@ -865,6 +895,14 @@ const I18N = {
     storyStatus: { delivered: 'delivered', partial: 'partial', broken: 'broken', regressed: 'regressed' },
     storyCovered: 'test pins this down', storyUncovered: 'no test',
     storiesNone: 'No outside-visible behavior changed by this diff',
+    generate: 'Generate', generating: 'Generating…', generateFailed: 'Generation failed',
+    generateStatic: 'Not in this export — re-run whydiff with a full report to include it.',
+    blastLazy: 'Not generated yet — comes with the Standards pass.',
+    lazy: {
+      stories: { title: 'User stories', what: 'What changed on the outside, in each actor’s words, with a verdict on whether the code actually delivers it. Generate to add this pass to the report.' },
+      standards: { title: 'Standards & blast radius', what: 'The change checked against this project’s own conventions, plus the reverse dependencies it reaches outside the diff. Generate to add this pass.' },
+      tests: { title: 'Tests', what: 'What the tests now pin down, and — more usefully — what this change leaves uncovered. Generate to add this pass.' },
+    },
     diagramsHint: 'A node is marked the way a diff line is: added takes the fill, removed the dashed outline, changed a heavier edge. Diagrams exist only where a control or data flow changed. Nodes tied to a changed file are clickable — details open in the inspector.',
     fixedTitle: 'Fixed by tests', gapsTitle: 'Not covered',
     envTitle: 'Env vars', migrTitle: 'Migrations', deployTitle: 'Deploy',
@@ -977,6 +1015,14 @@ const I18N = {
     storyStatus: { delivered: 'работает', partial: 'частично', broken: 'не работает', regressed: 'регресс' },
     storyCovered: 'зафиксировано тестом', storyUncovered: 'теста нет',
     storiesNone: 'Снаружи поведение этим диффом не изменилось',
+    generate: 'Сгенерировать', generating: 'Генерирую…', generateFailed: 'Не удалось сгенерировать',
+    generateStatic: 'Нет в этом экспорте — перезапусти whydiff с полным отчётом, чтобы включить.',
+    blastLazy: 'Ещё не сгенерировано — идёт вместе с проходом «Стандарты».',
+    lazy: {
+      stories: { title: 'User stories', what: 'Что изменилось снаружи, языком каждого актора, с вердиктом — даёт ли это код на самом деле. Нажми, чтобы добавить этот проход в отчёт.' },
+      standards: { title: 'Стандарты и радиус влияния', what: 'Проверка изменения против правил самого проекта плюс обратные зависимости за пределами диффа, которых оно касается. Нажми, чтобы добавить проход.' },
+      tests: { title: 'Тесты', what: 'Что теперь фиксируют тесты и — важнее — что это изменение оставляет без покрытия. Нажми, чтобы добавить проход.' },
+    },
     diagramsHint: 'Нода помечена так же, как строка диффа: добавленное берёт заливку, удалённое — пунктирный контур, изменённое — усиленную рамку. Диаграммы есть только там, где меняется поток управления или данных. Ноды изменённых файлов кликабельны — детали откроются в инспекторе.',
     fixedTitle: 'Зафиксировано', gapsTitle: 'Не покрыто',
     envTitle: 'Env-переменные', migrTitle: 'Миграции', deployTitle: 'Деплой',
@@ -1162,14 +1208,21 @@ document.getElementById('modalClose').textContent = L.close
 const PROBLEM_STATUS = new Set(['regressed', 'broken', 'partial'])
 // The tab is hidden entirely on maps generated before this pass existed: an empty
 // "nothing changed outside" pane would be a claim the run never actually made.
-const hasStories = !!RM.userStories
+// Which optional passes actually ran. New maps carry an explicit `generated` list;
+// older maps are read by key-presence. A pass that ran but found nothing still
+// counts as generated, so it shows its "nothing here" result — not a Generate
+// button. Blast radius rides with the standards pass, so it has no key of its own.
+const GEN_KEY = { stories: () => RM.userStories != null, standards: () => Array.isArray(RM.standards), tests: () => RM.tests != null }
+const isGen = (name) => Array.isArray(RM.generated) ? RM.generated.includes(name) : (GEN_KEY[name] ? GEN_KEY[name]() : true)
+// The optional tabs stay in the menu even when their pass has not run — opening one
+// shows what it is and a Generate button, rather than vanishing.
+const hasStories = isGen('stories')
 const PANES = [
   ['story', L.tabs.story, null],
-  ...(hasStories ? [['stories', L.tabs.stories,
-    (RM.userStories.stories || []).filter(s => PROBLEM_STATUS.has(s.status)).length]] : []),
+  ['stories', L.tabs.stories, hasStories ? (RM.userStories.stories || []).filter(s => PROBLEM_STATUS.has(s.status)).length : 0],
   ['diagrams', L.tabs.diagrams, (RM.diagrams || []).length],
-  ['standards', L.tabs.standards, (RM.standards || []).filter(s => s.severity !== 'ok').length],
-  ['tests', L.tabs.tests, (RM.tests?.gaps || []).length ? `${(RM.tests.fixed || []).length}/${(RM.tests.gaps || []).length}` : (RM.tests?.fixed || []).length],
+  ['standards', L.tabs.standards, isGen('standards') ? (RM.standards || []).filter(s => s.severity !== 'ok').length : 0],
+  ['tests', L.tabs.tests, isGen('tests') ? ((RM.tests?.gaps || []).length ? `${(RM.tests.fixed || []).length}/${(RM.tests.gaps || []).length}` : (RM.tests?.fixed || []).length) : 0],
   ['ops', L.tabs.ops, (RM.ops?.env || []).length + (RM.blastRadius || []).length],
   ['files', L.tabs.files, (RM.manifest || []).length],
 ]
@@ -1300,10 +1353,68 @@ for (const item of RM.story) {
   storyEl.appendChild(step)
 }
 
+// ── lazy sections: generate on demand ────────────────────────────────────────
+// An optional pass that was not run shows what it is and a button that runs its
+// agent against this same diff and folds the result into the report in place.
+const canGenerate = () => !!(window.__WHYDIFF_SERVE__ && window.__WHYDIFF_SERVE__.token)
+function lazyPane(section) {
+  const m = L.lazy[section]
+  return `<div class="lazy">
+    <div class="lazy-title">${esc(m.title)}</div>
+    <p class="lazy-what">${esc(m.what)}</p>
+    ${canGenerate()
+      ? `<button class="lazy-gen" data-section="${section}">${esc(L.generate)}</button>
+         <div class="lazy-steps" hidden></div><div class="lazy-err" hidden></div>`
+      : `<p class="lazy-static">${esc(L.generateStatic)}</p>`}
+  </div>`
+}
+async function generate(section, btn) {
+  const wrap = btn.closest('.lazy')
+  const stepsEl = wrap?.querySelector('.lazy-steps'), errEl = wrap?.querySelector('.lazy-err')
+  btn.disabled = true; btn.textContent = L.generating
+  if (errEl) { errEl.hidden = true; errEl.textContent = '' }
+  if (stepsEl) stepsEl.hidden = false
+  try {
+    const res = await fetch('/api/generate', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-whydiff-token': window.__WHYDIFF_SERVE__.token },
+      body: JSON.stringify({ section }),
+    })
+    if (res.headers.get('content-type')?.includes('application/json')) {
+      const j = await res.json(); throw new Error(j.error || `HTTP ${res.status}`)
+    }
+    const reader = res.body.getReader(), dec = new TextDecoder()
+    let buf = ''
+    for (;;) {
+      const { value, done } = await reader.read()
+      if (done) break
+      buf += dec.decode(value, { stream: true })
+      const lines = buf.split('\n'); buf = lines.pop()
+      for (const ln of lines) {
+        if (!ln.trim()) continue
+        let ev; try { ev = JSON.parse(ln) } catch { continue }
+        if (ev.kind === 'step' && stepsEl) stepsEl.textContent = ev.text
+        else if (ev.kind === 'error') throw new Error(ev.error)
+        else if (ev.kind === 'done') return location.reload()
+      }
+    }
+    location.reload()
+  } catch (e) {
+    btn.disabled = false; btn.textContent = L.generate
+    if (stepsEl) stepsEl.hidden = true
+    if (errEl) { errEl.hidden = false; errEl.textContent = `${L.generateFailed}: ${e.message}` }
+  }
+}
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('.lazy-gen')
+  if (b) generate(b.dataset.section, b)
+})
+
 // ── standards ────────────────────────────────────────────────────────────────
 // A warn finding is a problem, so it is a place a remark can attach to and a place
 // options can be asked for. `ok`/`info` are not: there is nothing to decide.
-document.getElementById('standards').innerHTML = (RM.standards || []).map((s, i) => `
+document.getElementById('standards').innerHTML = isGen('standards')
+  ? (RM.standards || []).map((s, i) => `
   <div class="finding ${s.severity}${s.severity === 'warn' ? ' askable fixable' : ''}"
     ${s.severity === 'warn' ? `data-anchor="finding:${i}" data-anchor-label="${esc(s.finding.slice(0, 90))}"` : ''}>
     <span class="sev ${s.severity}">${s.severity}</span>
@@ -1312,6 +1423,7 @@ document.getElementById('standards').innerHTML = (RM.standards || []).map((s, i)
       ${s.pattern ? `<div class="fpattern">${esc(s.pattern)}</div>` : ''}
     </div>
   </div>`).join('')
+  : lazyPane('standards')
 
 // ── user stories ─────────────────────────────────────────────────────────────
 if (hasStories) {
@@ -1338,17 +1450,25 @@ if (hasStories) {
         ${(s.files || []).length ? `<div class="step-files">${s.files.map(chip).join('')}</div>` : ''}
       </div>`).join('')
     : `<div class="empty-good">${L.storiesNone}</div>`
+} else {
+  document.getElementById('storiesSummary').innerHTML = ''
+  document.getElementById('storiesHint').textContent = ''
+  document.getElementById('stories').innerHTML = lazyPane('stories')
 }
 
 // ── tests ────────────────────────────────────────────────────────────────────
-document.getElementById('testsSummary').innerHTML = prose(RM.tests?.summary)
-document.getElementById('testsFixed').innerHTML = (RM.tests?.fixed || []).map(x => `<li>${prose(x)}</li>`).join('')
-// Every gap is a problem by definition — the whole list is anchorable.
-document.getElementById('testsGaps').innerHTML = (RM.tests?.gaps || []).map((x, i) =>
-  `<li class="askable fixable" data-anchor="gap:${i}" data-anchor-label="${esc(String(x).slice(0, 90))}">${prose(x)}</li>`).join('')
-document.getElementById('fixedCnt').textContent = (RM.tests?.fixed || []).length
-document.getElementById('gapsCnt').textContent = (RM.tests?.gaps || []).length
-document.getElementById('testsFiles').innerHTML = (RM.tests?.files || []).map(chip).join('')
+if (isGen('tests')) {
+  document.getElementById('testsSummary').innerHTML = prose(RM.tests?.summary)
+  document.getElementById('testsFixed').innerHTML = (RM.tests?.fixed || []).map(x => `<li>${prose(x)}</li>`).join('')
+  // Every gap is a problem by definition — the whole list is anchorable.
+  document.getElementById('testsGaps').innerHTML = (RM.tests?.gaps || []).map((x, i) =>
+    `<li class="askable fixable" data-anchor="gap:${i}" data-anchor-label="${esc(String(x).slice(0, 90))}">${prose(x)}</li>`).join('')
+  document.getElementById('fixedCnt').textContent = (RM.tests?.fixed || []).length
+  document.getElementById('gapsCnt').textContent = (RM.tests?.gaps || []).length
+  document.getElementById('testsFiles').innerHTML = (RM.tests?.files || []).map(chip).join('')
+} else {
+  document.getElementById('pane-tests').innerHTML = lazyPane('tests')
+}
 
 // ── ops & blast radius ───────────────────────────────────────────────────────
 {
@@ -1363,8 +1483,12 @@ document.getElementById('testsFiles').innerHTML = (RM.tests?.files || []).map(ch
     : `<div class="empty-good">${L.migrNone}</div>`
   if ((ops.deploy || []).length) html += `<div class="listcard" style="margin-bottom:12px"><h3>${L.deployTitle}</h3><ul>${ops.deploy.map(d => `<li>${prose(d)}</li>`).join('')}</ul></div>`
   document.getElementById('ops').innerHTML = html
-  document.getElementById('blast').innerHTML = (RM.blastRadius || []).map(b => `
-    <div class="brow"><span class="bpath">${esc(b.path)}</span><div class="bwhy">${prose(b.why)}</div></div>`).join('')
+  document.getElementById('blast').innerHTML = isGen('standards')
+    ? (RM.blastRadius || []).map(b => `
+      <div class="brow"><span class="bpath">${esc(b.path)}</span><div class="bwhy">${prose(b.why)}</div></div>`).join('')
+    : `<div class="lazy lazy-inline"><p class="lazy-what">${esc(L.blastLazy)}</p>${canGenerate()
+        ? `<button class="lazy-gen" data-section="standards">${esc(L.generate)}</button><div class="lazy-steps" hidden></div><div class="lazy-err" hidden></div>`
+        : `<p class="lazy-static">${esc(L.generateStatic)}</p>`}</div>`
 }
 
 // ── files: groups, nodes, edges, manifest ────────────────────────────────────
@@ -1429,7 +1553,7 @@ function anchorEl(path) {
 function drawEdges() {
   const mapBox = document.getElementById('map').getBoundingClientRect()
   svg.innerHTML = ''
-  for (const [from, to] of RM.edges) {
+  for (const [from, to, label] of RM.edges) {
     const fromEl = anchorEl(from), toEl = anchorEl(to)
     if (!fromEl || !toEl || fromEl === toEl) continue
     const a = fromEl.getBoundingClientRect(), b = toEl.getBoundingClientRect()
@@ -1450,6 +1574,24 @@ function drawEdges() {
     ar.setAttribute('class', 'arrow')
     ar.style.setProperty('--ec', color); ar.dataset.from = from; ar.dataset.to = to
     svg.appendChild(ar)
+    // What the relationship IS, spelled out on the line — on a solid pill so it
+    // stays readable where the curve crosses a card. Shown with its own edge (on
+    // hover/select) or when "show all links" is on; all labels at once would bury
+    // the map. Pill width is estimated from the label length (mono → uniform).
+    if (label) {
+      const mx = (x1 + x2) / 2
+      const w = label.length * 7.4 + 16, h = 20
+      const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
+      bg.setAttribute('x', mx - w / 2); bg.setAttribute('y', my - h / 2)
+      bg.setAttribute('width', w); bg.setAttribute('height', h); bg.setAttribute('rx', 5)
+      bg.setAttribute('class', 'elabel-bg'); bg.dataset.from = from; bg.dataset.to = to
+      svg.appendChild(bg)
+      const t = document.createElementNS('http://www.w3.org/2000/svg', 'text')
+      t.setAttribute('x', mx); t.setAttribute('y', my)
+      t.setAttribute('class', 'elabel'); t.textContent = label
+      t.dataset.from = from; t.dataset.to = to
+      svg.appendChild(t)
+    }
   }
   refreshEdges()
 }
@@ -1680,6 +1822,7 @@ const allPaths = RM.manifest.map(r => r[0])
 const foot = document.createElement('div')
 foot.className = 'footstrip'
 foot.innerHTML = `<div class="fs-bar"></div><span class="fs-count"></span>
+  <span class="fs-ver">whydiff __WHYDIFF_VERSION__</span>
   <span class="fs-keys"><kbd>j</kbd><kbd>k</kbd> ${esc(L.keyMove)} · <kbd>]</kbd><kbd>[</kbd> ${esc(L.keyFile)} · <kbd>s</kbd> ${esc(L.keySeen)} · <kbd>?</kbd> ${esc(L.keyAll)}</span>`
 document.body.appendChild(foot)
 const fsBar = foot.querySelector('.fs-bar')
@@ -2099,21 +2242,22 @@ if (SERVE?.token) (() => {
     cancelAnimationFrame(railRaf)
     railRaf = requestAnimationFrame(() => {
       const keys = [...numbers.keys()]
-      rail.classList.toggle('on', keys.length > 0)
-      document.body.classList.toggle('has-marks', keys.length > 0)
       rail.innerHTML = ''
-      // Questions elsewhere are counted on the tab that holds them. Floating them
-      // in a corner of the window detached them from everything, which is not
-      // what a bookmark is.
+      // A bookmark is a marker that sits BESIDE its own content. Questions whose
+      // content is on another tab are counted on that tab instead; and a thread
+      // whose anchor is gone (the report was regenerated) has nothing to sit
+      // beside, so it does NOT float in a corner over the header — it stays in the
+      // Review view, which is the tab for detached threads.
       const perTab = new Map()
       const here = []
+      let lost = 0
       for (const key of keys) {
         const el = elFor(key)
         const tab = tabOfEl(el) || tabFromKey(key)
         const entry = { key, el, tab, n: numbers.get(key), count: forKey(key).length }
         if (el && (!tab || tab === currentTab)) here.push(entry)
         else if (tab) perTab.set(tab, (perTab.get(tab) || 0) + 1)
-        else here.push({ ...entry, lost: true })
+        else lost++
       }
       for (const b of tabsEl.querySelectorAll('.tab')) {
         const n = perTab.get(b.dataset.pane) || 0
@@ -2123,7 +2267,14 @@ if (SERVE?.token) (() => {
         q.textContent = n
         q.title = L.askOnThisTab(n)
       }
-      if (!keys.length) return
+      // Detached threads (anchor gone) are not floated; they remain in the Review
+      // view, which lists every thread from the journal.
+      void lost
+      // The rail (and the margin reserved for it) exist only when a bookmark can
+      // actually sit beside content on the current tab.
+      rail.classList.toggle('on', here.length > 0)
+      document.body.classList.toggle('has-marks', here.length > 0)
+      if (!here.length) return
 
       // Document coordinates, so a bookmark sits beside its own content and
       // scrolls with it instead of sliding along the window. Placed just left of
@@ -2572,7 +2723,10 @@ if (SERVE?.token) (() => {
   reviewTab.title = L.reviewOpenTitle
   reviewTab.innerHTML = `${esc(L.reviewOpen)} <span class="cnt"></span>`
   modebar.append(reportTab, reviewTab)
-  tabsEl.parentNode.insertBefore(modebar, tabsEl)
+  // Above the board, not inside it: the mode switch chooses which page you are on,
+  // the tabbed card is that page.
+  const boardEl = document.querySelector('.board')
+  boardEl.parentNode.insertBefore(modebar, boardEl)
   let lastReportTab = 'story'
   const markMode = (on) => {
     reportTab.classList.toggle('active', !on)

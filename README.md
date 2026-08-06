@@ -21,13 +21,17 @@ model — prove that no file went unexplained.
 
 See `PLAN.md` for the problem statement and the design principles.
 
-![The Logic tab: a causal story of the change, every block linked by why, with the Report / Review switch above it](assets/story.png)
+<!-- Screenshots carry the version they show: a changed picture gets a new filename,
+     so neither a browser nor GitHub's CDN can keep serving the previous one. When you
+     re-shoot, rename to the version being released and update these links. -->
+
+![The Logic tab: a causal story of the change, every block linked by why, with the Report / Review switch above it](assets/story-0.8.png)
 
 | Diff-marked diagrams — click a node to open the file | Cause groups with labeled links between files |
 |---|---|
-| ![Diagrams tab](assets/diagrams.png) | ![Files tab](assets/files.png) |
+| ![Diagrams tab](assets/diagrams-0.8.png) | ![Files tab](assets/files-0.8.png) |
 | **Review** — the merge gate: what blocks, grouped by where each problem came from, a patch waiting to be applied, and the decision manifest | **Options** — two or three ways to deal with a finding, differing in kind, each with its cost, risk and the criterion it would be judged by |
-| ![Review tab](assets/review.png) | ![Options offered on a test gap](assets/options.png) |
+| ![Review tab](assets/review-0.8.png) | ![Options offered on a test gap](assets/options-0.8.png) |
 
 ## Usage
 

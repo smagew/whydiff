@@ -53,7 +53,7 @@ if (!htmlPath) {
   htmlPath = mapPath.replace(/\.json$/, '.served.html')
   execFileSync('node', [join(rootDir, 'scripts', 'assemble.mjs'), mapPath, '--repo', repo, '--out', htmlPath], { stdio: 'inherit' })
 }
-const body = readFileSync(htmlPath, 'utf8')
+let body = readFileSync(htmlPath, 'utf8')
 const token = randomBytes(16).toString('hex')
 
 // Answers outlive the tab: a live answer that vanishes when the window closes
@@ -67,13 +67,23 @@ let review = readReview(reviewDir).state
 // The viewer template is body content (the artifact host supplies the document
 // shell), so serving it needs a real document around it — and that is also where
 // the token goes. Nothing else in the pipeline learns about the token.
-const page = `<!doctype html>
+const SERVE_GLOBAL = JSON.stringify({ token, repo, journal: join(reviewDir, REVIEW_LOG), work: workMode })
+const renderPage = () => `<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<script>window.__WHYDIFF_SERVE__=${JSON.stringify({ token, repo, journal: join(reviewDir, REVIEW_LOG), work: workMode })}</script>
+<script>window.__WHYDIFF_SERVE__=${SERVE_GLOBAL}</script>
 </head><body>
 ${body}
 </body></html>`
+let page = renderPage()
+// A generated section is folded into the map on disk; re-assembling the HTML and
+// rebuilding `page` is what makes a reload show it. Cheap: it is the same one-shot
+// assemble the server already runs at startup.
+const rebuildPage = () => {
+  execFileSync('node', [join(rootDir, 'scripts', 'assemble.mjs'), mapPath, '--repo', repo, '--out', htmlPath], { stdio: 'inherit' })
+  body = readFileSync(htmlPath, 'utf8')
+  page = renderPage()
+}
 
 const json = (res, code, obj) => {
   res.writeHead(code, { 'content-type': 'application/json; charset=utf-8' })
@@ -604,6 +614,73 @@ const applyPatch = (res, taskId) => {
   return json(res, 200, { applied: task.resolution.files, review: reviewRead(), threads: turns(review) })
 }
 
+// ── generating an optional section on demand ────────────────────────────────────
+// The core run builds Logic/Diagrams/Files/Ops(env). The other passes are lazy:
+// clicking Generate runs that pass's own agent against the same diff, read-only,
+// and folds its keys into the map. Read-only by construction (same allowlist as
+// ask/plan) — this writes only the report's own JSON in .whydiff, never the repo.
+const SECTIONS = {
+  standards: { agent: 'standards-reviewer', keys: ['standards', 'blastRadius'] },
+  tests: { agent: 'tests-analyst', keys: ['tests'] },
+  stories: { agent: 'story-writer', keys: ['userStories'] },
+}
+const buildSectionPrompt = (section, lang) => {
+  const { agent, keys } = SECTIONS[section]
+  // The agent's own instructions carry its expertise; strip the frontmatter and
+  // override its "write to a file" protocol — here it prints, read-only.
+  const md = readFileSync(join(rootDir, 'agents', `${agent}.md`), 'utf8').replace(/^---[\s\S]*?\n---\n/, '').trim()
+  return `You are the whydiff "${agent}" analysis pass, run on demand to add ONE section to an existing review map.
+
+Follow these pass instructions:
+"""
+${md}
+"""
+
+Grounding for THIS run:
+REPO: ${repo}
+DIFF: ${join(reviewDir, 'diff.patch')}
+MANIFEST: ${join(reviewDir, 'manifest.json')}
+MAP (the report so far, for context only): ${mapPath}
+REPORT_LANGUAGE: ${lang || 'en'}
+
+Read the diff and whatever code you need, then produce your result.
+
+OUTPUT CONTRACT — this OVERRIDES any instruction above about writing to a file (\`OUT:\`). You have read-only tools and MUST NOT write anything. Reply with NOTHING but one fenced json block, nothing before or after it:
+\`\`\`json
+{ ${keys.map(k => `"${k}": …`).join(', ')} }
+\`\`\`
+Use exactly these top-level keys (${keys.join(', ')}), each shaped as the pass documents and the schema requires. No prose, no other fenced blocks.`
+}
+const generateSection = async (res, payload) => {
+  const section = String(payload.section || '')
+  if (!SECTIONS[section]) return json(res, 400, { error: `unknown section: ${section}` })
+  let lang = 'en'
+  try { lang = JSON.parse(readFileSync(mapPath, 'utf8')).meta?.lang || 'en' } catch {}
+  res.writeHead(200, { 'content-type': 'application/x-ndjson; charset=utf-8', 'cache-control': 'no-cache', 'x-accel-buffering': 'no' })
+  const emit = (o) => { try { res.write(JSON.stringify(o) + '\n') } catch {} }
+  inFlight++
+  process.stdout.write(`  + generate ${section}\n`)
+  try {
+    const reply = await run(buildSectionPrompt(section, lang), (ev) => { if (ev.kind === 'step') emit(ev) })
+    const { raw } = tailJSON(reply)
+    if (!raw || typeof raw !== 'object') throw new Error('the pass returned no JSON block')
+    const { keys } = SECTIONS[section]
+    const patch = {}
+    for (const k of keys) if (k in raw && raw[k] != null) patch[k] = raw[k]
+    if (!Object.keys(patch).length) throw new Error(`the pass returned none of: ${keys.join(', ')}`)
+    const map = JSON.parse(readFileSync(mapPath, 'utf8'))
+    Object.assign(map, patch)
+    map.generated = Array.from(new Set([...(Array.isArray(map.generated) ? map.generated : []), section]))
+    writeFileSync(mapPath, JSON.stringify(map, null, 2))
+    rebuildPage()
+    process.stdout.write(`  ✓ generated ${section} (${Object.keys(patch).join(', ')})\n`)
+    emit({ kind: 'done', section })
+  } catch (e) {
+    process.stdout.write(`  ✗ generate ${section}: ${e.message}\n`)
+    emit({ kind: 'error', error: e.message })
+  } finally { inFlight--; res.end() }
+}
+
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost')
   if (url.pathname === '/' || url.pathname === '/index.html') {
@@ -628,6 +705,7 @@ const server = createServer(async (req, res) => {
   if (url.pathname === '/api/ask') return exchange(res, payload, 'ask')
   if (url.pathname === '/api/instruct') return exchange(res, payload, 'instruct')
   if (url.pathname === '/api/propose') return exchange(res, payload, 'propose')
+  if (url.pathname === '/api/generate') return generateSection(res, payload)
 
   if (url.pathname === '/api/work' || url.pathname === '/api/apply') {
     if (!workMode) return json(res, 403, { error: 'this server was started without --work: it reads and plans, it does not change the repo' })
