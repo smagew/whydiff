@@ -4,6 +4,20 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.8.0] — 2026-08-07
+
+Housekeeping, and the reason it needed a version: the screenshots.
+
+### Changed
+- **Screenshots carry the version they show** — `assets/story-0.8.png` and friends.
+  The 0.7.0 shots replaced the old files at the same paths, so a browser (and any
+  CDN in front of it) kept serving the previous picture: the README looked stale
+  when the repository was not. A changed picture now gets a new filename, which is
+  a URL nothing can have cached, and the README says so where whoever re-shoots
+  will read it.
+- No behaviour changes. The version bump exists so an installed copy picks up the
+  0.7.0 review loop even if it was installed while that release was in flight.
+
 ## [0.7.0] — 2026-08-06
 
 **The map becomes a review, not just a report.** Until now whydiff explained a
