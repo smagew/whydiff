@@ -6,9 +6,24 @@ to receive an update.
 
 ## [0.9.1] — 2026-08-07
 
-Two small fixes to the chrome around the map.
+Fixes to the chrome around the map, and to how a run is handed over.
 
 ### Fixed
+- **The page no longer jumps when you switch tabs.** The right column collapsed on
+  the prose tabs and came back on Logic/Diagrams/Files, so the reading column
+  resized every time — the whole page appeared to stretch and shrink. The grid is
+  now the same on every tab (a prose tab leaves the reserved area empty instead of
+  growing into it), the responsive single-column collapse still applies because
+  `.solo` no longer out-specifies the media query, and `scrollbar-gutter: stable`
+  keeps a scrollbar appearing on a long tab from shifting everything sideways.
+- **A long connection label no longer stretches across the map.** An edge's label
+  can be a whole sentence; drawn full-length on the line it spanned the entire
+  window. It is now capped and ellipsised on the line, with the full text on hover
+  and in the inspector's Links. The schema and classifier also now ask for a short
+  phrase, not a sentence, so the label fits the line in the first place.
+- **The Tests tab stops wasting half its width.** When no tests are fixed (or no
+  gaps), the empty side no longer holds an idle half-column — the populated list
+  takes the full width and the empty one stays as its count line.
 - **Thread bookmarks no longer pile over the header.** A question's marker belongs
   beside its own content or, when that content is on another tab, as a count on
   that tab — and a thread whose anchor is gone (the map was regenerated) has
@@ -17,6 +32,13 @@ Two small fixes to the chrome around the map.
   threads live in the Review view (their `questions` group), and the rail — with
   the left margin reserved for it — appears only when a bookmark can actually sit
   beside content on the current tab.
+
+### Changed
+- **A run serves the live report by default; the static file is now opt-in.** With
+  the report gone interactive — ask, instruct, options, and Generate for the lazy
+  sections — a static HTML can do none of that (its buttons are inert), so handing
+  one over left the reviewer with a dead page. `SKILL.md` now serves unless the
+  user explicitly wants a file to keep or an artifact to publish.
 
 ### Added
 - **The footer names the version that produced the map** — `whydiff <version>`,

@@ -229,44 +229,34 @@ kept and marked `stale` with its original text, back again → revived. **Nothin
 dropped**, and if it reports anything stale, say so in the final summary: the user
 had a remark on something that is no longer in the report.
 
-### 6. Assemble and deliver
+### 6. Deliver — serve the live report (default)
 
-The assembler inlines the mermaid bundle from the plugin's `node_modules`. On a
-fresh plugin install it is missing — check once and install if needed:
+Both serving and assembling inline the mermaid bundle from the plugin's
+`node_modules`. On a fresh install it is missing — check once and install if needed:
 
 ```bash
 [ -d ${CLAUDE_PLUGIN_ROOT}/node_modules/mermaid ] || npm install --prefix ${CLAUDE_PLUGIN_ROOT} --omit=dev
 ```
 
-```bash
-node ${CLAUDE_PLUGIN_ROOT}/scripts/assemble.mjs <repo>/.whydiff/review-map.json \
-  --repo <repo> --out <repo>/.whydiff/<date>-<slug>.html
-```
-
-Then: `open` the HTML locally, and if artifact publishing is available, publish it
-too. Generate the timing report:
-
-```bash
-node ${CLAUDE_PLUGIN_ROOT}/scripts/timing.mjs report --repo <repo>
-```
-
-### 6b. Live Q&A about the map (optional, on request)
-
-The assembled file cannot ask a model anything: it is self-contained, and a
-published artifact's CSP blocks every outgoing request. When the user wants to
-select something in the report and ask about it, serve it instead:
+**Serve it. This is the default way to hand the map over — not a static file.**
+The report only earns its keep live: the reviewer selects anything and asks about
+it, instructs a change, weighs options, and — because a default run builds only the
+core — clicks **Generate** on the standards, tests and user-story tabs to add those
+passes on demand. A static file can do NONE of that: its Generate buttons and ask
+panel are inert. So unless the user explicitly wants a file to keep or an artifact
+to publish, serve — do not assemble.
 
 ```bash
 node ${CLAUDE_PLUGIN_ROOT}/scripts/serve.mjs <repo>/.whydiff/review-map.json \
   --repo <repo> [--port 7777]
 ```
 
-It serves the map at `http://127.0.0.1:<port>/`, injects a per-run token, and
-answers questions from the page by calling `claude -p` in the repo. Anchors:
-a user-story card, a Logic block (⌘/Ctrl-click several for one question about the
-set), a diagram (Alt-click one node), or any text selection. Answers are appended
-to the review journal at `<repo>/.whydiff/review.log.jsonl` and reloaded on the
-next serve, so they are not lost when the tab closes. To read that journal from a
+Give the user the printed `http://127.0.0.1:<port>/`. The server injects a per-run
+token and answers from the page by calling `claude -p` in the repo (read-only).
+Anchors: a user-story card, a Logic block (⌘/Ctrl-click several for one question
+about the set), a diagram (Alt-click one node), or any text selection. Every remark
+is appended to the review journal at `<repo>/.whydiff/review.log.jsonl` and reloaded
+on the next serve, so it is not lost when the tab closes. To read that journal from a
 terminal: `node ${CLAUDE_PLUGIN_ROOT}/scripts/review.mjs <repo>/.whydiff`.
 
 The same panel has an **Instruct** mode: the user says what should change at the
@@ -302,6 +292,28 @@ Three things to tell the user plainly when you start it: the ask UI exists **onl
 on this served copy — the file on disk and the published artifact are unchanged
 and show no ask controls; every question and every plan spends tokens through the
 CLI; and an agreed task is a queue entry, not work in progress.
+
+### 6b. Static export — only when asked
+
+When the user wants a file to keep or an artifact to publish rather than an
+interactive session, assemble a self-contained HTML:
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/assemble.mjs <repo>/.whydiff/review-map.json \
+  --repo <repo> --out <repo>/.whydiff/<date>-<slug>.html
+```
+
+`open` it locally and, if artifact publishing is available, publish it. It is a
+snapshot: the ask/instruct panel and the Generate buttons are inert (a published
+artifact's CSP blocks every outgoing request), so any optional section not generated
+before export stays a placeholder — generate what they want included first, on the
+served copy, then export.
+
+Generate the timing report (do this on any run):
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/timing.mjs report --repo <repo>
+```
 
 Finish with a chat summary in the report language: the intent paragraph, how
 many files need careful reading and which, any story that is not `delivered`,

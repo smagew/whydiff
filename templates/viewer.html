@@ -97,6 +97,9 @@
   }
 
   * { box-sizing: border-box; }
+  /* Reserve the scrollbar's width always, so switching to a tab that does not
+     scroll does not widen the page by ~15px and shift everything sideways. */
+  html { scrollbar-gutter: stable; }
   body { margin: 0; background: var(--canvas); color: var(--ink); font-family: var(--font-ui); font-size: 14px;
     line-height: 1.45; -webkit-font-smoothing: antialiased; font-variant-numeric: tabular-nums; }
   .wrap { max-width: 1360px; margin: 0 auto; padding: 28px 24px 64px; position: relative; }
@@ -202,13 +205,17 @@
   .stat.hl { border-color: var(--accent); }
   .stat.hl b { color: var(--accent); }
 
-  .layout { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(340px, 1fr); gap: 20px; align-items: start; }
+  .layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(340px, 440px); gap: 20px; align-items: start; }
   @media (max-width: 960px) { .layout { grid-template-columns: 1fr; } }
-  /* The right column costs ~40% of the width but is only written to from the
-     Logic, Diagrams and Files tabs. On the prose tabs it would sit on its idle
-     legend, so it collapses and the pane gets the full width instead — unless a
-     chat is open, which claims the column on every tab. */
-  .layout.solo { grid-template-columns: minmax(0, 1fr); }
+  /* The right column is only written to from the Logic, Diagrams and Files tabs.
+     It could collapse on the prose tabs to reclaim the width — but then the reading
+     column resizes every time you switch tabs, which reads as the whole page
+     jumping. Stability wins: the grid is the SAME on every tab, so the reading
+     column never changes width; a prose tab leaves the reserved area empty
+     rather than growing into it. A chat claims the column on every tab. */
+  /* solo does NOT redefine the columns — it inherits .layout so the reading column
+     keeps its width and the responsive collapse still applies. It only hides the
+     idle right column, leaving that reserved area empty on a prose tab. */
   .layout.solo > .rightcol { display: none; }
   .layout.chatting { grid-template-columns: minmax(0, 1fr) minmax(430px, 0.92fr); }
   .layout.chatting.solo { grid-template-columns: minmax(0, 1fr) minmax(430px, 0.92fr); }
@@ -355,6 +362,9 @@
 
   /* tests / ops / blast */
   .cols2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  /* When one side is empty (e.g. no tests fixed), don't leave half the row blank —
+     the populated list gets the full width, the empty one stays as its count line. */
+  .cols2.one { grid-template-columns: 1fr; }
   @media (max-width: 760px) { .cols2 { grid-template-columns: 1fr; } }
   /* ── ask: present only when served by scripts/serve.mjs ────────────────────
      Everything here stays display:none until the page finds an injected token,
@@ -1466,6 +1476,10 @@ if (isGen('tests')) {
   document.getElementById('fixedCnt').textContent = (RM.tests?.fixed || []).length
   document.getElementById('gapsCnt').textContent = (RM.tests?.gaps || []).length
   document.getElementById('testsFiles').innerHTML = (RM.tests?.files || []).map(chip).join('')
+  // One column when a side is empty, so the populated list is not squeezed into a
+  // half while the other half sits blank.
+  const nFixed = (RM.tests?.fixed || []).length, nGaps = (RM.tests?.gaps || []).length
+  document.querySelector('#pane-tests .cols2').classList.toggle('one', !nFixed || !nGaps)
 } else {
   document.getElementById('pane-tests').innerHTML = lazyPane('tests')
 }
@@ -1574,13 +1588,16 @@ function drawEdges() {
     ar.setAttribute('class', 'arrow')
     ar.style.setProperty('--ec', color); ar.dataset.from = from; ar.dataset.to = to
     svg.appendChild(ar)
-    // What the relationship IS, spelled out on the line — on a solid pill so it
-    // stays readable where the curve crosses a card. Shown with its own edge (on
-    // hover/select) or when "show all links" is on; all labels at once would bury
-    // the map. Pill width is estimated from the label length (mono → uniform).
+    // What the relationship IS, on a solid pill so it stays readable where the
+    // curve crosses a card. Shown with its own edge (on hover/select) or with "show
+    // all links". The label can be a whole sentence — on the line it is capped and
+    // ellipsised so it never stretches across the map; the full text is on hover
+    // (title) and in the inspector's Links. Width is estimated from length (mono).
     if (label) {
+      const MAX = 46
+      const shown = label.length > MAX ? label.slice(0, MAX - 1).trimEnd() + '…' : label
       const mx = (x1 + x2) / 2
-      const w = label.length * 7.4 + 16, h = 20
+      const w = shown.length * 7.4 + 16, h = 20
       const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
       bg.setAttribute('x', mx - w / 2); bg.setAttribute('y', my - h / 2)
       bg.setAttribute('width', w); bg.setAttribute('height', h); bg.setAttribute('rx', 5)
@@ -1588,8 +1605,9 @@ function drawEdges() {
       svg.appendChild(bg)
       const t = document.createElementNS('http://www.w3.org/2000/svg', 'text')
       t.setAttribute('x', mx); t.setAttribute('y', my)
-      t.setAttribute('class', 'elabel'); t.textContent = label
+      t.setAttribute('class', 'elabel'); t.textContent = shown
       t.dataset.from = from; t.dataset.to = to
+      if (shown !== label) { const ttl = document.createElementNS('http://www.w3.org/2000/svg', 'title'); ttl.textContent = label; t.appendChild(ttl) }
       svg.appendChild(t)
     }
   }

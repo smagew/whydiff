@@ -91,6 +91,9 @@ These keys:
 - `edges`: array of `[fromPath, toPath, whyThisLinkExists]` triples. Direction:
   "a change in FROM required a change in TO". Include cross-service edges. Only
   edges whose label teaches the reviewer something; 0 is fine for trivial diffs.
+  The label is SHORT — a phrase of a few words that rides on the connector line
+  (`records the refund row`, `calls settlement after shipping`), never a sentence
+  or paragraph. Put the full reasoning in the files' explanations, not here.
 - `ops`: `{ "env": [{name, status: added|removed|changed, note}], "migrations": [],
   "deploy": [], "note" }`. Empty arrays are meaningful ("nothing changed") — keep
   them, and when emptiness is itself notable, explain in `note`.
