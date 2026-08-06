@@ -37,14 +37,19 @@ page.on('console', (m) => { if (m.type() === 'error') errors.push(`console: ${m.
 
 await page.goto('file://' + htmlPath)
 
-// The reference example predates the user-stories pass, so the tab must NOT be
-// there: an empty "nothing changed outside" pane would be a claim this run never
-// made. The second pass below covers the tab when the section is present.
+// The reference example predates the user-stories pass. The tab now STAYS in the
+// menu even when the pass has not run — opening it shows an explanation and (in
+// served mode) a Generate button, rather than vanishing. So the tab is present but
+// its pane is the lazy placeholder, not story cards.
 const tabs = await page.locator('#tabs .tab').count()
-if (tabs !== 6) fail(`expected 6 tabs on a map without userStories, got ${tabs}`)
+if (tabs !== 7) fail(`expected 7 tabs (stories stays as a placeholder), got ${tabs}`)
+await page.locator('#tabs .tab[data-pane="stories"]').click()
+await page.waitForTimeout(150)
+if ((await page.locator('#pane-stories .lazy').count()) !== 1) fail('ungenerated user-stories tab did not show the lazy placeholder')
 
-// Diagrams render lazily on first tab open.
-await page.locator('#tabs .tab').nth(1).click()
+// Diagrams render lazily on first tab open. Address by data-pane, not index: the
+// always-present stories tab now sits at index 1.
+await page.locator('#tabs .tab[data-pane="diagrams"]').click()
 await page.waitForSelector('#pane-diagrams svg', { timeout: 15000 })
 await page.waitForTimeout(400)
 
@@ -65,7 +70,7 @@ const dimmed = await page.locator('.node.dim').count()
 if (dimmed < 1) fail('scope filter did not dim non-matching file nodes')
 
 // Diagram pop-out: opens a standalone window with the rendered SVG.
-await page.locator('#tabs .tab').nth(1).click()
+await page.locator('#tabs .tab[data-pane="diagrams"]').click()
 const [popup] = await Promise.all([
   page.waitForEvent('popup'),
   page.locator('.diagram [data-pop]').first().click(),
@@ -136,5 +141,5 @@ if (errors2.length) fail('page errors (stories pass):\n' + errors2.join('\n'))
 if (errors.length) fail('page errors:\n' + errors.join('\n'))
 
 await browser.close()
-console.log(`OK: 6 tabs, ${clickable} clickable diagram nodes, node click opened ${insp.trim()}, ${scopeChips} scope chips (filter dims ${dimmed}), diagram pop-out works, no page errors`)
+console.log(`OK: 7 tabs (stories placeholder), ${clickable} clickable diagram nodes, node click opened ${insp.trim()}, ${scopeChips} scope chips (filter dims ${dimmed}), diagram pop-out works, no page errors`)
 console.log(`OK: user stories — 7 tabs, badge ${badge}, ${cards} cards sorted ${order.join('/')}, chip revealed inspector and opened ${insp2.trim()}`)

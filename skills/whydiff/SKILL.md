@@ -76,23 +76,33 @@ consult it before exploratory grepping.
 
 You are done reading: `timing.mjs log briefing_done --repo <repo>`.
 
-Spawn all five plugin agents IN ONE MESSAGE (they are independent), logging
+**Core by default; the rest are lazy.** A default run spawns only the two CORE
+agents — `classifier` and `diagrammer` — which give the reviewer Logic, Diagrams,
+Files and Ops (env). The three OPTIONAL passes — `standards-reviewer`,
+`tests-analyst`, `story-writer` — are NOT spawned by default: their tabs render as
+a one-line explanation with a **Generate** button that runs that pass on demand
+(served mode), and `merge.mjs` records which passes ran in the map's `generated`
+list. Spawn the optional passes up front ONLY when the user asked for a **full**
+report (words like "full", "everything", "all sections", or a `--full`/`full`
+argument to the skill). When in doubt, run core and say the rest are one click away.
+
+Spawn the chosen agents IN ONE MESSAGE (they are independent), logging
 `timing.mjs log agents_spawned --repo <repo>` right before the spawn message and
-`timing.mjs log agents_done --repo <repo>` in your first tool call after all
-five return. **Never skip `agents_done`** — without it the timing report cannot
+`timing.mjs log agents_done --repo <repo>` in your first tool call after they all
+return. **Never skip `agents_done`** — without it the timing report cannot
 separate agent time from your own, and 80% of the run becomes unattributable.
 
 **Every agent writes its own output file; you never retype an agent's answer.**
 Each returns one confirmation line, and `merge.mjs` reads the files. Retyping a
 150 KB answer into a file costs more wall-clock than the entire merge.
 
-| Agent | Writes (`OUT:`) | Contents |
-|---|---|---|
-| `whydiff:classifier` | `.whydiff/classifier.json` | `intent`, `attentionFiles`, `story`, `groups`, `files`, `edges`, `ops` |
-| `whydiff:diagrammer` | `.whydiff/diagrammer.json` | `diagrams` |
-| `whydiff:standards-reviewer` | `.whydiff/standards.json` | `standards`, `blastRadius` |
-| `whydiff:tests-analyst` | `.whydiff/tests.json` | `tests` |
-| `whydiff:story-writer` | `.whydiff/stories.json` | `userStories` |
+| Agent | Tier | Writes (`OUT:`) | Contents |
+|---|---|---|---|
+| `whydiff:classifier` | core | `.whydiff/classifier.json` | `intent`, `attentionFiles`, `story`, `groups`, `files`, `edges`, `ops` |
+| `whydiff:diagrammer` | core | `.whydiff/diagrammer.json` | `diagrams` |
+| `whydiff:standards-reviewer` | full only | `.whydiff/standards.json` | `standards`, `blastRadius` |
+| `whydiff:tests-analyst` | full only | `.whydiff/tests.json` | `tests` |
+| `whydiff:story-writer` | full only | `.whydiff/stories.json` | `userStories` |
 
 Each agent prompt MUST include:
 - `REPO: <absolute repo path>`

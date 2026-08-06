@@ -189,6 +189,12 @@
       }
     },
 
+    "generated": {
+      "type": "array",
+      "description": "Which optional passes actually ran (standards|tests|stories). Written by merge.mjs from which agent files existed; the viewer offers a Generate button for the rest and appends here on demand. Absent on pre-lazy maps (viewer falls back to key presence).",
+      "items": { "type": "string", "enum": ["standards", "tests", "stories"] }
+    },
+
     "manifest": {
       "type": "array",
       "description": "Каждый файл диффа: [путь, +, −, groupId, isNew]. Полнота проверяется скриптом против git diff --numstat (принцип 5).",
