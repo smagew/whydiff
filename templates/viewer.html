@@ -1,152 +1,273 @@
 <title>__TITLE__</title>
 <style>
+  /* ── tokens ────────────────────────────────────────────────────────────────
+     The only place hex may appear. Everything below refers to these by name.
+     Legacy names (--bg, --surface, --muted, --p1…) are kept as ALIASES so a
+     rule that has not been revisited still resolves to a token rather than to
+     an old hardcoded value. */
+  /* ── tokens ────────────────────────────────────────────────────────────────
+     The only place a hex may appear; tests/design.mjs fails the build otherwise.
+     Three palettes, exactly one of which ships — slate by default. Legacy names
+     (--bg, --surface, --muted, --p1…) are aliases so no rule can resolve to a
+     stale literal. */
+  :root, [data-p="slate"] {          /* slate — monochrome, one signal colour */
+    --canvas:#EEF0F2; --panel:#F8F9FA; --sunken:#E4E7EA;
+    --line:#D5D9DC;   --line-strong:#BEC3C8;
+    /* Spec value #15181B measures 15.6:1 on canvas and 16.9:1 on panel, above
+       the 10–14 ceiling §2 sets. #282D31 lands at 12.2 / 13.2. --mark keeps the
+       original value: it is a signal, not body text, so the ceiling is not its
+       constraint, and the two staying distinct is what makes weight read. */
+    --ink:#282D31;    --ink-2:#4A5054;  --ink-3:#5C6368;
+    --mark:#15181B;   --flag:#8A2B3D;   --flag-soft:#EFE3E5;
+    --add-bg:#E1E7EE; --add-edge:#3B5F87; --add-ink:#17324D;
+    --del-bg:#EFE3E5; --del-edge:#8A2B3D; --del-ink:#4A1620;
+    --mark-ink:#F8F9FA;
+  }
+  [data-p="graphite"] {              /* dark-first, brass */
+    --canvas:#14161A; --panel:#1E2126; --sunken:#0F1113;
+    --line:#31363D;   --line-strong:#454B53;
+    --ink:#DDE1E6;    --ink-2:#C3C9D0;  --ink-3:#8E969E;
+    --mark:#C9A227;   --flag:#D2635A;   --flag-soft:#2B1F1C;
+    --add-bg:#182530; --add-edge:#4F7EA8; --add-ink:#C3D7E8;
+    --del-bg:#2B1F1C; --del-edge:#A5634E; --del-ink:#E4C8BC;
+    --mark-ink:#14161A;
+  }
+  [data-p="bond"] {                  /* neutral near-white, plum */
+    --canvas:#FBFBF9; --panel:#FFFFFF; --sunken:#F0F0EE;
+    --line:#E2E2DF;   --line-strong:#C9C9C5;
+    /* #191919 measures 17.0:1 on canvas; #2F2F2E lands at 12.9 / 13.4. */
+    --ink:#2F2F2E;    --ink-2:#3D3D3B;  --ink-3:#62625F;
+    --mark:#5B2B4A;   --flag:#8F2A2A;   --flag-soft:#F5EAEA;
+    --add-bg:#EAEFF4; --add-edge:#3E6389; --add-ink:#17324D;
+    --del-bg:#F5EAEA; --del-edge:#8F2A2A; --del-ink:#4A1616;
+    --mark-ink:#FFFFFF;
+  }
+  /* quiet — what ships. One diff hue, and it sits on the side that was added.
+     A removed line is gone: it needs no colour of its own, and a plate behind
+     it competes with the added lines for the eye. Grey ink plus the strike the
+     rule already draws says it, and the page drops from two diff hues to one.
+     Values come from the palette, so quiet needs no hex and no per-palette
+     override. safe (blue/terracotta) and classic (red/green) stay opt-in. */
+  [data-diff="quiet"] {
+    --del-bg: transparent; --del-edge: var(--ink-3); --del-ink: var(--ink-3);
+  }
+  /* classic red/green is opt-in; safe blue/terracotta is the two-hue fallback */
+  [data-diff="classic"] {
+    --add-bg:#E3EFE4; --add-edge:#3F7A46; --add-ink:#1B3D1F;
+    --del-bg:#F6E5E3; --del-edge:#A44A40; --del-ink:#4A1C17;
+  }
+  [data-p="graphite"][data-diff="classic"] {
+    --add-bg:#1B2A1D; --add-edge:#5A8F60; --add-ink:#CADFCC;
+    --del-bg:#2B1F1C; --del-edge:#B0655C; --del-ink:#E8C8C3;
+  }
+
   :root {
-    --bg: #eef1f4; --surface: #ffffff; --surface-2: #f6f8fa; --ink: #1b232c;
-    --muted: #5b6874; --line: #d8dee5; --accent: #22697a; --accent-ink: #ffffff;
-    --p1: #b45309; --p1b: #fdf3e4;
-    --p2: #6d4fa8; --p2b: #f0ecf8;
-    --p3: #a84457; --p3b: #f9ebee;
-    --p4: #3f6ea5; --p4b: #edf3fa;
-    --p5: #b0246c; --p5b: #f9e9f1;
-    --p6: #4a7c59; --p6b: #ecf4ee;
-    --p7: #75708a; --p7b: #f0eff4;
-    --p8: #8a6a1f; --p8b: #f7f1e2;
-    --add: #1a7f37; --add-bg: #e2f2e6; --del: #b3392e; --del-bg: #f9e7e5;
-    --warn: #b45309; --warn-bg: #fdf3e4; --info: #3f6ea5; --info-bg: #edf3fa;
-    --ok: #1a7f37; --ok-bg: #e2f2e6;
-    --code-bg: #f2f4f7;
-    --shadow: 0 1px 2px rgba(20,30,40,.06), 0 4px 16px rgba(20,30,40,.07);
-    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
-    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #12161b; --surface: #1a2027; --surface-2: #20272f; --ink: #e6ebf0;
-      --muted: #97a4b0; --line: #303a44; --accent: #5fb3c4; --accent-ink: #0e1417;
-      --p1: #e0a355; --p1b: #2d2416;
-      --p2: #a893d6; --p2b: #241e30;
-      --p3: #d98a99; --p3b: #2c1d21;
-      --p4: #7ba7d4; --p4b: #1a2532;
-      --p5: #d77bab; --p5b: #2e1a25;
-      --p6: #8fb494; --p6b: #1c261e;
-      --p7: #a29cc0; --p7b: #221f2e;
-      --p8: #cbb26a; --p8b: #2a2414;
-      --add: #57ab5a; --add-bg: #17281a; --del: #e5726a; --del-bg: #301b19;
-      --warn: #e0a355; --warn-bg: #2d2416; --info: #7ba7d4; --info-bg: #1a2532;
-      --ok: #57ab5a; --ok-bg: #17281a;
-      --code-bg: #161c22;
-      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 4px 18px rgba(0,0,0,.35);
-    }
-  }
-  :root[data-theme="dark"] {
-    --bg: #12161b; --surface: #1a2027; --surface-2: #20272f; --ink: #e6ebf0;
-    --muted: #97a4b0; --line: #303a44; --accent: #5fb3c4; --accent-ink: #0e1417;
-    --p1: #e0a355; --p1b: #2d2416; --p2: #a893d6; --p2b: #241e30;
-    --p3: #d98a99; --p3b: #2c1d21; --p4: #7ba7d4; --p4b: #1a2532;
-    --p5: #d77bab; --p5b: #2e1a25; --p6: #8fb494; --p6b: #1c261e;
-    --p7: #a29cc0; --p7b: #221f2e; --p8: #cbb26a; --p8b: #2a2414;
-    --add: #57ab5a; --add-bg: #17281a; --del: #e5726a; --del-bg: #301b19;
-    --warn: #e0a355; --warn-bg: #2d2416; --info: #7ba7d4; --info-bg: #1a2532;
-    --ok: #57ab5a; --ok-bg: #17281a; --code-bg: #161c22;
-    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 4px 18px rgba(0,0,0,.35);
-  }
-  :root[data-theme="light"] {
-    --bg: #eef1f4; --surface: #ffffff; --surface-2: #f6f8fa; --ink: #1b232c;
-    --muted: #5b6874; --line: #d8dee5; --accent: #22697a; --accent-ink: #ffffff;
-    --p1: #b45309; --p1b: #fdf3e4; --p2: #6d4fa8; --p2b: #f0ecf8;
-    --p3: #a84457; --p3b: #f9ebee; --p4: #3f6ea5; --p4b: #edf3fa;
-    --p5: #b0246c; --p5b: #f9e9f1; --p6: #4a7c59; --p6b: #ecf4ee;
-    --p7: #75708a; --p7b: #f0eff4; --p8: #8a6a1f; --p8b: #f7f1e2;
-    --add: #1a7f37; --add-bg: #e2f2e6; --del: #b3392e; --del-bg: #f9e7e5;
-    --warn: #b45309; --warn-bg: #fdf3e4; --info: #3f6ea5; --info-bg: #edf3fa;
-    --ok: #1a7f37; --ok-bg: #e2f2e6; --code-bg: #f2f4f7;
-    --shadow: 0 1px 2px rgba(20,30,40,.06), 0 4px 16px rgba(20,30,40,.07);
+    /* Two families. No serif family is permitted anywhere in this file. */
+    --ui:   "Archivo", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+    --r-input: 3px; --r-overlay: 5px;
+    --t: 140ms ease-out;
+    --shadow-overlay: 0 8px 28px rgba(10,14,20,.22);
+    --measure: 64ch;
+
+    /* Group bands: tone only. A hue per group would be six more accents. */
+    --p1: var(--ink-2); --p1b: var(--sunken);
+    --p2: var(--ink-2); --p2b: var(--sunken);
+    --p3: var(--ink-2); --p3b: var(--sunken);
+    --p4: var(--ink-2); --p4b: var(--sunken);
+    --p5: var(--ink-2); --p5b: var(--sunken);
+    --p6: var(--ink-2); --p6b: var(--sunken);
+    --p7: var(--ink-2); --p7b: var(--sunken);
+    --p8: var(--ink-2); --p8b: var(--sunken);
+
+    /* aliases: old names, current values */
+    --bg: var(--canvas); --surface: var(--panel); --surface-2: var(--sunken);
+    --muted: var(--ink-2); --code-bg: var(--sunken);
+    --accent: var(--mark); --accent-bg: var(--sunken); --accent-ink: var(--mark-ink);
+    --accent-soft: var(--sunken);
+    --add: var(--add-edge); --del: var(--del-edge);
+    --ok: var(--mark); --ok-bg: var(--sunken);
+    --warn: var(--flag); --warn-bg: var(--flag-soft);
+    --flag-bg: var(--flag-soft);
+    --info: var(--ink-2); --info-bg: var(--sunken);
+    --shadow: none;
+    --font-ui: var(--ui); --font-mono: var(--mono); --font-prose: var(--ui);
+    --sans: var(--ui); --r-btn: 3px; --r-panel: 3px;
   }
 
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 15px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
-  .wrap { max-width: 1360px; margin: 0 auto; padding: 28px 24px 64px; }
+  body { margin: 0; background: var(--canvas); color: var(--ink); font-family: var(--font-ui); font-size: 14px;
+    line-height: 1.45; -webkit-font-smoothing: antialiased; font-variant-numeric: tabular-nums; }
+  .wrap { max-width: 1360px; margin: 0 auto; padding: 28px 24px 64px; position: relative; }
+  /* Quick palette switch — three swatches in the top-right corner, each painted in
+     its own palette's canvas + accent so it reads as a theme, not a button. */
+  .themepick { position: absolute; top: 24px; right: 24px; display: inline-flex; gap: 5px; z-index: 6; }
+  .themepick button { width: 20px; height: 20px; padding: 0; cursor: pointer; border-radius: 5px;
+    border: 1px solid var(--line); background: var(--sw-bg); position: relative; overflow: hidden;
+    transition: transform var(--t), box-shadow var(--t); }
+  .themepick button::after { content: ''; position: absolute; right: 3px; bottom: 3px;
+    width: 6px; height: 6px; border-radius: 50%; background: var(--sw-fg); }
+  .themepick button:hover { transform: translateY(-1px); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+  .themepick button.on { box-shadow: 0 0 0 1.5px var(--bg), 0 0 0 3px var(--accent); }
+  .themepick button:focus-visible { outline: 1.5px solid var(--accent); outline-offset: 2px; }
+  body.focus .themepick { display: none; }
 
-  .kicker { font-family: var(--mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); margin: 0 0 6px; }
-  h1 { margin: 0 0 4px; font-size: 26px; font-weight: 650; letter-spacing: -.015em; text-wrap: balance; }
-  .sub { margin: 0; color: var(--muted); max-width: 74ch; }
-  code { font-family: var(--mono); font-size: .88em; background: var(--code-bg); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
+  /* ── type ──────────────────────────────────────────────────────────────────
+     Two families only. Everything readable is --ui; code, paths, ids, labels and
+     numbers are --mono. Prose is separated from code by measure and leading,
+     never by a third family. */
+  .prose { font-size: 16px; line-height: 1.62; max-width: var(--measure); }
+  .prose code, .mono, code, pre { font-family: var(--font-mono); }
+  h1, h2, h3 { font-weight: 500; }
+  ::selection { background: var(--accent-bg); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: 3px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+  }
+
+  /* Human-written prose, wherever it appears: the causal story, the per-file
+     explanations, findings, stories, and the answers in a thread. */
+  .step-text, .branch, .why, .uwhy, .utext, .finding .fbody, .section-note,
+  .listcard li, .bwhy, .dk-a, .dk-q, .cap, .tests-note {
+    font-size: 15.5px; line-height: 1.6; }
+  .step-text, .why, .finding .fbody, .section-note, .bwhy { max-width: var(--measure); }
+  .step-text code, .branch code, .why code, .uwhy code, .finding code, .dk-a code,
+  .section-note code, .listcard li code, .bwhy code { font-family: var(--font-mono); font-size: 13px; }
+
+  /* ── reading session ───────────────────────────────────────────────────────
+     A 40-file review is several sittings, so progress, position and what has
+     already been read all survive a reload. */
+  .footstrip { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; display: flex; align-items: center; gap: 14px;
+    padding: 6px 16px; background: var(--panel); border-top: 1px solid var(--line); font-size: 13px; color: var(--ink-2); }
+  .footstrip .fs-bar { position: absolute; left: 0; top: -1px; height: 2px; background: var(--accent); transition: width var(--t); }
+  .footstrip .fs-keys { margin-left: auto; font-family: var(--mono); font-size: 13px; color: var(--ink-3); }
+  .footstrip kbd { font-family: var(--mono); font-size: 13px; border: 1px solid var(--line); border-radius: var(--r-input);
+    padding: 0 4px; background: var(--sunken); color: var(--ink-2); }
+  body.can-read .wrap { padding-bottom: 76px; }
+
+  .seen-btn { font: inherit; font-family: var(--font-mono); font-size: 13px; cursor: pointer; background: none;
+    border: 1px solid var(--line); border-radius: var(--r-input); color: var(--ink-3); padding: 0 5px; }
+  .seen-btn:hover { border-color: var(--line-strong); color: var(--ink-2); }
+  .seen-btn.on { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
+  .node.seen .mpath, .mrow.seen .mpath { color: var(--ink-3); }
+  .node.seen { background: var(--sunken); }
+  .cursor-here { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* focus mode: only the reading column */
+  body.focus .rail, body.focus .rightcol, body.focus .statbar, body.focus .scopebar { display: none !important; }
+  body.focus .wrap { max-width: 900px; }
+  body.focus .layout { grid-template-columns: minmax(0, 1fr) !important; }
+
+  .keysheet { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .keysheet td { padding: 3px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .keysheet td:first-child { width: 88px; font-family: var(--mono); color: var(--ink-2); white-space: nowrap; }
+  .setrow { display: flex; align-items: center; gap: 8px; margin: 12px 0 0; font-size: 13px; color: var(--ink-2); }
+  .setrow .seg { display: inline-flex; border: 1px solid var(--line); border-radius: var(--r-btn); overflow: hidden; }
+  .setrow .seg button { font: inherit; font-size: 13px; cursor: pointer; border: none; background: var(--panel);
+    color: var(--ink-2); padding: 3px 10px; border-left: 1px solid var(--line); }
+  .setrow .seg button:first-child { border-left: none; }
+  .setrow .seg button.on { background: var(--accent); color: var(--accent-ink); }
+
+  .kicker { font-family: var(--mono); font-size: 13px;  color: var(--ink-3); margin: 0 0 6px; }
+  h1 { margin: 0 0 4px; font-size: 22px; font-weight: 500; letter-spacing: -.01em; text-wrap: balance; }
+  .sub { margin: 0; color: var(--ink-2); font-size: 16px; line-height: 1.62; max-width: var(--measure); }
+  code { font-family: var(--mono); font-size: .92em; background: none; border: none; padding: 0; color: inherit; }
 
   .statbar { display: flex; flex-wrap: wrap; gap: 10px; margin: 20px 0 12px; }
-  .scopebar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 22px; }
-  .scope-chip { font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; border: 1px solid var(--line); border-radius: 99px; padding: 3px 12px; background: var(--surface); color: var(--ink); transition: border-color .12s, background .12s; }
-  .scope-chip .cnt { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-left: 4px; }
-  .scope-chip:hover { border-color: var(--accent); }
+  .scopebar { display: flex; flex-wrap: wrap; gap: 2px 6px; align-items: center; margin: 0 0 16px; }
+  /* Scope and language are context, not navigation. Boxing them made two rows of
+     buttons that outweighed the tab strip underneath — the one thing on this screen
+     that must read as primary. They are plain text now; only a chosen filter gets
+     ink, because that is a state the reader has to see. */
+  .scope-chip { font: inherit; font-size: 13px; cursor: pointer; border: none; border-radius: 3px;
+    padding: 1px 4px; background: none; color: var(--ink-2); transition: color var(--t); }
+  .scope-chip .cnt { font-family: var(--mono); font-size: 13px; color: var(--ink-3); margin-left: 3px; }
+  .scope-chip:hover { color: var(--accent); }
   .scope-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-  .scope-chip.active { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
-  .scope-chip.active .cnt { color: var(--accent-ink); opacity: .8; }
-  .scope-sep { width: 1px; height: 18px; background: var(--line); margin: 0 2px; }
-  .lang-chip { display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 11px; color: var(--muted); border: 1px dashed var(--line); border-radius: 99px; padding: 2.5px 10px; }
-  .ldot { display: inline-block; width: 8px; height: 8px; border-radius: 99px; flex: none; }
+  .scope-chip.active { color: var(--accent); box-shadow: inset 0 -2px 0 var(--accent); }
+  .scope-chip.active .cnt { color: var(--accent); }
+  .scope-sep { width: 1px; height: 13px; background: var(--line); margin: 0 4px; }
+  .lang-chip { display: inline-flex; align-items: center; gap: 5px; font-family: var(--mono); font-size: 13px; color: var(--ink-3); border: none; padding: 1px 2px; }
+  .ldot { display: inline-block; width: 8px; height: 8px; border-radius: 3px; flex: none; }
   .node .ldot { width: 7px; height: 7px; margin-right: 6px; position: relative; top: -0.5px; }
   .node.dim { opacity: .3; }
-  .stat { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 16px; box-shadow: var(--shadow); min-width: 118px; }
-  .stat b { display: block; font-size: 20px; font-weight: 650; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
-  .stat span { font-size: 12.5px; color: var(--muted); }
+  .stat { background: var(--surface); border: 1px solid var(--line); border-radius: 3px; padding: 10px 16px; min-width: 118px; }
+  .stat b { display: block; font-size: 20px; font-weight: 500; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+  .stat span { font-size: 13px; color: var(--muted); }
   .stat.hl { border-color: var(--accent); }
   .stat.hl b { color: var(--accent); }
 
   .layout { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(340px, 1fr); gap: 20px; align-items: start; }
   @media (max-width: 960px) { .layout { grid-template-columns: 1fr; } }
+  /* The right column costs ~40% of the width but is only written to from the
+     Logic, Diagrams and Files tabs. On the prose tabs it would sit on its idle
+     legend, so it collapses and the pane gets the full width instead — unless a
+     chat is open, which claims the column on every tab. */
+  .layout.solo { grid-template-columns: minmax(0, 1fr); }
+  .layout.solo > .rightcol { display: none; }
+  .layout.chatting { grid-template-columns: minmax(0, 1fr) minmax(430px, 0.92fr); }
+  .layout.chatting.solo { grid-template-columns: minmax(0, 1fr) minmax(430px, 0.92fr); }
+  .layout.chatting.solo > .rightcol { display: block; }
+  .layout.chatting > .rightcol > .inspector { display: none; }
+  /* .layout sets align-items:start, which would size this column to its content
+     and leave a sticky child no room to travel — the panel would scroll away. */
+  .rightcol { align-self: stretch; min-width: 0; }
 
-  .main-panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); padding: 18px; position: relative; }
+  .main-panel { background: var(--surface); border: 1px solid var(--line); border-radius: 3px; padding: 18px; position: relative; }
   .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 16px; }
-  .tab { font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; border-radius: 7px; padding: 6px 13px; border: 1px solid var(--line); background: var(--surface-2); color: var(--muted); transition: background .12s, border-color .12s, color .12s; }
+  .tab { font: inherit; font-size: 13px; font-weight: 500; cursor: pointer; border-radius: 3px; padding: 6px 13px; border: 1px solid var(--line); background: var(--surface-2); color: var(--muted); transition: background var(--t), border-color var(--t), color var(--t); }
   .tab:hover { border-color: var(--accent); }
   .tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .tab.active { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
-  .tab .cnt { font-family: var(--mono); font-size: 11px; opacity: .75; margin-left: 4px; }
-  .help-btn { margin-left: auto; flex: none; width: 28px; height: 28px; align-self: center; border-radius: 99px; border: 1px solid var(--line); background: var(--surface-2); color: var(--muted); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; transition: border-color .12s, color .12s; }
+  .tab .cnt { font-family: var(--mono); font-size: 13px; opacity: .75; margin-left: 4px; }
+  .help-btn { margin-left: auto; flex: none; width: 28px; height: 28px; align-self: center; border-radius: 3px; border: 1px solid var(--line); background: var(--surface-2); color: var(--muted); font: inherit; font-size: 13px; font-weight: 500; cursor: pointer; transition: border-color var(--t), color var(--t); }
   .help-btn:hover { border-color: var(--accent); color: var(--accent); }
   .help-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .glegend { margin: 0 0 14px; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 2px; }
-  .gleg-row { display: flex; align-items: baseline; gap: 8px; width: 100%; font: inherit; font-size: 13px; background: none; border: none; padding: 4px 6px; margin: 0 -6px; border-radius: 6px; cursor: pointer; color: inherit; text-align: left; }
+  .gleg-row { display: flex; align-items: baseline; gap: 8px; width: 100%; font: inherit; font-size: 13px; background: none; border: none; padding: 4px 6px; margin: 0 -6px; border-radius: 3px; cursor: pointer; color: inherit; text-align: left; }
   .gleg-row:hover { background: var(--surface-2); }
   .gleg-row:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-  .gleg-row .dot { flex: none; width: 8px; height: 8px; border-radius: 99px; position: relative; top: -1px; }
-  .gleg-row .gleg-role { color: var(--muted); font-size: 12px; }
+  .gleg-row .dot { flex: none; width: 8px; height: 8px; border-radius: 3px; position: relative; top: -1px; }
+  .gleg-row .gleg-role { color: var(--muted); font-size: 13px; }
   .linklike { background: none; border: none; padding: 0; font: inherit; font-size: inherit; color: var(--accent); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
   .linklike:hover { filter: brightness(1.15); }
   #helpBody { padding: 14px 18px 18px; font-size: 13.5px; }
   #helpBody p { margin: 0 0 12px; }
 
-  .pane-hint { color: var(--muted); font-size: 12.5px; margin: -6px 0 14px; }
+  .pane-hint { color: var(--muted); font-size: 13px; margin: -6px 0 14px; }
 
   /* story */
   .story { display: flex; flex-direction: column; }
-  .step { border: 1.5px solid var(--sc, var(--line)); border-radius: 10px; background: color-mix(in srgb, var(--sb, var(--surface-2)) 45%, var(--surface)); padding: 12px 14px; }
-  .step-label { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--sc); font-weight: 700; margin: 0 0 4px; }
+  .step { border: 1.5px solid var(--sc, var(--line)); border-radius: 3px; background: color-mix(in srgb, var(--sb, var(--surface-2)) 45%, var(--surface)); padding: 12px 14px; }
+  .step-label { font-family: var(--mono); font-size: 13px;  color: var(--sc); font-weight: 500; margin: 0 0 4px; }
   .step-text { font-size: 14px; margin: 0; }
   .branches { display: grid; gap: 6px; margin: 10px 0 0; }
-  .branch { border-left: 3px solid var(--sc); border-radius: 0 6px 6px 0; background: var(--surface-2); padding: 5px 11px; font-size: 12.5px; }
-  .branch b { font-family: var(--mono); font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--sc); margin-right: 6px; }
+  .branch { border-left: 3px solid var(--sc); border-radius: 0 3px 3px 0; background: var(--surface-2); padding: 5px 11px; font-size: 13px; }
+  .branch b { font-family: var(--mono); font-size: 13px;  color: var(--sc); margin-right: 6px; }
   .step-files { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 0; }
-  .fchip { font: inherit; font-family: var(--mono); font-size: 11px; cursor: pointer; border: 1px solid var(--line); border-radius: 99px; padding: 2.5px 10px; background: var(--surface); color: var(--ink); transition: border-color .12s, transform .12s; }
+  .fchip { font: inherit; font-family: var(--mono); font-size: 13px; cursor: pointer; border: 1px solid var(--line); border-radius: 3px; padding: 2.5px 10px; background: var(--surface); color: var(--ink); transition: border-color var(--t), transform var(--t); }
   .fchip:hover { border-color: var(--sc, var(--accent)); transform: translateY(-1px); }
   .fchip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-  .fchip .dot { display: inline-block; width: 7px; height: 7px; border-radius: 99px; margin-right: 6px; background: var(--sc, var(--accent)); }
-  .link-row { display: flex; gap: 9px; align-items: baseline; color: var(--muted); font-size: 12.5px; font-style: italic; padding: 7px 4px 7px 18px; position: relative; }
+  .fchip .dot { display: inline-block; width: 7px; height: 7px; border-radius: 3px; margin-right: 6px; background: var(--sc, var(--accent)); }
+  .link-row { display: flex; gap: 9px; align-items: baseline; color: var(--muted); font-size: 13px; font-style: italic; padding: 7px 4px 7px 18px; position: relative; }
   .link-row::before { content: ''; position: absolute; left: 24px; top: 0; bottom: 0; width: 2px; background: var(--line); }
   .link-row .la { font-style: normal; color: var(--accent); position: relative; z-index: 1; background: var(--surface); padding: 0 1px; margin-left: 1px; }
 
   /* diagrams */
-  .diagram { border: 1px solid var(--line); border-radius: 10px; padding: 14px; margin: 0 0 16px; background: var(--surface); }
-  .diagram h3 { margin: 0 0 2px; font-size: 15px; font-weight: 650; }
+  .diagram { border: 1px solid var(--line); border-radius: 3px; padding: 14px; margin: 0 0 16px; background: var(--surface); }
+  .diagram h3 { margin: 0 0 2px; font-size: 15px; font-weight: 500; }
   .dg-head { display: flex; align-items: baseline; gap: 10px; }
   .dg-head h3 { flex: 1; min-width: 0; }
   .dg-actions { display: flex; gap: 6px; flex: none; }
-  .dg-btn { width: 28px; height: 28px; border-radius: 7px; border: 1px solid var(--line); background: var(--surface-2); color: var(--muted); font-size: 14px; line-height: 1; cursor: pointer; transition: border-color .12s, color .12s; }
+  .dg-btn { width: 28px; height: 28px; border-radius: 3px; border: 1px solid var(--line); background: var(--surface-2); color: var(--muted); font-size: 14px; line-height: 1; cursor: pointer; transition: border-color var(--t), color var(--t); }
   .dg-btn:hover { border-color: var(--accent); color: var(--accent); }
   .dg-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .mermaid-box:fullscreen { background: var(--bg); display: grid; place-items: center; overflow: auto; padding: 24px; }
   .mermaid-box:fullscreen svg { max-width: 96vw !important; width: 96vw; height: auto; }
-  .diagram .cap { margin: 0 0 10px; font-size: 12.5px; color: var(--muted); }
-  .diagram .mermaid-box { overflow-x: auto; background: var(--surface-2); border-radius: 8px; padding: 10px; }
+  .diagram .cap { margin: 0 0 10px; font-size: 13px; color: var(--muted); }
+  .diagram .mermaid-box { overflow-x: auto; background: var(--surface-2); border-radius: 3px; padding: 10px; }
   pre.mermaid { margin: 0; text-align: center; }
   .mermaid-box .clickable { cursor: pointer; }
   .mermaid-box .clickable:hover { opacity: .75; }
@@ -155,126 +276,460 @@
   /* map (files tab) */
   #map { position: relative; }
   #edges { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; z-index: 2; }
-  #edges path { fill: none; stroke: var(--ec, var(--muted)); stroke-width: 1.6; opacity: 0; transition: opacity .15s, stroke-width .15s; }
+  #edges path { fill: none; stroke: var(--ec, var(--muted)); stroke-width: 1.6; opacity: 0; transition: opacity var(--t), stroke-width var(--t); }
   #edges.all path { opacity: .3; }
   #edges path.on { opacity: 1; stroke-width: 2.6; }
-  #edges .arrow { fill: var(--ec, var(--muted)); opacity: 0; transition: opacity .15s; }
+  #edges .arrow { fill: var(--ec, var(--muted)); opacity: 0; transition: opacity var(--t); }
   #edges.all .arrow { opacity: .4; }
   #edges .arrow.on { opacity: 1; }
   .groups { display: flex; flex-direction: column; gap: 20px; position: relative; z-index: 1; }
-  .group { border: 1.5px solid var(--gc, var(--line)); border-radius: 10px; background: color-mix(in srgb, var(--gbg, var(--surface-2)) 55%, var(--surface)); padding: 12px 14px 14px; }
+  .group { border: 1.5px solid var(--gc, var(--line)); border-radius: 3px; background: color-mix(in srgb, var(--gbg, var(--surface-2)) 55%, var(--surface)); padding: 12px 14px 14px; }
   .group.collapsed { padding-bottom: 12px; }
   .group.collapsed .nodes { display: none; }
   .group-row { display: flex; align-items: center; gap: 6px; margin: 0 0 10px; }
   .group.collapsed .group-row { margin-bottom: 0; }
-  .fold { flex: none; width: 26px; height: 26px; border-radius: 6px; border: 1px solid transparent; background: none; cursor: pointer; color: var(--gc); font-size: 12px; display: grid; place-items: center; transition: transform .15s, background .12s; }
+  .fold { flex: none; width: 26px; height: 26px; border-radius: 3px; border: 1px solid transparent; background: none; cursor: pointer; color: var(--gc); font-size: 13px; display: grid; place-items: center; transition: transform var(--t), background var(--t); }
   .fold:hover { background: color-mix(in srgb, var(--gc) 14%, transparent); }
   .fold:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .group.collapsed .fold { transform: rotate(-90deg); }
-  .group-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; flex: 1; min-width: 0; background: none; border: none; padding: 4px 6px; margin: -4px 0; border-radius: 8px; cursor: pointer; text-align: left; color: inherit; font: inherit; }
+  .group-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; flex: 1; min-width: 0; background: none; border: none; padding: 4px 6px; margin: -4px 0; border-radius: 3px; cursor: pointer; text-align: left; color: inherit; font: inherit; }
   .group-head:hover, .group-head:focus-visible { background: color-mix(in srgb, var(--gc) 12%, transparent); }
   .group-head:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-  .group-tag { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--gc); font-weight: 700; }
-  .group-name { font-weight: 650; font-size: 14.5px; }
-  .group-hint { color: var(--muted); font-size: 12.5px; margin-left: auto; }
+  .group-tag { font-family: var(--mono); font-size: 13px;  color: var(--gc); font-weight: 500; }
+  .group-name { font-weight: 500; font-size: 14.5px; }
+  .group-hint { color: var(--muted); font-size: 13px; margin-left: auto; }
   .nodes { display: flex; flex-wrap: wrap; gap: 10px; }
-  .node { display: flex; flex-direction: column; gap: 3px; align-items: stretch; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px 10px; cursor: pointer; font: inherit; color: inherit; text-align: left; max-width: 320px; transition: border-color .12s, transform .12s, box-shadow .12s; }
-  .node:hover { border-color: var(--gc); transform: translateY(-1px); box-shadow: var(--shadow); }
+  .node { display: flex; flex-direction: column; gap: 3px; align-items: stretch; background: var(--surface); border: 1px solid var(--line); border-radius: 3px; padding: 9px 12px 10px; cursor: pointer; font: inherit; color: inherit; text-align: left; max-width: 320px; transition: border-color var(--t), transform var(--t); }
+  .node:hover { border-color: var(--gc); transform: translateY(-1px); }
   .node:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-  .node.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), var(--shadow); }
+  .node.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
   .node-top { display: flex; align-items: baseline; gap: 8px; }
-  .node .fname { font-family: var(--mono); font-size: 12.5px; font-weight: 600; overflow-wrap: anywhere; }
-  .node .fstat { font-family: var(--mono); font-size: 11px; font-variant-numeric: tabular-nums; margin-left: auto; white-space: nowrap; }
+  .node .fname { font-family: var(--mono); font-size: 13px; font-weight: 500; overflow-wrap: anywhere; }
+  .node .fstat { font-family: var(--mono); font-size: 13px; font-variant-numeric: tabular-nums; margin-left: auto; white-space: nowrap; }
   .a { color: var(--add); } .d { color: var(--del); }
   .node-meta { display: flex; align-items: center; gap: 8px; }
-  .svc { font-family: var(--mono); font-size: 9.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); border: 1px solid var(--line); border-radius: 99px; padding: 0 7px; }
-  .node .frole { font-size: 11.5px; color: var(--muted); }
-  .fprev { margin-top: 5px; border-radius: 6px; background: var(--code-bg); border: 1px solid var(--line); padding: 4px 0; overflow: hidden; }
-  .fprev .cl { font-size: 10.5px; line-height: 1.5; padding: 0 8px; overflow: hidden; text-overflow: ellipsis; max-width: 292px; }
-  .toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); cursor: pointer; user-select: none; }
+  .svc { font-family: var(--mono); font-size: 13px; font-weight: 500;  color: var(--muted); border: 1px solid var(--line); border-radius: 3px; padding: 0 7px; }
+  .node .frole { font-size: 13px; color: var(--muted); }
+  .fprev { margin-top: 5px; border-radius: 3px; background: var(--code-bg); border: 1px solid var(--line); padding: 4px 0; overflow: hidden; }
+  .fprev .cl { font-size: 13px; line-height: 1.5; padding: 0 8px; overflow: hidden; text-overflow: ellipsis; max-width: 292px; }
+  .toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); cursor: pointer; user-select: none; }
   .toggle input { accent-color: var(--accent); cursor: pointer; }
   .files-hint { display: flex; gap: 14px; align-items: baseline; flex-wrap: wrap; margin: 0 0 12px; }
 
   .manifest { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 10px; }
-  .manifest summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--muted); }
+  .manifest summary { cursor: pointer; font-size: 13px; font-weight: 500; color: var(--muted); }
   .manifest summary:hover { color: var(--ink); }
   .manifest[open] summary { margin-bottom: 8px; }
-  .mrow { display: flex; gap: 10px; align-items: baseline; width: 100%; font-family: var(--mono); font-size: 12px; padding: 3.5px 4px; background: none; border: none; cursor: pointer; color: inherit; text-align: left; border-radius: 6px; }
+  .mrow { display: flex; gap: 10px; align-items: baseline; width: 100%; font-family: var(--mono); font-size: 13px; padding: 3.5px 4px; background: none; border: none; cursor: pointer; color: inherit; text-align: left; border-radius: 3px; }
   .mrow:hover { background: var(--surface-2); }
   .mrow:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-  .mrow .dot { flex: none; width: 8px; height: 8px; border-radius: 99px; background: var(--mc, var(--line)); position: relative; top: -1px; }
+  .mrow .dot { flex: none; width: 8px; height: 8px; border-radius: 3px; background: var(--mc, var(--line)); position: relative; top: -1px; }
   .mrow .mpath { flex: 1; min-width: 0; overflow-wrap: anywhere; }
   .mrow .mstat { white-space: nowrap; font-variant-numeric: tabular-nums; }
-  .mrow .mnew { color: var(--add); font-size: 10.5px; }
+  .mrow .mnew { color: var(--add); font-size: 13px; }
 
   /* standards */
-  .finding { display: flex; gap: 12px; align-items: flex-start; border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin: 0 0 10px; background: var(--surface); }
-  .sev { flex: none; font-family: var(--mono); font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; border-radius: 99px; padding: 2px 10px; position: relative; top: 2px; }
-  .sev.warn { background: var(--warn-bg); color: var(--warn); }
-  .sev.info { background: var(--info-bg); color: var(--info); }
-  .sev.ok { background: var(--ok-bg); color: var(--ok); }
+  .finding { display: flex; gap: 12px; align-items: flex-start; border: 1px solid var(--line); border-radius: 3px; padding: 12px 14px; margin: 0 0 10px; background: var(--surface); }
+  .sev { flex: none; font-family: var(--mono); font-size: 13px; font-weight: 500;  border-radius: 3px; padding: 2px 10px; position: relative; top: 2px; }
+  .sev.warn { background: var(--flag-bg); color: var(--flag); }
+  .sev.info { background: var(--sunken); color: var(--ink-2); }
+  .sev.ok { background: var(--accent-bg); color: var(--accent); }
   .finding .fbody { min-width: 0; font-size: 13.5px; }
-  .finding .floc { margin-top: 4px; font-size: 12px; }
-  .finding .fpattern { margin-top: 4px; font-size: 12px; color: var(--muted); }
-  .loclink { font: inherit; font-family: var(--mono); font-size: 12px; font-weight: 600; background: none; border: none; padding: 0; cursor: pointer; color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+  .finding .floc { margin-top: 4px; font-size: 13px; }
+  .finding .fpattern { margin-top: 4px; font-size: 13px; color: var(--muted); }
+  .loclink { font: inherit; font-family: var(--mono); font-size: 13px; font-weight: 500; background: none; border: none; padding: 0; cursor: pointer; color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
   .loclink:hover { filter: brightness(1.15); }
 
   /* tests / ops / blast */
   .cols2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
   @media (max-width: 760px) { .cols2 { grid-template-columns: 1fr; } }
-  .listcard { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; background: var(--surface); }
-  .listcard h3 { margin: 0 0 8px; font-size: 14px; font-weight: 650; }
-  .listcard h3 .cnt { font-family: var(--mono); font-size: 12px; color: var(--muted); font-weight: 600; }
+  /* ── ask: present only when served by scripts/serve.mjs ────────────────────
+     Everything here stays display:none until the page finds an injected token,
+     so the assembled file and the published artifact show no dead controls. */
+  .askable { position: relative; }
+  .askbtn { position: absolute; top: 6px; right: 6px; z-index: 3; display: none; align-items: center; gap: 4px;
+    font: inherit; font-size: 13px; font-weight: 500; cursor: pointer; border-radius: 3px; padding: 1px 9px;
+    border: 1px solid var(--line); background: var(--surface); color: var(--muted); opacity: 0; transition: opacity var(--t); }
+  body.can-ask .askbtn { display: inline-flex; }
+  .askable:hover > .askbtn, .askbtn:focus-visible, .askbtn.has { opacity: 1; }
+  .askbtn:hover { border-color: var(--accent); color: var(--accent); }
+  .askbtn.has { border-color: var(--accent); color: var(--accent); background: var(--surface-2); }
+  .step.picked, .ustory.picked { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .asksel { position: absolute; z-index: 40; display: none; font: inherit; font-size: 13px; font-weight: 500;
+    cursor: pointer; border-radius: 3px; padding: 4px 12px; border: 1px solid var(--accent);
+    background: var(--accent); color: var(--accent-ink); }
+  .askbar { position: fixed; left: 50%; transform: translateX(-50%); bottom: 18px; z-index: 45; display: none;
+    align-items: center; gap: 10px; background: var(--surface); border: 1px solid var(--accent); border-radius: 3px;
+    padding: 7px 8px 7px 16px; font-size: 13px; }
+  .askbar.on { display: flex; }
+
+  /* markers: a comment pin that stays put, the way a Notion comment does */
+  .askmark { position: absolute; top: 6px; right: 6px; z-index: 4; display: none; align-items: center; justify-content: center;
+    min-width: 20px; height: 20px; padding: 0 6px; font-family: var(--mono); font-size: 13px; font-weight: 500; cursor: pointer;
+    border-radius: 3px; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); }
+  body.can-ask .askmark { display: inline-flex; }
+  .askmark.dim { background: var(--surface); color: var(--accent); }
+  .dg-actions .askmark { position: static; }
+  .askmark:hover { filter: brightness(1.08); }
+  /* a question asked on selected text keeps the text highlighted, with the pin inline */
+  .askquote { background: var(--flag-bg); border-bottom: 1px solid var(--flag); }
+  .askpin { display: inline-flex; align-items: center; justify-content: center; vertical-align: super;
+    min-width: 15px; height: 15px; margin-left: 2px; padding: 0 4px; font-family: var(--mono); font-size: 13px; font-weight: 500;
+    cursor: pointer; border-radius: 3px; border: none; background: var(--flag); color: var(--accent-ink); }
+
+  /* Book bookmarks: positioned in DOCUMENT coordinates, so each one stays beside
+     its own content and scrolls away with it. Pinning them to the viewport made
+     them drift against the text they belong to, which read as broken. */
+  .rail { position: absolute; left: 0; top: 0; width: 30px; z-index: 35; display: none; pointer-events: none; }
+  body.can-ask .rail.on { display: block; }
+  /* Reserve a margin for the bookmarks so they never sit on top of the text —
+     on a narrow window the content column otherwise reaches the left edge. */
+  body.has-marks .wrap { padding-left: 62px; }
+  .rail .bm { position: absolute; left: 0; pointer-events: auto; display: flex; align-items: center; gap: 4px;
+    height: 21px; padding: 0 7px 0 5px; font-family: var(--mono); font-size: 13px; font-weight: 500; cursor: pointer;
+    border: 1px solid var(--line); border-left: none; border-radius: 0 3px 3px 0; background: var(--surface); color: var(--muted);
+     transition: transform var(--t), background var(--t), color var(--t); white-space: nowrap; }
+  .rail .bm:hover, .rail .bm.here { transform: translateX(3px); background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  /* questions living on another tab are counted on that tab's button instead */
+  .tab .qcnt { display: inline-flex; align-items: center; justify-content: center; min-width: 15px; height: 15px;
+    margin-left: 5px; padding: 0 4px; border-radius: 3px; background: var(--accent); color: var(--accent-ink);
+    font-family: var(--mono); font-size: 13px; font-weight: 500; }
+
+  /* chat: a full-height panel in the right column, sharing it with the inspector */
+  .askpanel { display: none; flex-direction: column; position: sticky; top: 16px; max-height: calc(100vh - 32px);
+    background: var(--surface); border: 1px solid var(--line); border-radius: 3px; overflow: hidden; }
+  .askpanel.on { display: flex; }
+  .askpanel .dk-head { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line); background: var(--surface-2); }
+  .askpanel .dk-head b { font-size: 13px; font-weight: 500; }
+  .askpanel .dk-head .grow { flex: 1; }
+  .askpanel .dk-btn { font: inherit; font-size: 13px; cursor: pointer; border: 1px solid var(--line); background: var(--surface);
+    color: var(--muted); border-radius: 3px; padding: 2px 8px; }
+  .askpanel .dk-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .askpanel .dk-x { font: inherit; font-size: 15px; line-height: 1; cursor: pointer; border: none; background: none; color: var(--muted); padding: 2px 4px; }
+  .askpanel .dk-anchor { font-family: var(--mono); font-size: 13px; color: var(--muted); padding: 8px 12px 0; overflow-wrap: anywhere; }
+  .askpanel .dk-quote { margin: 6px 12px 0; padding: 6px 10px; border-left: 2px solid var(--flag); background: var(--surface-2);
+    font-size: 13px; color: var(--muted); max-height: 90px; overflow: auto; white-space: pre-wrap; }
+  .askpanel .dk-threads { flex: 1; overflow-y: auto; padding: 10px 12px 0; min-height: 120px; }
+  .askpanel .dk-t { border-top: 1px dashed var(--line); padding: 10px 0 2px; }
+  .askpanel .dk-t:first-child { border-top: none; }
+  .askpanel .dk-q { font-size: 13px; font-weight: 500; background: var(--surface-2); border-radius: 3px; padding: 7px 10px; }
+  /* an instruction is a different speech act from a question, and a thread with
+     both in it has to be scannable */
+  .askpanel .dk-q .kq { font-family: var(--mono); font-size: 13px; font-weight: 400; color: var(--ink-3);
+    border: 1px solid var(--line-strong); border-radius: 3px; padding: 0 4px; margin-right: 6px; }
+  .askpanel .dk-a { font-size: 13.5px; margin-top: 7px; overflow-wrap: anywhere; }
+  /* an error is not a deletion: it takes --flag, so it keeps its voice when the
+     del side goes grey under the quiet diff palette */
+  .askpanel .dk-err { color: var(--flag); font-size: 13px; margin-top: 6px; }
+  .askpanel .dk-form { border-top: 1px solid var(--line); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+  .askpanel textarea { font: inherit; font-size: 13px; resize: vertical; min-height: 66px; max-height: 40vh; border-radius: 3px;
+    border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); padding: 8px 10px; }
+  .askpanel textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .askpanel .dk-row { display: flex; align-items: center; gap: 8px; }
+  .askpanel .dk-hint { flex: 1; font-size: 13px; color: var(--muted); }
+
+  /* ask vs instruct: one segmented control, because they are two things to say
+     about the same place — not two panels */
+  .askpanel .dk-mode { display: inline-flex; align-self: flex-start; border: 1px solid var(--line); border-radius: 3px; overflow: hidden; }
+  .askpanel .dk-mode button { font: inherit; font-size: 13px; cursor: pointer; border: none; background: var(--surface-2);
+    color: var(--muted); padding: 3px 10px; }
+  .askpanel .dk-mode button + button { border-left: 1px solid var(--line); }
+  .askpanel .dk-mode button.on { background: var(--surface); color: var(--ink); font-weight: 500; box-shadow: inset 0 -2px 0 var(--accent); }
+  /* a plan is structure the reviewer decides on, so it reads as fields, not prose */
+  .dk-plan { margin-top: 8px; border: 1px solid var(--line); border-radius: 3px; background: var(--surface-2); padding: 8px 10px; font-size: 13px; }
+  .dk-plan dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 8px; margin: 0; }
+  .dk-plan dt { color: var(--ink-3); white-space: nowrap; }
+  .dk-plan dd { margin: 0; overflow-wrap: anywhere; }
+  .dk-plan .dk-ask { color: var(--flag); }
+  .dk-acts { display: flex; gap: 8px; margin-top: 8px; align-items: center; }
+  .dk-note { font-size: 13px; color: var(--muted); margin-top: 8px; }
+  .dk-task { display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 13px; }
+  /* a task's state, wherever it is shown: in a thread or on the Tasks tab */
+  .st { font-family: var(--mono); font-size: 13px; border: 1px solid var(--accent); color: var(--accent);
+    border-radius: 3px; padding: 1px 6px; white-space: nowrap; }
+  .st.done, .st.verified { border-color: var(--add); color: var(--add); }
+  .st.declined { border-color: var(--line-strong); color: var(--muted); }
+  .st.proposed { border-color: var(--line-strong); color: var(--ink-2); }
+
+  /* ── Tasks tab ──────────────────────────────────────────────────────────────
+     A queue in the reading column: the state leads each card, the left rule
+     carries whether it blocks, and nothing is boxed inside anything. */
+  /* ── the review destination ─────────────────────────────────────────────────
+     Two jobs, two modes: the report (what the change means) and the review (what
+     is still unsettled). They are peers, not tabs of one page, so they sit ABOVE
+     the report's sub-tabs as a segmented switch — the shape naturally asks for it. */
+  .modebar { display: inline-flex; gap: 2px; margin: 0 0 14px; padding: 3px;
+    background: var(--sunken); border-radius: 4px; }
+  .modetab { font: inherit; font-size: 14px; font-weight: 500; cursor: pointer;
+    border: none; background: none; color: var(--ink-3); border-radius: 3px; padding: 6px 15px;
+    display: inline-flex; align-items: center; gap: 7px;
+    transition: background var(--t), color var(--t); }
+  .modetab:hover { color: var(--ink); }
+  .modetab.active { background: var(--surface); color: var(--ink); }
+  .modetab:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .modetab .cnt { font-family: var(--mono); font-size: 13px; font-weight: 500; color: var(--flag);
+    background: var(--flag-soft); border-radius: 3px; padding: 1px 7px; min-width: 8px; text-align: center; }
+  .modetab .cnt:empty { display: none; }
+  body.reviewing #tabs { display: none; }
+  .tkhead-row { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin: 0 0 10px; }
+  .tkhead-row h2 { margin: 0; font-size: 16px; font-weight: 500; flex: 1; }
+
+  .tkgroup { margin: 0 0 18px; }
+  .tkgroup h3 { margin: 0 0 6px; font-size: 13px; font-weight: 500; color: var(--ink-3); }
+  .tkgroup h3 .cnt { font-family: var(--mono); font-size: 13px; color: var(--ink-3); font-weight: 500; }
+  /* One line per item, so a queue reads as a queue: the state is a fixed-width token
+     on the left, the text is one line (the whole of it is one click away in the
+     thread), and the actions stay quiet until wanted. */
+  .tkcard { border-left: 2px solid var(--line-strong); padding: 5px 0 5px 12px; margin: 0 0 3px; }
+  .tkcard.open, .tkcard.in_progress { border-left-color: var(--flag); }
+  .tkcard.declined, .tkcard.undecided { border-left-color: var(--line); }
+
+  /* an option: its KIND leads, because that is what distinguishes it from the
+     other two — not the wording of what it does */
+  .dk-var { margin-top: 8px; border: 1px solid var(--line); border-radius: 3px; background: var(--surface-2); padding: 8px 10px; font-size: 13px; }
+  .dk-var .dk-vhead { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 5px; }
+  .dk-var .vk { font-family: var(--mono); font-size: 13px; border: 1px solid var(--line-strong); color: var(--ink-3);
+    border-radius: 3px; padding: 0 5px; white-space: nowrap; }
+  .dk-var .vk.root { border-color: var(--flag); color: var(--flag); }
+  .dk-var .vk.document { border-style: dashed; }
+  .dk-var dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 8px; margin: 0; }
+  .dk-var dt { color: var(--ink-3); white-space: nowrap; }
+  .dk-var dd { margin: 0; overflow-wrap: anywhere; }
+  .dk-var .dk-acts { margin-top: 7px; }
+  /* confirming what a task will say before it becomes one */
+  .dk-tf { margin-top: 8px; display: flex; flex-direction: column; gap: 5px; }
+  .dk-tf .dk-tfl { font-size: 13px; color: var(--ink-3); }
+  .dk-tf textarea { font: inherit; font-size: 13px; min-height: 52px; resize: vertical; border-radius: 3px;
+    border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); padding: 6px 9px; }
+  .dk-tf select, .dk-tf input { font: inherit; font-size: 13px; border-radius: 3px;
+    border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); padding: 3px 8px; }
+  .dk-tf input { flex: 1; min-width: 0; }
+  .tkhead { display: flex; align-items: baseline; gap: 9px; }
+  .tkhead .st { flex: none; min-width: 76px; text-align: center; }
+  .tkhead b { font-size: 14px; font-weight: 400; flex: 1; min-width: 0; cursor: pointer;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tkcard.open .tkhead b, .tkcard.in_progress .tkhead b { font-weight: 500; }
+  .tkcard:hover { background: var(--sunken); }
+  .tkmeta { font-size: 13px; color: var(--muted); margin: 2px 0 0 85px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tkrow { display: flex; align-items: center; gap: 8px; margin: 3px 0 0 85px; opacity: 0; transition: opacity var(--t); }
+  .tkcard:hover .tkrow, .tkcard:focus-within .tkrow, .tkcard.open .tkrow, .tkcard.in_progress .tkrow { opacity: 1; }
+  .tkdone > summary { cursor: pointer; font-size: 13px; color: var(--ink-3); margin: 18px 0 8px; }
+  .statline .vsep { color: var(--line-strong); }
+  .tkpline b { font-weight: 500; }
+  .tkrow .dk-btn { font: inherit; font-size: 13px; cursor: pointer; border: 1px solid var(--line);
+    background: var(--surface); color: var(--muted); border-radius: 3px; padding: 2px 8px; }
+  .tkrow .dk-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  .tkrow .dk-btn:disabled { opacity: .5; cursor: default; }
+  .tkrow .tk-why { font: inherit; font-size: 13px; flex: 1; max-width: 34ch; border-radius: 3px;
+    border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); padding: 2px 8px; }
+  /* the patch a worked task produced: a change to read, not yet a change to the tree */
+  .tkpatch { margin-top: 8px; }
+  .tkpline { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px; }
+  .tkpline .dk-btn { font: inherit; font-size: 13px; cursor: pointer; border: 1px solid var(--line);
+    background: var(--surface); color: var(--muted); border-radius: 3px; padding: 2px 8px; }
+  .tkpline .dk-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .tkfiles { margin-top: 8px; }
+  .tkfile { margin: 0 0 10px; }
+  .tkfhead { display: flex; align-items: baseline; gap: 8px; font-size: 13px; }
+  .tkfhead .tkfn { font-family: var(--mono); color: var(--ink-3); }
+  .tkwork { margin-top: 8px; }
+  .tkwork .dk-a { font-size: 13.5px; }
+  /* a remark whose place in the report is gone: kept, and labelled as kept */
+  .stale { font-family: var(--mono); font-size: 13px; color: var(--muted);
+    border: 1px dashed var(--line-strong); border-radius: 3px; padding: 0 5px; white-space: nowrap; }
+
+  /* the model's own trace: live while it works, folded away once it answers */
+  .trace { margin-top: 6px; border: 1px solid var(--line); border-radius: 3px; background: var(--surface-2); overflow: hidden; }
+  .trace > summary { cursor: pointer; list-style: none; padding: 5px 10px; font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .trace > summary::-webkit-details-marker { display: none; }
+  .trace .tr-body { padding: 2px 10px 8px; }
+  .trace .tr-step { font-family: var(--mono); font-size: 13px; color: var(--muted); padding: 1.5px 0; overflow-wrap: anywhere; }
+  .trace .tr-step::before { content: "› "; color: var(--accent); }
+  .trace .tr-live { font-size: 13px; color: var(--muted); margin-top: 4px; white-space: pre-wrap; max-height: 120px; overflow: hidden; }
+
+  /* markdown inside an answer */
+  .md p { margin: 0 0 7px; } .md p:last-child { margin-bottom: 0; }
+  .md ul, .md ol { margin: 0 0 7px; padding-left: 20px; }
+  .md li { margin: 0 0 3px; }
+  .md h1, .md h2, .md h3 { font-size: 13.5px; font-weight: 500; margin: 10px 0 5px; }
+  .md code { font-family: var(--mono); font-size: 13px; background: var(--code-bg); border-radius: 3px; padding: .5px 4px; }
+  .md pre { background: var(--code-bg); border: 1px solid var(--line); border-radius: 3px; padding: 8px 10px; overflow-x: auto; margin: 0 0 8px; }
+  .md pre code { background: none; padding: 0; font-size: 13px; line-height: 1.5; }
+  .md blockquote { margin: 0 0 7px; padding-left: 10px; border-left: 2px solid var(--line); color: var(--muted); }
+  .md strong { font-weight: 500; } .md em { font-style: italic; }
+
+  .spin { display: inline-block; width: 11px; height: 11px; border: 2px solid var(--line); border-top-color: var(--accent);
+    border-radius: 3px; animation: sp .7s linear infinite; }
+  @keyframes sp { to { transform: rotate(360deg); } }
+
+  /* user stories: the status badge is the point, so it leads the card */
+  .ustory { border: 1px solid var(--line); border-left-width: 2px; border-radius: 0; padding: 11px 14px; margin: 0 0 10px; background: var(--surface); }
+  .ustory .uhead { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; margin: 0 0 5px; }
+  .ust { flex: none; font-family: var(--mono); font-size: 13px; font-weight: 500;  border-radius: 3px; padding: 2px 10px; }
+  .uactor { font-size: 13px; font-weight: 500; color: var(--muted); }
+  .ucov { font-family: var(--mono); font-size: 13px; border-radius: 3px; padding: 1.5px 8px; border: 1px dashed var(--line); color: var(--muted); }
+  .ucov.no { border-style: solid; border-color: color-mix(in srgb, var(--warn) 55%, var(--line)); color: var(--warn); }
+  .ustory .utext { font-size: 14px; font-weight: 500; }
+  .ustory .uwhy { font-size: 13px; color: var(--muted); margin-top: 4px; }
+  .ustory.delivered { border-left-color: var(--accent); } .ust.delivered { background: var(--accent-bg); color: var(--accent); }
+  .ustory.partial   { border-left-color: var(--flag); } .ust.partial { background: var(--flag-bg); color: var(--flag); }
+  .ustory.broken    { border-left-color: var(--flag); } .ust.broken { background: var(--flag-bg); color: var(--flag); font-weight: 500; }
+  .ustory.regressed { border-left-color: var(--flag); } .ust.regressed { background: var(--flag); color: var(--accent-ink); }
+
+  .listcard { border: 1px solid var(--line); border-radius: 3px; padding: 12px 14px; background: var(--surface); }
+  .listcard h3 { margin: 0 0 8px; font-size: 14px; font-weight: 500; }
+  .listcard h3 .cnt { font-family: var(--mono); font-size: 13px; color: var(--muted); font-weight: 500; }
   .listcard ul { margin: 0; padding: 0 0 0 18px; font-size: 13px; }
   .listcard li { margin: 0 0 6px; }
-  .listcard.good { border-color: color-mix(in srgb, var(--ok) 45%, var(--line)); }
-  .listcard.bad { border-color: color-mix(in srgb, var(--warn) 55%, var(--line)); }
-  .empty-good { border: 1px solid color-mix(in srgb, var(--ok) 45%, var(--line)); background: var(--ok-bg); color: var(--ok); border-radius: 10px; padding: 10px 14px; font-size: 13.5px; margin: 0 0 12px; }
-  .brow { border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; margin: 0 0 10px; background: var(--surface); font-size: 13px; }
-  .brow .bpath { font-family: var(--mono); font-size: 12px; font-weight: 600; overflow-wrap: anywhere; }
+  .listcard.good { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
+  .listcard.bad { border-color: color-mix(in srgb, var(--flag) 50%, var(--line)); }
+  .empty-good { border: 1px solid var(--line); background: var(--accent-bg); color: var(--accent); border-radius: var(--r-panel); padding: 10px 14px; font-size: 13px; margin: 0 0 12px; }
+  .brow { border: 1px solid var(--line); border-radius: 3px; padding: 10px 14px; margin: 0 0 10px; background: var(--surface); font-size: 13px; }
+  .brow .bpath { font-family: var(--mono); font-size: 13px; font-weight: 500; overflow-wrap: anywhere; }
   .brow .bwhy { margin-top: 3px; color: var(--muted); }
   .section-note { background: var(--surface-2); border-left: 3px solid var(--accent); border-radius: 0 8px 8px 0; padding: 10px 14px; margin: 0 0 14px; font-size: 13.5px; }
   #blastTitle { font-size: 15px; margin: 18px 0 4px; }
 
   /* inspector */
-  .inspector { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); padding: 18px 18px 20px; position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow-y: auto; }
-  .insp-tag { font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; font-weight: 700; margin: 0 0 6px; }
-  .inspector h3 { margin: 0 0 10px; font-size: 15.5px; font-weight: 650; letter-spacing: -.01em; font-family: var(--mono); overflow-wrap: anywhere; }
+  .inspector { background: var(--surface); border: 1px solid var(--line); border-radius: 3px; padding: 18px 18px 20px; position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow-y: auto; }
+  .insp-tag { font-family: var(--mono); font-size: 13px;  font-weight: 500; margin: 0 0 6px; }
+  .inspector h3 { margin: 0 0 10px; font-size: 15.5px; font-weight: 500; letter-spacing: -.01em; font-family: var(--mono); overflow-wrap: anywhere; }
   .inspector h3.prose { font-family: var(--sans); }
   .why { background: var(--surface-2); border-left: 3px solid var(--accent); border-radius: 0 8px 8px 0; padding: 10px 14px; margin: 0 0 14px; font-size: 14px; }
   .filelist { margin: 10px 0 14px; padding: 0; list-style: none; }
-  .filelist li { font-family: var(--mono); font-size: 12.5px; padding: 3px 0; color: var(--muted); overflow-wrap: anywhere; }
+  .filelist li { font-family: var(--mono); font-size: 13px; padding: 3px 0; color: var(--muted); overflow-wrap: anywhere; }
   .filelist li::before { content: "· "; color: var(--accent); }
   .rels { margin: 0 0 14px; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
-  .rels li { font-size: 12.5px; color: var(--muted); line-height: 1.45; }
-  .rels-title { font-size: 12px; font-weight: 650; color: var(--ink); margin: 0 0 4px; }
-  .rel-file { font: inherit; font-family: var(--mono); font-size: 12px; font-weight: 600; background: none; border: none; padding: 0; cursor: pointer; color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+  .rels li { font-size: 13px; color: var(--muted); line-height: 1.45; }
+  .rels-title { font-size: 13px; font-weight: 500; color: var(--ink); margin: 0 0 4px; }
+  .rel-file { font: inherit; font-family: var(--mono); font-size: 13px; font-weight: 500; background: none; border: none; padding: 0; cursor: pointer; color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
   .rel-file:hover { filter: brightness(1.15); }
-  .codebox { background: var(--code-bg); border: 1px solid var(--line); border-radius: 8px; overflow-x: auto; margin: 0 0 14px; }
-  .codebox-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 6px 12px; border-bottom: 1px solid var(--line); font-family: var(--mono); font-size: 11px; color: var(--muted); position: sticky; left: 0; }
-  .codebox pre { margin: 0; padding: 10px 0; font-family: var(--mono); font-size: 12px; line-height: 1.6; min-width: max-content; }
+  .codebox { background: var(--code-bg); border: 1px solid var(--line); border-radius: 3px; overflow-x: auto; margin: 0 0 14px; }
+  .codebox-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 6px 12px; border-bottom: 1px solid var(--line); font-family: var(--mono); font-size: 13px; color: var(--muted); position: sticky; left: 0; }
+  .codebox pre { margin: 0; padding: 10px 0; font-family: var(--mono); font-size: 13px; line-height: 1.6; min-width: max-content; }
   .cl { display: block; padding: 0 14px; white-space: pre; font-family: var(--mono); }
   .cl.add { background: var(--add-bg); color: var(--add); }
   .cl.del { background: var(--del-bg); color: var(--del); text-decoration: line-through; text-decoration-thickness: 1px; }
   .cl.ctx { color: var(--muted); }
   .actions { display: flex; gap: 8px; flex-wrap: wrap; }
-  .btn { font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; border-radius: 7px; padding: 7px 14px; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); transition: background .12s, border-color .12s; }
+  .btn { font: inherit; font-size: 13px; font-weight: 500; cursor: pointer; border-radius: 3px; padding: 7px 14px; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); transition: background var(--t), border-color var(--t); }
   .btn:hover { border-color: var(--accent); }
   .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
   .btn.primary:hover { filter: brightness(1.08); }
-  .note { font-size: 12.5px; color: var(--muted); margin: 12px 0 0; }
+  .note { font-size: 13px; color: var(--muted); margin: 12px 0 0; }
 
-  dialog { border: 1px solid var(--line); border-radius: 12px; padding: 0; background: var(--surface); color: var(--ink); width: min(820px, calc(100vw - 32px)); max-height: 84vh; box-shadow: 0 12px 48px rgba(0,0,0,.35); }
-  dialog::backdrop { background: rgba(10, 14, 18, .55); }
-  .modal-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 18px; border-bottom: 1px solid var(--line); font-family: var(--mono); font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
+  dialog { border: 1px solid var(--line); border-radius: var(--r-overlay); padding: 0; background: var(--surface); color: var(--ink); width: min(820px, calc(100vw - 32px)); max-height: 84vh; box-shadow: var(--shadow-overlay); }
+  dialog::backdrop { background: rgba(30, 28, 25, .5); }
+  .modal-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 18px; border-bottom: 1px solid var(--line); font-family: var(--mono); font-size: 13px; font-weight: 500; overflow-wrap: anywhere; }
   .modal-body { overflow: auto; max-height: calc(84vh - 52px); }
-  .modal-body pre { margin: 0; padding: 14px 18px; font-family: var(--mono); font-size: 12px; line-height: 1.6; min-width: max-content; }
+  .modal-body pre { margin: 0; padding: 14px 18px; font-family: var(--mono); font-size: 13px; line-height: 1.6; min-width: max-content; }
 
-  .consistency { border: 1px solid var(--del); background: var(--del-bg); color: var(--del); border-radius: 10px; padding: 10px 14px; font-size: 13px; margin: 0 0 14px; display: none; }
+  /* a completeness warning is not a deletion either — same reason as .dk-err */
+  .consistency { border: 1px solid var(--flag); background: var(--flag-soft); color: var(--flag); border-radius: 3px; padding: 10px 14px; font-size: 13px; margin: 0 0 14px; display: none; }
   .consistency.show { display: block; }
 
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  /* ── structure ─────────────────────────────────────────────────────────────
+     Only the chrome carries a border and its own background: the tab strip, the
+     bookmark rail, the right rail and the bottom strip. Everything in the
+     reading column sits directly on the canvas, one level deep, and a callout
+     is a 2px left rule rather than a box inside a box. */
+  .main-panel { background: none; border: none; border-radius: 0; padding: 0; }
+  .step, .group, .finding, .listcard, .brow, .ustory, .diagram, .node {
+    background: none; box-shadow: none; }
+  .step, .group, .finding, .brow, .ustory {
+    border: none; border-left: 2px solid var(--line); border-radius: 0;
+    padding: 2px 0 2px 14px; margin: 0 0 18px; }
+  .step { border-left-color: var(--line-strong); }
+  .ustory.regressed, .ustory.broken, .ustory.partial { border-left-color: var(--flag); }
+  .ustory.delivered { border-left-color: var(--line-strong); }
+  /* The rail carries the severity, so it is legible before the word is read and
+     a column of findings scans as a shape. info keeps the default rule: it is
+     the neutral of the three, and colouring it would leave nothing quiet. */
+  .finding { display: block; }
+  .finding.warn { border-left-color: var(--flag); }
+  .finding.ok { border-left-color: var(--line-strong); }
+  .finding .sev { display: inline-block; margin: 0 0 4px; }
+  .listcard { border: none; border-radius: 0; padding: 0; }
+  .diagram { border: none; border-radius: 0; padding: 0; margin: 0 0 26px; }
+  .diagram .mermaid-box { background: none; border-radius: 0; padding: 0; }
+  /* Diff marking for diagrams. The generator now emits only the semantic class
+     (`:::added`), never a classDef, and assemble.mjs strips any that survive in
+     an older map — so these rules are the single place a diagram's diff colour
+     is decided, and it is the same three token families the inspector uses. In
+     the quiet palette --del-bg is transparent, so a removed node keeps only its
+     dashed outline, which is the diagram's version of the grey strike.
+     !important is unavoidable: mermaid injects its own stylesheet scoped by
+     `#mermaid-<id>`, and an ID selector outranks any class selector we write. */
+  /* mermaid's `.node rect` rule paints EVERY rect in a node, including the one it
+     puts behind the label — which would leave an opaque plate inside a removed
+     node's transparent outline. The shape always carries .label-container; the
+     label's backing rect carries no class, so it is the one that goes. */
+  .mermaid g.node rect:not(.label-container) { fill: none !important; stroke: none !important; }
+  .mermaid g.node.added > rect, .mermaid g.node.added > path,
+  .mermaid g.node.added > polygon, .mermaid g.node.added > circle {
+    fill: var(--add-bg) !important; stroke: var(--add-edge) !important; }
+  .mermaid g.node.added .nodeLabel, .mermaid g.node.added span,
+  .mermaid g.node.added tspan { color: var(--add-ink) !important; fill: var(--add-ink) !important; }
+  .mermaid g.node.removed > rect, .mermaid g.node.removed > path,
+  .mermaid g.node.removed > polygon, .mermaid g.node.removed > circle {
+    fill: var(--del-bg) !important; stroke: var(--del-edge) !important;
+    stroke-dasharray: 5 5 !important; }
+  .mermaid g.node.removed .nodeLabel, .mermaid g.node.removed span,
+  .mermaid g.node.removed tspan { color: var(--del-ink) !important; fill: var(--del-ink) !important; }
+  /* changed has no diff token of its own: it is not an addition or a removal but
+     the same node behaving differently, so it takes the palette's own signal —
+     a hue in graphite and bond, weight alone in monochrome slate. */
+  .mermaid g.node.changed > rect, .mermaid g.node.changed > path,
+  .mermaid g.node.changed > polygon, .mermaid g.node.changed > circle {
+    fill: var(--sunken) !important; stroke: var(--mark) !important; stroke-width: 1.5px !important; }
+  .mermaid g.node.changed .nodeLabel, .mermaid g.node.changed span,
+  .mermaid g.node.changed tspan { color: var(--ink) !important; fill: var(--ink) !important; }
+  .node { border: 1px solid var(--line); border-radius: var(--r-input); }
+  .node:hover { border-color: var(--line-strong); transform: none; }
+  /* §9: a status is a mono word, not a plate. In a monochrome palette the word
+     plus --flag carries it, and the reading column stays on the canvas. */
+  .sev, .ust, .ucov { background: none !important; border: none !important; border-radius: 0;
+    padding: 0; color: var(--ink-3); }
+  .uwhy, .utext, .dk-a, .listcard li { max-width: var(--measure); }
+  .sev.warn, .ust.regressed, .ust.broken, .ust.partial, .ucov.no { color: var(--flag); }
+  .sev.ok, .ust.delivered { color: var(--ink-2); }
+  .ust, .sev { margin-right: 8px; }
+  .link-row .la { background: none; color: var(--ink-3); }
+  .dg-btn { background: none; color: var(--ink-3); }
+
+  /* a summary in the reading column is a rule too, not a plate */
+  .main-panel .section-note { background: none; border-radius: 0; border-left: 2px solid var(--line-strong);
+    padding: 2px 0 2px 14px; }
+  /* a branch is a rule, not a plate inside a plate */
+  .branch { background: none; border-radius: 0; border-left: 2px solid var(--line); padding: 2px 0 2px 11px; }
+  .branch b { color: var(--ink); }
+  /* the group dot carried a hue that no longer exists; the band names the group */
+  .fchip .dot, .gleg-row .dot, .mrow .dot { display: none; }
+  /* a file row is one box: its service tag and code preview are plain text in it */
+  .fchip { background: none; }
+  .svc { border: none; padding: 0; color: var(--ink-3); }
+  .fprev { background: none; border: none; border-left: 2px solid var(--line); border-radius: 0; padding: 2px 0 2px 8px; }
+  .fprev .cl { padding: 0; }
+  /* The tab strip is the top bar; the tabs themselves are text. Interaction is
+     signalled by weight and an underline, not by a box or a hue. */
+  .tabs { border-bottom: 1px solid var(--line); padding: 0; margin: 0 0 18px; gap: 0; align-items: stretch; }
+  .tab { border: none; background: none; border-radius: 0; padding: 8px 13px 7px; color: var(--ink-2);
+    font-size: 15px; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .tab:hover { color: var(--ink); background: var(--sunken); }
+  .tab.active { color: var(--ink); font-weight: 500; border-bottom-color: var(--mark); background: none; }
+  .tab .cnt { color: var(--ink-3); }
+  .tab .cnt.hot { color: var(--flag); }
+  .tab.active .cnt { color: var(--ink-2); }
+  .help-btn { border: none; background: none; color: var(--ink-3); }
+
+  /* metrics are one line of tabular numerals, never a row of cards */
+  .statline { font-family: var(--mono); font-size: 13px; color: var(--ink-2);
+    font-variant-numeric: tabular-nums; margin: 14px 0 10px; display: flex; flex-wrap: wrap; gap: 0 18px; }
+  .statline b { font-weight: 500; color: var(--ink); }
+  .statline .hot { color: var(--flag); }
+
 </style>
 
 <div class="wrap">
@@ -285,12 +740,17 @@
   <div class="scopebar" id="scopebar"></div>
   <div class="consistency" id="consistency"></div>
 
+  <div class="tabs" id="tabs" role="tablist"></div>
   <div class="layout">
     <section class="main-panel">
-      <div class="tabs" id="tabs" role="tablist"></div>
-
       <div id="pane-story" class="pane">
         <div class="story" id="story"></div>
+      </div>
+
+      <div id="pane-stories" class="pane" hidden>
+        <div class="section-note" id="storiesSummary"></div>
+        <p class="pane-hint" id="storiesHint"></p>
+        <div id="stories"></div>
       </div>
 
       <div id="pane-diagrams" class="pane" hidden>
@@ -334,7 +794,9 @@
       </div>
     </section>
 
-    <aside class="inspector" id="inspector" aria-live="polite"></aside>
+    <div class="rightcol" id="rightcol">
+      <aside class="inspector" id="inspector" aria-live="polite"></aside>
+    </div>
   </div>
 </div>
 
@@ -366,19 +828,52 @@ const I18N = {
     statFiles: (c, n) => `files (${c} mod. + ${n} new)`,
     statLines: 'lines', statGroups: 'cause groups',
     statAttention: 'files need careful reading', statEnv: 'env changes',
-    consistency: '⚠ Manifest entries missing a description on the map: ',
-    tabs: { story: 'Logic', diagrams: 'Diagrams', standards: 'Standards', tests: 'Tests', ops: 'Ops & risks', files: 'Files' },
-    diagramsHint: 'Red (dashed) — removed, green — added. Diagrams exist only where a control or data flow changed. Nodes tied to a changed file are clickable — details open in the inspector.',
+    consistency: 'Manifest entries missing a description on the map: ',
+    tabs: { story: 'Logic', tasks: 'Review', stories: 'User stories', diagrams: 'Diagrams', standards: 'Standards', tests: 'Tests', ops: 'Ops & risks', files: 'Files' },
+    tasksHint: 'What is still unsettled about this change: work you agreed to, plans you turned down, questions nobody has answered, and problems the map found that nobody has decided about. Nothing here runs on its own.',
+    reviewOpen: 'Review', reviewBack: 'Report', reviewTitle: 'Everything still unsettled about this change',
+    reviewOpenTitle: 'Leave the report and open the review: agreed work, turned-down plans, open questions, undecided findings',
+    tasksDone: (n) => `Already decided (${n})`,
+    tasksBlocking: (n) => `blocking ${n}`, tasksNothingBlocking: 'nothing blocking',
+    tasksCount: { proposed: (n) => `proposed ${n}`, done: (n) => `done ${n}`, verified: (n) => `verified ${n}`, declined: (n) => `declined ${n}` },
+    tasksGroup: {
+      questions: ['Unanswered', 'asked from the report and never answered — the review is not finished while one is open'],
+      reviewer: ['You asked for these', 'instructions you gave and plans you agreed to'],
+      story: ['From a user story', 'the outside behaviour the diff does not actually deliver'],
+      standards: ['From a standards finding', 'where the change departs from this project’s own conventions'],
+      tests: ['From a test gap', 'behaviour nothing pins down yet'],
+      other: ['Other', ''],
+    },
+    tasksEmpty: 'Nothing has been asked or agreed on this map yet.',
+    tasksOpenThread: 'open the thread', tasksDecline: 'decline', tasksReopen: 'reopen',
+    tasksDeclineWhy: 'why not?', tasksDeclineDo: 'decline',
+    tasksDecided: (d, t) => `decided ${d}/${t}`,
+    tasksUndecided: 'Not decided yet', tasksUndecidedWhy: 'problems the map reported that nobody has answered, agreed or waved off. Open one and ask for options.',
+    tasksWork: 'Do it in a worktree', tasksWorking: 'working in a worktree…',
+    tasksWorkOff: 'Start the server with --work to let a task be worked here',
+    tasksWorkEmpty: 'The run produced no changes — the task is open again.',
+    tasksWorkFailed: 'Could not work this task',
+    tasksPatch: (n) => `${n} file${n === 1 ? '' : 's'} changed — the patch is not in your tree yet`,
+    tasksApply: 'Apply to the working tree', tasksApplied: 'This patch is in your working tree',
+    tasksApplyFailed: 'Could not apply',
+    tasksShowPatch: 'show the patch', tasksHidePatch: 'hide the patch',
+    tasksCopy: 'Copy the queue as a prompt', tasksCopied: 'copied — paste it into your Claude Code session',
+    tasksCopyNothing: 'nothing agreed to copy yet',
+    storiesHint: 'What changed on the outside, in the actor’s words — reconstructed from the diff. The badge is a verdict on whether the code actually delivers the story, so problems come first.',
+    storyStatus: { delivered: 'delivered', partial: 'partial', broken: 'broken', regressed: 'regressed' },
+    storyCovered: 'test pins this down', storyUncovered: 'no test',
+    storiesNone: 'No outside-visible behavior changed by this diff',
+    diagramsHint: 'A node is marked the way a diff line is: added takes the fill, removed the dashed outline, changed a heavier edge. Diagrams exist only where a control or data flow changed. Nodes tied to a changed file are clickable — details open in the inspector.',
     fixedTitle: 'Fixed by tests', gapsTitle: 'Not covered',
     envTitle: 'Env vars', migrTitle: 'Migrations', deployTitle: 'Deploy',
-    envNone: '✓ No env changes', migrNone: '✓ No migrations',
+    envNone: 'No env changes', migrNone: 'No migrations',
     envStatus: { added: 'added', removed: 'removed', changed: 'changed' },
     blastTitle: 'Blast radius — depends on the change but is not in the diff',
     blastHint: 'These files did not change; look here if something goes wrong.',
     edgesToggle: 'show all links',
     filesHint: 'hover or select a file to highlight its links · chevron collapses a group',
     groupHint: (n) => `${n} file${n === 1 ? '' : 's'}`,
-    manifestSummary: (n) => `All diff files: ${n} of ${n} on the map ✓`,
+    manifestSummary: (n) => `All diff files: ${n} of ${n} on the map`,
     newMark: '· new',
     relsTitle: 'Links', back: '← overview', openFull: 'Open full file', fragment: 'fragment', close: 'Close',
     fold: (name) => `Collapse/expand: ${name}`,
@@ -389,25 +884,108 @@ const I18N = {
     dgFullscreen: 'Fullscreen (Esc to exit)', dgNewWindow: 'Open in a new window',
     completeness: (n) => `Completeness: ${n} of ${n} diff files described (Files tab).`,
     roles: { read: 'read carefully', 'verify-pattern': 'verify one pattern and list completeness', context: 'context, read first', ops: 'deploy checklist', spec: 'specification on demand', plumbing: 'mechanics' },
+    askTitle: 'Ask about this', askBadge: 'ask', askAbout: 'Ask a question about this',
+    askOpenThread: (n) => `${n} note${n === 1 ? '' : 's'} here — open the thread`,
+    askPlaceholder: 'What do you want to know about the selected part?',
+    askHint: 'Enter to send, Shift+Enter for a newline · answers are saved next to the map',
+    askSend: 'Ask', askThinking: 'asking Claude…', askFailed: 'Could not answer',
+    askAboutSelection: 'Ask about this text', askAboutDiagram: 'Ask about this diagram (Alt-click a node for one node)',
+    askSelected: 'Ask about these blocks', askClear: 'clear',
+    askPickedN: (n) => `${n} block${n === 1 ? '' : 's'} selected`,
+    askInspector: '◧ file', askShowInspector: 'Hand the column back to the file inspector',
+    askTrace: (n) => `${n} step${n === 1 ? '' : 's'} — show what it did`,
+    askWorking: (n) => `working… ${n} step${n === 1 ? '' : 's'}`,
+    askLostAnchor: 'its place in the report is gone',
+    staleTag: 'stale', staleWhy: 'the report was regenerated and this place is gone — the discussion is kept',
+    askOnThisTab: (n) => `${n} note${n === 1 ? '' : 's'} on this tab`,
+    modeAsk: 'Ask', modeInstruct: 'Instruct', modePropose: 'Options',
+    modeAskTitle: 'Ask a question about this place', modeInstructTitle: 'Say what should change here — Claude plans it, nothing is edited',
+    modeProposeTitle: 'Ask for ways to deal with this finding — two or three, differing in kind',
+    modeProposeOff: 'Options are only offered for a problem the map found: a standards finding, a test gap, or a story that is not delivered',
+    proposeHint: 'the finding itself is the question — nothing to type',
+    proposeAsked: 'Options for this finding',
+    proposeSend: 'Offer options', proposeThinking: 'weighing options…', proposeFailed: 'Could not offer options',
+    variantKind: { local: 'point fix', root: 'at the root', document: 'pin it instead' },
+    variantCost: 'cost', variantRisk: 'risk', variantBlast: 'reaches',
+    variantChoose: 'Choose this', proposeNoFix: 'No fix needed',
+    instructPlaceholder: 'What should change here?',
+    instructHint: 'Enter to send · a plan you approve — nothing is edited',
+    instructSend: 'Plan it', instructThinking: 'planning…', instructFailed: 'Could not plan this',
+    planSpec: 'What will change', planAcceptance: 'Proved done by',
+    planFiles: 'Files', planRisks: 'Could break', planQuestions: 'Needs an answer first',
+    planAgree: 'Agree — open the task', planNotNow: 'Not now',
+    makeTask: 'Make this a task', taskCreate: 'Open the task', taskCancel: 'cancel',
+    taskSpecLabel: 'What must change', taskSpecHint: 'what must change here?',
+    taskAccLabel: 'Proved done by',
+    accKind: { manual: 'the reviewer checks it', test: 'a test', story: 'a user story flips to delivered', finding: 'a finding disappears' },
+    accHint: { manual: 'what the reviewer must check', test: 'the test name', story: 'the story key, e.g. story:0', finding: 'the finding key, e.g. finding:1' },
+    planDeclined: 'Plan not taken up.',
+    taskState: { proposed: 'proposed', open: 'to do', in_progress: 'in progress', done: 'done', verified: 'verified', declined: 'declined' },
+    taskOpened: 'task', taskNothingRuns: 'nothing runs on its own — the work happens in your Claude Code session',
+    // A value that already names its kind (test_x, story:3) must not have the word
+    // repeated in front of it.
+    acc: { test: (v) => (/^test/i.test(v) ? v : `test ${v}`), story: (v) => (/^story/i.test(v) ? `${v} becomes delivered` : `story ${v} becomes delivered`), finding: (v) => (/^finding/i.test(v) ? `${v} disappears` : `finding ${v} disappears`), manual: (v) => v },
+    keyMove: 'move', keyFile: 'file', keySeen: 'mark read', keyAll: 'all keys',
+    keyMoveLong: 'Step through this tab', keyFileLong: 'Next / previous file',
+    keySeenLong: 'Mark the open file read', keyThread: 'Jump to the first question',
+    keyFocus: 'Focus mode — hide both rails', keyTopBottom: 'Top / bottom',
+    keyTab: 'Switch tab', keyPalette: 'Next palette', keyApprove: 'Mark every file read', keySheet: 'This sheet', keyClose: 'Close',
+    seenYes: 'read', seenNo: 'mark read', seenTitle: 'Mark this file read; it survives a reload',
+    readProgress: (n, t) => `${n} of ${t} files read`,
+    setPalette: 'Palette', setDiff: 'Diff colours',
+    diffPal: { quiet: 'one hue', safe: 'colourblind-safe', classic: 'classic' },
   },
   ru: {
     titlePrefix: 'Карта изменений: ',
     statFiles: (c, n) => `файлов (${c} изм. + ${n} новых)`,
     statLines: 'строк', statGroups: 'групп причин',
     statAttention: 'файла внимательного чтения', statEnv: 'env-изменений',
-    consistency: '⚠ В манифесте есть файлы без описания на карте: ',
-    tabs: { story: 'Логика', diagrams: 'Диаграммы', standards: 'Стандарты', tests: 'Тесты', ops: 'Операции и риски', files: 'Файлы' },
-    diagramsHint: 'Красное (пунктир) — удалено, зелёное — добавлено. Диаграммы есть только там, где меняется поток управления или данных. Ноды изменённых файлов кликабельны — детали откроются в инспекторе.',
+    consistency: 'В манифесте есть файлы без описания на карте: ',
+    tabs: { story: 'Логика', tasks: 'Ревью', stories: 'User stories', diagrams: 'Диаграммы', standards: 'Стандарты', tests: 'Тесты', ops: 'Операции и риски', files: 'Файлы' },
+    tasksHint: 'Что по этому изменению ещё не решено: задачи, на которые вы согласились, отклонённые планы, вопросы без ответа и находки карты, по которым никто не принял решения. Само здесь ничего не запускается.',
+    reviewOpen: 'Ревью', reviewBack: 'Отчёт', reviewTitle: 'Всё, что по этому изменению ещё не решено',
+    reviewOpenTitle: 'Выйти из отчёта в ревью: согласованные задачи, отклонённые планы, открытые вопросы, нерешённые находки',
+    tasksDone: (n) => `Уже решено (${n})`,
+    tasksBlocking: (n) => `блокирует: ${n}`, tasksNothingBlocking: 'ничего не блокирует',
+    tasksCount: { proposed: (n) => `предложено: ${n}`, done: (n) => `сделано: ${n}`, verified: (n) => `проверено: ${n}`, declined: (n) => `отклонено: ${n}` },
+    tasksGroup: {
+      questions: ['Без ответа', 'спрошено по отчёту и осталось без ответа — пока такой вопрос открыт, ревью не закончено'],
+      reviewer: ['Вы поручили', 'ваши поручения и планы, с которыми вы согласились'],
+      story: ['Из user story', 'поведение снаружи, которое дифф на самом деле не даёт'],
+      standards: ['Из замечания по стандартам', 'где изменение расходится с конвенциями самого проекта'],
+      tests: ['Из пробела в тестах', 'поведение, которое пока ничем не зафиксировано'],
+      other: ['Прочее', ''],
+    },
+    tasksEmpty: 'По этой карте пока ничего не спрошено и не согласовано.',
+    tasksOpenThread: 'открыть обсуждение', tasksDecline: 'отклонить', tasksReopen: 'вернуть в работу',
+    tasksDeclineWhy: 'почему нет?', tasksDeclineDo: 'отклонить',
+    tasksDecided: (d, t) => `решено: ${d}/${t}`,
+    tasksUndecided: 'Ещё не решено', tasksUndecidedWhy: 'проблемы, которые нашла карта и по которым никто не ответил, не согласился и не махнул рукой. Откройте и запросите варианты.',
+    tasksWork: 'Сделать в worktree', tasksWorking: 'работаю в worktree…',
+    tasksWorkOff: 'Запустите сервер с --work, чтобы задачу можно было сделать отсюда',
+    tasksWorkEmpty: 'Прогон не дал изменений — задача снова открыта.',
+    tasksWorkFailed: 'Не удалось выполнить задачу',
+    tasksPatch: (n) => `Файлов изменено: ${n} — в вашем дереве этого пока нет`,
+    tasksApply: 'Применить к рабочему дереву', tasksApplied: 'Патч уже в вашем рабочем дереве',
+    tasksApplyFailed: 'Не удалось применить',
+    tasksShowPatch: 'показать патч', tasksHidePatch: 'скрыть патч',
+    tasksCopy: 'Скопировать очередь как промпт', tasksCopied: 'скопировано — вставьте в свою сессию Claude Code',
+    tasksCopyNothing: 'пока нечего копировать',
+    storiesHint: 'Что изменилось снаружи, языком актора — восстановлено из диффа. Бейдж — вердикт о том, даёт ли код эту историю на самом деле, поэтому проблемные идут первыми.',
+    storyStatus: { delivered: 'работает', partial: 'частично', broken: 'не работает', regressed: 'регресс' },
+    storyCovered: 'зафиксировано тестом', storyUncovered: 'теста нет',
+    storiesNone: 'Снаружи поведение этим диффом не изменилось',
+    diagramsHint: 'Нода помечена так же, как строка диффа: добавленное берёт заливку, удалённое — пунктирный контур, изменённое — усиленную рамку. Диаграммы есть только там, где меняется поток управления или данных. Ноды изменённых файлов кликабельны — детали откроются в инспекторе.',
     fixedTitle: 'Зафиксировано', gapsTitle: 'Не покрыто',
     envTitle: 'Env-переменные', migrTitle: 'Миграции', deployTitle: 'Деплой',
-    envNone: '✓ Env-переменные не менялись', migrNone: '✓ Миграций нет',
+    envNone: 'Env-переменные не менялись', migrNone: 'Миграций нет',
     envStatus: { added: 'добавлена', removed: 'удалена', changed: 'изменена' },
     blastTitle: 'Blast radius — зависит от изменённого, но в дифф не попало',
     blastHint: 'Эти файлы не менялись; сюда стоит заглянуть, если что-то пойдёт не так.',
     edgesToggle: 'показать все связи',
     filesHint: 'наведите или выберите файл — подсветятся его связи · шеврон сворачивает группу',
     groupHint: (n) => `${n} ф.`,
-    manifestSummary: (n) => `Все файлы диффа: ${n} из ${n} на карте ✓`,
+    manifestSummary: (n) => `Все файлы диффа: ${n} из ${n} на карте`,
     newMark: '· новый',
     relsTitle: 'Связи', back: '← к обзору', openFull: 'Открыть файл целиком', fragment: 'фрагмент', close: 'Закрыть',
     fold: (name) => `Свернуть/развернуть: ${name}`,
@@ -418,6 +996,54 @@ const I18N = {
     dgFullscreen: 'На весь экран (Esc — выход)', dgNewWindow: 'Открыть в новом окне',
     completeness: (n) => `Полнота: ${n} из ${n} файлов диффа описаны (вкладка «Файлы»).`,
     roles: { read: 'читать внимательно', 'verify-pattern': 'проверить паттерн и полноту', context: 'контекст, читать первым', ops: 'чеклист деплоя', spec: 'спецификация по запросу', plumbing: 'механика' },
+    askTitle: 'Вопрос по этому месту', askBadge: 'спросить', askAbout: 'Задать вопрос по этому месту',
+    askOpenThread: (n) => `Заметок здесь: ${n} — открыть обсуждение`,
+    askPlaceholder: 'Что хочется узнать про выделенное?',
+    askHint: 'Enter — отправить, Shift+Enter — перенос строки · ответы сохраняются рядом с картой',
+    askSend: 'Спросить', askThinking: 'спрашиваю Claude…', askFailed: 'Не удалось ответить',
+    askAboutSelection: 'Спросить про этот текст', askAboutDiagram: 'Вопрос по диаграмме (Alt-клик по ноде — по одной ноде)',
+    askSelected: 'Спросить про эти блоки', askClear: 'сбросить',
+    askPickedN: (n) => `Выбрано блоков: ${n}`,
+    askInspector: '◧ файл', askShowInspector: 'Вернуть колонку инспектору файлов',
+    askTrace: (n) => `Шагов: ${n} — показать ход`,
+    askWorking: (n) => `работаю… шагов: ${n}`,
+    askLostAnchor: 'место в отчёте потеряно',
+    staleTag: 'место потеряно', staleWhy: 'отчёт перегенерирован, этого места в нём больше нет — обсуждение сохранено',
+    askOnThisTab: (n) => `Заметок на этой вкладке: ${n}`,
+    modeAsk: 'Спросить', modeInstruct: 'Поручить', modePropose: 'Варианты',
+    modeAskTitle: 'Задать вопрос по этому месту', modeInstructTitle: 'Сказать, что здесь изменить — Claude составит план, ничего не правит',
+    modeProposeTitle: 'Запросить варианты, как поступить с этой находкой — два-три, различающихся видом',
+    modeProposeOff: 'Варианты предлагаются только для проблемы, которую нашла карта: замечание по стандартам, пробел в тестах или история не в статусе delivered',
+    proposeHint: 'сама находка и есть вопрос — печатать нечего',
+    proposeAsked: 'Варианты по этой находке',
+    proposeSend: 'Предложить варианты', proposeThinking: 'взвешиваю варианты…', proposeFailed: 'Не удалось предложить варианты',
+    variantKind: { local: 'точечно', root: 'в корне', document: 'зафиксировать как есть' },
+    variantCost: 'цена', variantRisk: 'риск', variantBlast: 'задевает',
+    variantChoose: 'Выбрать', proposeNoFix: 'Править не нужно',
+    instructPlaceholder: 'Что здесь нужно изменить?',
+    instructHint: 'Enter — отправить · в ответ план, который вы утверждаете; правок не делается',
+    instructSend: 'Составить план', instructThinking: 'составляю план…', instructFailed: 'Не удалось составить план',
+    planSpec: 'Что изменится', planAcceptance: 'Чем подтвердим',
+    planFiles: 'Файлы', planRisks: 'Что может сломаться', planQuestions: 'Сначала нужен ответ',
+    planAgree: 'Согласен — создать задачу', planNotNow: 'Не сейчас',
+    makeTask: 'В задачу', taskCreate: 'Создать задачу', taskCancel: 'отмена',
+    taskSpecLabel: 'Что изменить', taskSpecHint: 'что здесь нужно изменить?',
+    taskAccLabel: 'Чем подтвердим',
+    accKind: { manual: 'ревьюер проверит сам', test: 'тестом', story: 'история становится delivered', finding: 'замечание исчезает' },
+    accHint: { manual: 'что должен проверить ревьюер', test: 'имя теста', story: 'ключ истории, напр. story:0', finding: 'ключ замечания, напр. finding:1' },
+    planDeclined: 'План не принят.',
+    taskState: { proposed: 'предложено', open: 'к работе', in_progress: 'в работе', done: 'сделано', verified: 'проверено', declined: 'отклонено' },
+    taskOpened: 'задача', taskNothingRuns: 'само ничего не запускается — работу делает ваша сессия Claude Code',
+    acc: { test: (v) => (/^test/i.test(v) ? v : `тест ${v}`), story: (v) => (/^story/i.test(v) ? `${v} становится delivered` : `история ${v} становится delivered`), finding: (v) => (/^finding/i.test(v) ? `${v} исчезает` : `замечание ${v} исчезает`), manual: (v) => v },
+    keyMove: 'шаг', keyFile: 'файл', keySeen: 'прочитано', keyAll: 'все клавиши',
+    keyMoveLong: 'Шаг по текущей вкладке', keyFileLong: 'Следующий / предыдущий файл',
+    keySeenLong: 'Пометить открытый файл прочитанным', keyThread: 'К первому вопросу',
+    keyFocus: 'Режим чтения — убрать обе полосы', keyTopBottom: 'В начало / в конец',
+    keyTab: 'Переключить вкладку', keyPalette: 'Следующая палитра', keyApprove: 'Отметить все файлы прочитанными', keySheet: 'Эта шпаргалка', keyClose: 'Закрыть',
+    seenYes: 'прочитан', seenNo: 'отметить', seenTitle: 'Пометить файл прочитанным; переживает перезагрузку',
+    readProgress: (n, t) => `Прочитано файлов: ${n} из ${t}`,
+    setPalette: 'Палитра', setDiff: 'Цвета диффа',
+    diffPal: { quiet: 'один тон', safe: 'безопасные', classic: 'классические' },
   },
 }
 const L = I18N[RM.meta.lang] || I18N.en
@@ -430,6 +1056,16 @@ const gbg = (gid) => `var(--p${groupIndex[gid] || 7}b)`
 const fileGroup = {}
 for (const g of RM.groups) for (const p of g.files) fileGroup[p] = g.id
 
+// §12: inline code passes through exactly ONE escape path. Everything is
+// escaped, then the small inline set the generator is allowed to emit is put
+// back. A field authored as plain text and one authored with <code> both land
+// here, and neither can inject markup.
+// Passes generate inline code two ways — <code> tags and markdown backticks —
+// so both are normalised here rather than each render site guessing.
+const PROSE_TAGS = /&lt;(\/?)(code|b|i|em|strong)&gt;/g
+const prose = (v) => esc(v == null ? '' : v)
+  .replace(PROSE_TAGS, '<$1$2>')
+  .replace(/`([^`\n]+)`/g, '<code>$1</code>')
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 const shortName = (p) => { const parts = p.split('/'); return parts.length > 2 ? '…/' + parts.slice(-2).join('/') : p }
 const chip = (path) => `<button class="fchip" data-goto="${esc(path)}" style="--sc:${gcolor(fileGroup[path])}"><span class="dot"></span>${esc(shortName(path))}</button>`
@@ -437,35 +1073,37 @@ const chip = (path) => `<button class="fchip" data-goto="${esc(path)}" style="--
 // ── header ───────────────────────────────────────────────────────────────────
 document.getElementById('metaLine').textContent = `${RM.meta.project} · ${RM.meta.ref} · ${RM.meta.generatedAt}`
 document.getElementById('title').textContent = L.titlePrefix + (RM.meta.title || RM.meta.project)
-document.getElementById('intent').innerHTML = RM.intent
+document.getElementById('intent').innerHTML = prose(RM.intent)
 const st = RM.meta.stats || {}
 const totalFiles = (st.filesChanged || 0) + (st.filesNew || 0)
-document.getElementById('statbar').innerHTML = [
+// One line of tabular numerals. A row of metric cards is the most generic thing
+// a tool like this can put at the top of a view, so there isn't one.
+const statEl = document.getElementById('statbar')
+statEl.className = 'statline'
+statEl.innerHTML = [
   [totalFiles, L.statFiles(st.filesChanged || 0, st.filesNew || 0)],
   [`+${st.added || 0} / −${st.deleted || 0}`, L.statLines],
-  [RM.groups.length, L.statGroups, true],
+  [RM.groups.length, L.statGroups],
   [st.attentionFiles ?? '—', L.statAttention, true],
   [(RM.ops?.env || []).length, L.statEnv],
-].map(([v, l, hl]) => `<div class="stat${hl ? ' hl' : ''}"><b>${v}</b><span>${l}</span></div>`).join('')
+].map(([v, l, hot]) => `<span class="${hot ? 'hot' : ''}"><b>${v}</b> ${esc(l)}</span>`).join('')
 
 // ── scopes & languages: which parts of the project the change touches ────────
-// Language colors follow GitHub linguist; label falls back to the extension.
-const LANG_COLORS = {
-  ts: ['TS', '#3178c6'], tsx: ['TSX', '#3178c6'], js: ['JS', '#f1e05a'], jsx: ['JSX', '#f1e05a'],
-  mjs: ['JS', '#f1e05a'], cjs: ['JS', '#f1e05a'], php: ['PHP', '#4F5D95'], py: ['PY', '#3572A5'],
-  rb: ['RB', '#701516'], go: ['GO', '#00ADD8'], rs: ['RS', '#dea584'], java: ['JAVA', '#b07219'],
-  kt: ['KT', '#A97BFF'], swift: ['SWIFT', '#F05138'], cs: ['C#', '#178600'], cpp: ['C++', '#f34b7d'],
-  c: ['C', '#555555'], sql: ['SQL', '#e38c00'], prisma: ['PRISMA', '#5a67d8'], md: ['MD', '#4a80c9'],
-  yml: ['YML', '#cb171e'], yaml: ['YML', '#cb171e'], json: ['JSON', '#8a919a'], html: ['HTML', '#e34c26'],
-  css: ['CSS', '#563d7c'], scss: ['SCSS', '#c6538c'], sh: ['SH', '#89e051'], vue: ['VUE', '#41b883'],
-  svelte: ['SVELTE', '#ff3e00'], tf: ['TF', '#844FBA'], twig: ['TWIG', '#c1d026'], env: ['ENV', '#8a919a'],
+// Labelled in mono, not colour-coded: a per-language palette would be a third
+// accent, and the label already says which language it is.
+const LANG_LABELS = {
+  ts: 'ts', tsx: 'tsx', js: 'js', jsx: 'jsx', mjs: 'js', cjs: 'js', php: 'php', py: 'py',
+  rb: 'rb', go: 'go', rs: 'rs', java: 'java', kt: 'kt', swift: 'swift', cs: 'c#', cpp: 'c++',
+  c: 'c', sql: 'sql', prisma: 'prisma', md: 'md', yml: 'yml', yaml: 'yml', json: 'json',
+  html: 'html', css: 'css', scss: 'scss', sh: 'sh', vue: 'vue', svelte: 'svelte',
+  tf: 'tf', twig: 'twig', env: 'env',
 }
 function langOf(path) {
   const base = path.split('/').pop().toLowerCase()
-  if (base === 'dockerfile') return ['DOCKER', '#384d54']
-  if (base === 'makefile') return ['MAKE', '#427819']
+  if (base === 'dockerfile') return 'dockerfile'
+  if (base === 'makefile') return 'makefile'
   const ext = base.includes('.') ? base.split('.').pop() : ''
-  return LANG_COLORS[ext] || (ext ? [ext.toUpperCase().slice(0, 6), '#8a919a'] : null)
+  return LANG_LABELS[ext] || (ext ? ext.slice(0, 8) : null)
 }
 let scopeFilter = null
 {
@@ -473,7 +1111,7 @@ let scopeFilter = null
   for (const [p, f] of Object.entries(RM.files)) {
     if (f.service) services.set(f.service, (services.get(f.service) || 0) + 1)
     const l = langOf(p)
-    if (l) { const e = langs.get(l[0]) || { n: 0, color: l[1] }; e.n++; langs.set(l[0], e) }
+    if (l) langs.set(l, (langs.get(l) || 0) + 1)
   }
   const bar = document.getElementById('scopebar')
   for (const [svc, n] of [...services].sort((a, b) => b[1] - a[1])) {
@@ -490,10 +1128,10 @@ let scopeFilter = null
     bar.appendChild(b)
   }
   if (services.size && langs.size) { const s = document.createElement('span'); s.className = 'scope-sep'; bar.appendChild(s) }
-  for (const [label, e] of [...langs].sort((a, b) => b[1].n - a[1].n)) {
+  for (const [label, n] of [...langs].sort((a, b) => b[1] - a[1])) {
     const span = document.createElement('span')
     span.className = 'lang-chip'
-    span.innerHTML = `<span class="ldot" style="background:${e.color}"></span>${esc(label)}${e.n > 1 ? ` ×${e.n}` : ''}`
+    span.textContent = n > 1 ? `${label} ×${n}` : label
     bar.appendChild(span)
   }
 }
@@ -519,8 +1157,14 @@ document.getElementById('filesHintText').textContent = L.filesHint
 document.getElementById('modalClose').textContent = L.close
 
 // ── tabs ─────────────────────────────────────────────────────────────────────
+const PROBLEM_STATUS = new Set(['regressed', 'broken', 'partial'])
+// The tab is hidden entirely on maps generated before this pass existed: an empty
+// "nothing changed outside" pane would be a claim the run never actually made.
+const hasStories = !!RM.userStories
 const PANES = [
   ['story', L.tabs.story, null],
+  ...(hasStories ? [['stories', L.tabs.stories,
+    (RM.userStories.stories || []).filter(s => PROBLEM_STATUS.has(s.status)).length]] : []),
   ['diagrams', L.tabs.diagrams, (RM.diagrams || []).length],
   ['standards', L.tabs.standards, (RM.standards || []).filter(s => s.severity !== 'ok').length],
   ['tests', L.tabs.tests, (RM.tests?.gaps || []).length ? `${(RM.tests.fixed || []).length}/${(RM.tests.gaps || []).length}` : (RM.tests?.fixed || []).length],
@@ -544,62 +1188,162 @@ helpBtn.setAttribute('aria-label', L.overviewTitle)
 helpBtn.addEventListener('click', () => helpModal.showModal())
 tabsEl.appendChild(helpBtn)
 
+// Tabs whose content actually feeds the inspector. Standards and Tests do carry
+// [data-goto] links into it, so collapsing must be reversible: a file click from
+// any tab reveals the panel again (see revealAside), otherwise those links would
+// look broken. Ops has no such links at all.
+const ASIDE_TABS = new Set(['story', 'diagrams', 'files'])
+const layoutEl = document.querySelector('.layout')
+let currentTab = 'story'
+const applyAside = (id) => layoutEl.classList.toggle('solo', !ASIDE_TABS.has(id))
+const revealAside = () => layoutEl.classList.remove('solo')
+
 let diagramsRendered = false
 function setTab(id) {
+  currentTab = id
+  applyAside(id)
   for (const b of tabsEl.children) b.classList.toggle('active', b.dataset.pane === id)
   for (const [pid] of PANES) document.getElementById('pane-' + pid).hidden = pid !== id
   if (id === 'files') requestAnimationFrame(drawEdges)
   // Mermaid renders lazily on first open: hidden panes have no layout to measure.
   if (id === 'diagrams' && !diagramsRendered && window.mermaid) {
     diagramsRendered = true
-    requestAnimationFrame(() => mermaid.run({ nodes: document.querySelectorAll('#pane-diagrams pre.mermaid') }))
+    requestAnimationFrame(runDiagrams)
   }
 }
+// mermaid's own themes ship their own palette and their own font stack — grey
+// boxes, black labels, Trebuchet. Feeding 'base' the page's tokens is what keeps
+// a diagram inside the design system instead of beside it. themeVariables are
+// baked at render, so a palette switch has to re-render (see rerenderDiagrams).
+// The UMD bundle auto-runs on DOMContentLoaded unless startOnLoad is turned off
+// before that fires. An auto-run would compile every diagram with mermaid's own
+// theme AND stamp data-processed on the node, so the themed render below would
+// silently be skipped — which is exactly how this went wrong once. Suppress it
+// first, and keep each source on its element: mermaid consumes the node it
+// renders into, so a re-render needs the original text back.
 if (window.mermaid) {
-  mermaid.initialize({
-    startOnLoad: false,
-    theme: matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'neutral',
-    // 'loose' is required for `click <id> call whydiffOpen(...)` directives;
-    // the page is self-contained and its mermaid source is our own generator output.
-    securityLevel: 'loose',
-  })
+  mermaid.initialize({ startOnLoad: false })
+  for (const n of document.querySelectorAll('#pane-diagrams pre.mermaid')) n.dataset.src = n.textContent
+}
+const token = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim()
+const mermaidTheme = () => ({
+  startOnLoad: false,
+  theme: 'base',
+  // Measured: on mermaid 11.16 themeVariables.fontFamily already drives both the
+  // injected CSS and the label measurement, so this pair is redundant today. It
+  // stays because fontFamily is the documented top-level knob and a version that
+  // reads it there would otherwise lay the diagram out in Trebuchet. Note for
+  // whoever prunes it: design.mjs does NOT cover this — the font assertion still
+  // passes on themeVariables alone.
+  fontFamily: token('--ui'), fontSize: 14,
+  themeVariables: {
+    fontFamily: token('--ui'), fontSize: '14px',
+    background: token('--canvas'),
+    primaryColor: token('--sunken'), primaryBorderColor: token('--line-strong'),
+    primaryTextColor: token('--ink'), secondaryColor: token('--sunken'),
+    tertiaryColor: token('--canvas'), tertiaryBorderColor: token('--line'),
+    lineColor: token('--ink-3'), textColor: token('--ink'),
+    nodeBorder: token('--line-strong'), mainBkg: token('--sunken'),
+    clusterBkg: token('--canvas'), clusterBorder: token('--line'),
+    edgeLabelBackground: token('--panel'), labelBoxBkgColor: token('--sunken'),
+    labelBoxBorderColor: token('--line'), labelTextColor: token('--ink'),
+    actorBkg: token('--sunken'), actorBorder: token('--line-strong'),
+    actorTextColor: token('--ink'), signalColor: token('--ink-2'),
+    signalTextColor: token('--ink'), sequenceNumberColor: token('--panel'),
+    attributeBackgroundColorOdd: token('--panel'),
+    attributeBackgroundColorEven: token('--sunken'),
+  },
+  // 'loose' is required for `click <id> call whydiffOpen(...)` directives;
+  // the page is self-contained and its mermaid source is our own generator output.
+  securityLevel: 'loose',
+})
+// Themed at render, never at load: the palette is only known once applyPalette
+// has run, and it can change again afterwards. mermaid consumes the source node
+// it renders into, so the original text is kept on the element and put back
+// before a re-run — that is the only way to re-theme an existing diagram.
+function runDiagrams() {
+  if (!window.mermaid) return
+  const nodes = [...document.querySelectorAll('#pane-diagrams pre.mermaid')]
+  if (!nodes.length) return
+  for (const n of nodes) {
+    n.textContent = n.dataset.src ?? n.textContent
+    n.removeAttribute('data-processed')
+  }
+  mermaid.initialize(mermaidTheme())
+  mermaid.run({ nodes })
 }
 
 // ── story ────────────────────────────────────────────────────────────────────
 const storyEl = document.getElementById('story')
+let blockNo = 0
 for (const item of RM.story) {
   if (item.link) {
     const row = document.createElement('div')
     row.className = 'link-row'
-    row.innerHTML = `<span class="la">↓</span><span>${esc(item.link)}</span>`
+    row.innerHTML = `<span class="la">↓</span><span>${prose(item.link)}</span>`
     storyEl.appendChild(row)
     continue
   }
   const step = document.createElement('div')
-  step.className = 'step'
+  step.className = 'step askable'
+  step.dataset.anchor = 'block:' + blockNo
+  step.dataset.anchorLabel = item.label || ('block ' + (blockNo + 1))
+  blockNo++
   step.style.setProperty('--sc', gcolor(item.group))
   step.style.setProperty('--sb', gbg(item.group))
   const branches = item.branches?.length
-    ? `<div class="branches">${item.branches.map(([t, x]) => `<div class="branch"><b>${esc(t)}</b>${esc(x)}</div>`).join('')}</div>` : ''
-  step.innerHTML = `<p class="step-label">${esc(item.label)}</p><p class="step-text">${item.text}</p>${branches}
+    ? `<div class="branches">${item.branches.map(([t, x]) => `<div class="branch"><b>${esc(t)}</b>${prose(x)}</div>`).join('')}</div>` : ''
+  step.innerHTML = `<p class="step-label">${esc(item.label)}</p><p class="step-text">${prose(item.text)}</p>${branches}
     <div class="step-files">${(item.files || []).map(chip).join('')}</div>`
   storyEl.appendChild(step)
 }
 
 // ── standards ────────────────────────────────────────────────────────────────
-document.getElementById('standards').innerHTML = (RM.standards || []).map(s => `
-  <div class="finding">
+// A warn finding is a problem, so it is a place a remark can attach to and a place
+// options can be asked for. `ok`/`info` are not: there is nothing to decide.
+document.getElementById('standards').innerHTML = (RM.standards || []).map((s, i) => `
+  <div class="finding ${s.severity}${s.severity === 'warn' ? ' askable fixable' : ''}"
+    ${s.severity === 'warn' ? `data-anchor="finding:${i}" data-anchor-label="${esc(s.finding.slice(0, 90))}"` : ''}>
     <span class="sev ${s.severity}">${s.severity}</span>
-    <div class="fbody">${esc(s.finding)}
+    <div class="fbody">${prose(s.finding)}
       ${s.file ? `<div class="floc"><button class="loclink" data-goto="${esc(s.file)}">${esc(s.file)}${s.line ? ':' + s.line : ''}</button></div>` : ''}
       ${s.pattern ? `<div class="fpattern">${esc(s.pattern)}</div>` : ''}
     </div>
   </div>`).join('')
 
+// ── user stories ─────────────────────────────────────────────────────────────
+if (hasStories) {
+  const us = RM.userStories
+  document.getElementById('storiesSummary').innerHTML = prose(us.summary)
+  document.getElementById('storiesHint').textContent = L.storiesHint
+  // Sorted here as well as in the pass: bad news must lead regardless of the
+  // order the model happened to emit.
+  const RANK = { regressed: 0, broken: 1, partial: 2, delivered: 3 }
+  // Anchors carry the ORIGINAL index, so a question stays attached to its story
+  // even though the display order is a sort of the pass's output.
+  const stories = (us.stories || []).map((s, i) => ({ ...s, __i: i }))
+    .sort((a, b) => (RANK[a.status] ?? 9) - (RANK[b.status] ?? 9))
+  document.getElementById('stories').innerHTML = stories.length
+    ? stories.map(s => `
+      <div class="ustory askable ${esc(s.status)}${s.status === 'delivered' ? '' : ' fixable'}" data-anchor="story:${s.__i}" data-anchor-label="${esc(s.actor)}: ${esc(s.story)}">
+        <div class="uhead">
+          <span class="ust ${esc(s.status)}">${esc(L.storyStatus[s.status] || s.status)}</span>
+          <span class="uactor">${esc(s.actor)}</span>
+          ${s.covered === undefined ? '' : `<span class="ucov${s.covered ? '' : ' no'}">${s.covered ? L.storyCovered : L.storyUncovered}</span>`}
+        </div>
+        <div class="utext">${prose(s.story)}</div>
+        <div class="uwhy">${prose(s.why)}</div>
+        ${(s.files || []).length ? `<div class="step-files">${s.files.map(chip).join('')}</div>` : ''}
+      </div>`).join('')
+    : `<div class="empty-good">${L.storiesNone}</div>`
+}
+
 // ── tests ────────────────────────────────────────────────────────────────────
-document.getElementById('testsSummary').innerHTML = esc(RM.tests?.summary || '')
-document.getElementById('testsFixed').innerHTML = (RM.tests?.fixed || []).map(x => `<li>${esc(x)}</li>`).join('')
-document.getElementById('testsGaps').innerHTML = (RM.tests?.gaps || []).map(x => `<li>${esc(x)}</li>`).join('')
+document.getElementById('testsSummary').innerHTML = prose(RM.tests?.summary)
+document.getElementById('testsFixed').innerHTML = (RM.tests?.fixed || []).map(x => `<li>${prose(x)}</li>`).join('')
+// Every gap is a problem by definition — the whole list is anchorable.
+document.getElementById('testsGaps').innerHTML = (RM.tests?.gaps || []).map((x, i) =>
+  `<li class="askable fixable" data-anchor="gap:${i}" data-anchor-label="${esc(String(x).slice(0, 90))}">${prose(x)}</li>`).join('')
 document.getElementById('fixedCnt').textContent = (RM.tests?.fixed || []).length
 document.getElementById('gapsCnt').textContent = (RM.tests?.gaps || []).length
 document.getElementById('testsFiles').innerHTML = (RM.tests?.files || []).map(chip).join('')
@@ -608,17 +1352,17 @@ document.getElementById('testsFiles').innerHTML = (RM.tests?.files || []).map(ch
 {
   const ops = RM.ops || {}
   let html = ''
-  if (ops.note) html += `<div class="section-note">${esc(ops.note)}</div>`
+  if (ops.note) html += `<div class="section-note">${prose(ops.note)}</div>`
   html += (ops.env || []).length
-    ? `<div class="listcard" style="margin-bottom:12px"><h3>${L.envTitle}</h3><ul>${ops.env.map(e => `<li><code>${esc(e.name)}</code> — ${L.envStatus[e.status] || esc(e.status)}${e.note ? ': ' + esc(e.note) : ''}</li>`).join('')}</ul></div>`
+    ? `<div class="listcard" style="margin-bottom:12px"><h3>${L.envTitle}</h3><ul>${ops.env.map(e => `<li><code>${esc(e.name)}</code> — ${L.envStatus[e.status] || esc(e.status)}${e.note ? ': ' + prose(e.note) : ''}</li>`).join('')}</ul></div>`
     : `<div class="empty-good">${L.envNone}</div>`
   html += (ops.migrations || []).length
-    ? `<div class="listcard" style="margin-bottom:12px"><h3>${L.migrTitle}</h3><ul>${ops.migrations.map(m => `<li>${esc(m)}</li>`).join('')}</ul></div>`
+    ? `<div class="listcard" style="margin-bottom:12px"><h3>${L.migrTitle}</h3><ul>${ops.migrations.map(m => `<li>${prose(m)}</li>`).join('')}</ul></div>`
     : `<div class="empty-good">${L.migrNone}</div>`
-  if ((ops.deploy || []).length) html += `<div class="listcard" style="margin-bottom:12px"><h3>${L.deployTitle}</h3><ul>${ops.deploy.map(d => `<li>${esc(d)}</li>`).join('')}</ul></div>`
+  if ((ops.deploy || []).length) html += `<div class="listcard" style="margin-bottom:12px"><h3>${L.deployTitle}</h3><ul>${ops.deploy.map(d => `<li>${prose(d)}</li>`).join('')}</ul></div>`
   document.getElementById('ops').innerHTML = html
   document.getElementById('blast').innerHTML = (RM.blastRadius || []).map(b => `
-    <div class="brow"><span class="bpath">${esc(b.path)}</span><div class="bwhy">${esc(b.why)}</div></div>`).join('')
+    <div class="brow"><span class="bpath">${esc(b.path)}</span><div class="bwhy">${prose(b.why)}</div></div>`).join('')
 }
 
 // ── files: groups, nodes, edges, manifest ────────────────────────────────────
@@ -721,6 +1465,7 @@ document.getElementById('manifestSummary').textContent = L.manifestSummary(RM.ma
 for (const [path, add, del, gid, isNew] of RM.manifest) {
   const row = document.createElement('button')
   row.className = 'mrow'
+  row.dataset.path = path
   row.style.setProperty('--mc', gcolor(gid))
   row.innerHTML = `<span class="dot"></span><span class="mpath">${esc(path)}${isNew ? ` <span class="mnew">${L.newMark}</span>` : ''}</span>
     <span class="mstat"><span class="a">+${add}</span> <span class="d">−${del}</span></span>`
@@ -748,12 +1493,13 @@ function showFile(path) {
   const f = RM.files[path]
   if (!f) return
   const g = RM.groups.find(g => g.id === fileGroup[path])
+  revealAside()
   setActive(path)
   const hasFull = !!RM.fullFiles?.[path]
   inspector.innerHTML = `
     <p class="insp-tag" style="color:${gcolor(g?.id)}">${esc(g?.tag || '')}</p>
     <h3>${esc(path)}</h3>
-    <div class="why">${f.why}</div>
+    <div class="why">${prose(f.why)}</div>
     ${codeboxHTML(path, f)}
     ${relsHTML(path)}
     <div class="actions">
@@ -764,11 +1510,12 @@ function showFile(path) {
   document.getElementById('backBtn').addEventListener('click', showOverview)
 }
 function showGroup(g) {
+  revealAside()
   setActive(null)
   inspector.innerHTML = `
     <p class="insp-tag" style="color:${gcolor(g.id)}">${esc(g.tag || g.role)}</p>
     <h3 class="prose">${esc(g.name)}</h3>
-    <div class="why">${g.why}</div>
+    <div class="why">${prose(g.why)}</div>
     <ul class="filelist">${g.files.map(p => `<li>${esc(p)}</li>`).join('')}</ul>
     <div class="actions"><button class="btn" id="backBtn">${L.back}</button></div>`
   document.getElementById('backBtn').addEventListener('click', showOverview)
@@ -779,6 +1526,10 @@ const legendHTML = () => `<ul class="glegend">${RM.groups.map(g => `
   <li><button class="gleg-row" data-group="${esc(g.id)}"><span class="dot" style="background:${gcolor(g.id)}"></span><b>${esc(g.name)}</b><span class="gleg-role">${esc(L.roles[g.role] || g.role)}</span></button></li>`).join('')}</ul>`
 function showOverview() {
   setActive(null)
+  // On a prose tab the idle legend is exactly what the panel was collapsed to
+  // avoid, so "back" there gives the width back instead of rendering it. No new
+  // affordance needed: the next file click reopens the panel.
+  if (!ASIDE_TABS.has(currentTab)) return applyAside(currentTab)
   inspector.innerHTML = `
     <p class="insp-tag" style="color:var(--accent)">${L.overviewTag}</p>
     <h3 class="prose">${esc(RM.meta.title || RM.meta.project)}</h3>
@@ -803,10 +1554,8 @@ modal.addEventListener('click', e => { if (e.target === modal) modal.close() })
 const helpModal = document.getElementById('helpModal')
 document.getElementById('helpTitle').textContent = L.overviewTitle
 document.getElementById('helpClose').textContent = L.close
-document.getElementById('helpBody').innerHTML = `
-  <p>${L.overviewBody}</p>
-  ${legendHTML()}
-  <p class="note">${L.completeness(RM.manifest.length)}</p>`
+// The body (legend + shortcut sheet + settings) is rendered by renderHelp() in
+// the reading-session block below, so the two cannot drift apart.
 document.getElementById('helpClose').addEventListener('click', () => helpModal.close())
 helpModal.addEventListener('click', e => { if (e.target === helpModal) helpModal.close() })
 
@@ -838,12 +1587,13 @@ function openDiagramWindow(diagEl) {
   const svg = diagEl?.querySelector('svg')
   if (!svg) return
   const title = diagEl.querySelector('h3')?.textContent || 'diagram'
-  const dark = document.documentElement.dataset.theme === 'dark'
-    || (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches)
+  // The pop-out is a separate document, so the canvas token is read from the
+  // live page rather than restated as a literal.
+  const canvas = getComputedStyle(document.documentElement).getPropertyValue('--canvas').trim()
   const w = window.open('', '_blank')
   if (!w) return
   w.document.write(`<!doctype html><title>${esc(title)}</title><style>
-    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: ${dark ? '#12161b' : '#f6f8fa'}; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: ${canvas}; }
     svg { width: 96vw; height: auto; max-width: none !important; }
   </style>${svg.outerHTML}`)
   w.document.close()
@@ -853,6 +1603,1252 @@ for (const b of document.querySelectorAll('[data-pop]')) b.title = L.dgNewWindow
 // Mermaid binds `click <id> call whydiffOpen("<path>")` to this global.
 window.whydiffOpen = gotoFile
 
+// ── reading session ──────────────────────────────────────────────────────────
+// What a 40-file review needs to survive being put down: what has already been
+// read, where the reader was, and a keyboard path to every action.
+const SESSION = (() => {
+  const key = `whydiff:${RM.meta.project}:${RM.meta.ref}`
+  let st = {}
+  try { st = JSON.parse(localStorage.getItem(key)) || {} } catch {}
+  const save = () => { try { localStorage.setItem(key, JSON.stringify(st)) } catch {} }
+  return { get: (k, d) => (st[k] === undefined ? d : st[k]), set: (k, v) => { st[k] = v; save() } }
+})()
+document.body.classList.add('can-read')
+
+// Settings that change how the diff reads, never what it says.
+// One palette ships at a time; the others exist so the choice stays reviewable.
+const PALETTES = ['slate', 'graphite', 'bond']
+// Representative colours per palette (canvas + accent), fixed hex: a swatch shows
+// a palette OTHER than the current one, so it can't read the live CSS variables.
+const PAL_SWATCH = { slate: ['#EEF0F2', '#15181B'], graphite: ['#14161A', '#C9A227'], bond: ['#FBFBF9', '#5B2B4A'] }
+const themePick = document.createElement('div')
+themePick.className = 'themepick'
+themePick.setAttribute('role', 'group')
+themePick.setAttribute('aria-label', L.setPalette)
+for (const v of PALETTES) {
+  const b = document.createElement('button')
+  const [bg, fg] = PAL_SWATCH[v] || ['#888', '#fff']
+  b.style.setProperty('--sw-bg', bg)
+  b.style.setProperty('--sw-fg', fg)
+  b.dataset.v = v
+  b.title = v
+  b.setAttribute('aria-label', v)
+  b.addEventListener('click', () => applyPalette(v))
+  themePick.appendChild(b)
+}
+document.querySelector('.wrap').prepend(themePick)
+const syncThemePick = () => {
+  const cur = document.documentElement.dataset.p || 'slate'
+  for (const b of themePick.children) b.classList.toggle('on', b.dataset.v === cur)
+}
+const applyPalette = (v) => {
+  document.documentElement.dataset.p = PALETTES.includes(v) ? v : 'slate'
+  SESSION.set('palette', document.documentElement.dataset.p)
+  syncThemePick()
+  // the diff-mark CSS follows the tokens on its own; the diagram's own theme is
+  // baked into rendered SVG and has to be rebuilt
+  if (diagramsRendered) runDiagrams()
+}
+// quiet ships; safe is the token block's own two-hue pair, so it is the one
+// spelling that clears the attribute rather than setting it.
+const DIFFS = ['quiet', 'safe', 'classic']
+const applyDiff = (v) => {
+  if (!DIFFS.includes(v)) v = 'quiet'
+  if (v === 'safe') delete document.documentElement.dataset.diff
+  else document.documentElement.dataset.diff = v
+  SESSION.set('diff', v)
+}
+applyPalette(SESSION.get('palette', matchMedia('(prefers-color-scheme: dark)').matches ? 'graphite' : 'slate'))
+applyDiff(SESSION.get('diff', 'quiet'))
+
+const seen = new Set(SESSION.get('seen', []))
+const allPaths = RM.manifest.map(r => r[0])
+
+const foot = document.createElement('div')
+foot.className = 'footstrip'
+foot.innerHTML = `<div class="fs-bar"></div><span class="fs-count"></span>
+  <span class="fs-keys"><kbd>j</kbd><kbd>k</kbd> ${esc(L.keyMove)} · <kbd>]</kbd><kbd>[</kbd> ${esc(L.keyFile)} · <kbd>s</kbd> ${esc(L.keySeen)} · <kbd>?</kbd> ${esc(L.keyAll)}</span>`
+document.body.appendChild(foot)
+const fsBar = foot.querySelector('.fs-bar')
+const fsCount = foot.querySelector('.fs-count')
+
+function refreshSeen() {
+  for (const [path, el] of Object.entries(nodeEls)) el.classList.toggle('seen', seen.has(path))
+  for (const row of manifestRows.children) row.classList.toggle('seen', seen.has(row.dataset.path))
+  for (const b of document.querySelectorAll('.seen-btn')) {
+    const on = seen.has(b.dataset.path)
+    b.classList.toggle('on', on)
+    b.textContent = on ? L.seenYes : L.seenNo
+  }
+  const n = allPaths.filter(p => seen.has(p)).length
+  fsCount.textContent = L.readProgress(n, allPaths.length)
+  fsBar.style.width = `${allPaths.length ? (n / allPaths.length) * 100 : 0}%`
+}
+const toggleSeen = (path) => {
+  if (!path) return
+  seen.has(path) ? seen.delete(path) : seen.add(path)
+  SESSION.set('seen', [...seen])
+  refreshSeen()
+}
+for (const row of manifestRows.children) {
+  const b = document.createElement('button')
+  b.className = 'seen-btn'
+  b.dataset.path = row.dataset.path
+  b.title = L.seenTitle
+  b.addEventListener('click', (e) => { e.stopPropagation(); toggleSeen(row.dataset.path) })
+  row.appendChild(b)
+}
+
+// ── keyboard ─────────────────────────────────────────────────────────────────
+// j/k steps through whatever the current tab is made of.
+const UNIT_SEL = {
+  story: '.step', stories: '.ustory', standards: '.finding', tests: '.listcard li',
+  ops: '.brow', files: '.node', diagrams: '.diagram',
+}
+let cursor = -1
+const units = () => [...document.querySelectorAll(`#pane-${currentTab} ${UNIT_SEL[currentTab] || '.step'}`)]
+function moveCursor(delta) {
+  const u = units()
+  if (!u.length) return
+  for (const e of u) e.classList.remove('cursor-here')
+  cursor = Math.max(0, Math.min(u.length - 1, (cursor < 0 ? (delta > 0 ? -1 : 0) : cursor) + delta))
+  const el = u[cursor]
+  el.classList.add('cursor-here')
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+}
+let fileCursor = -1
+function moveFile(delta) {
+  if (!allPaths.length) return
+  fileCursor = (fileCursor + delta + allPaths.length) % allPaths.length
+  showFile(allPaths[fileCursor])
+}
+const currentPath = () => (fileCursor >= 0 ? allPaths[fileCursor] : activeId)
+
+const SHORTCUTS = () => [
+  ['j / k', L.keyMoveLong], ['] / [', L.keyFileLong], ['s', L.keySeenLong],
+  ['n', L.keyThread], ['⇧A', L.keyApprove], ['f', L.keyFocus], ['g / G', L.keyTopBottom],
+  ['1 – 7', L.keyTab], ['t', L.keyPalette], ['?', L.keySheet], ['Esc', L.keyClose],
+]
+function renderHelp() {
+  document.getElementById('helpBody').innerHTML = `
+    <p>${L.overviewBody}</p>
+    ${legendHTML()}
+    <table class="keysheet">${SHORTCUTS().map(([k, d]) => `<tr><td>${esc(k)}</td><td>${esc(d)}</td></tr>`).join('')}</table>
+    <div class="setrow">${esc(L.setPalette)}
+      <span class="seg" data-set="palette">${PALETTES.map(v => `<button data-v="${v}">${esc(v)}</button>`).join('')}</span>
+    </div>
+    <div class="setrow">${esc(L.setDiff)}
+      <span class="seg" data-set="diff">${DIFFS.map(v => `<button data-v="${v}">${esc(L.diffPal[v])}</button>`).join('')}</span>
+    </div>
+    <p class="note">${L.completeness(RM.manifest.length)}</p>`
+  const mark = () => {
+    for (const b of document.querySelectorAll('[data-set="palette"] button')) b.classList.toggle('on', b.dataset.v === (document.documentElement.dataset.p || 'slate'))
+    for (const b of document.querySelectorAll('[data-set="diff"] button')) b.classList.toggle('on', b.dataset.v === SESSION.get('diff', 'quiet'))
+  }
+  for (const b of document.querySelectorAll('[data-set] button')) {
+    b.addEventListener('click', () => {
+      b.closest('[data-set]').dataset.set === 'palette' ? applyPalette(b.dataset.v) : applyDiff(b.dataset.v)
+      mark()
+    })
+  }
+  mark()
+}
+renderHelp()
+
+const TAB_KEYS = PANES.map(p => p[0])
+addEventListener('keydown', (e) => {
+  if (e.target.matches?.('input, textarea, select') || e.target.isContentEditable) return
+  if (e.metaKey || e.ctrlKey || e.altKey) return
+  const k = e.key
+  const go = (fn) => { e.preventDefault(); fn() }
+  if (k === '?') return go(() => helpModal.open ? helpModal.close() : helpModal.showModal())
+  if (k === 'Escape') return go(() => { helpModal.close(); modal.close(); document.body.classList.remove('focus') })
+  if (k === 'j') return go(() => moveCursor(1))
+  if (k === 'k') return go(() => moveCursor(-1))
+  if (k === ']') return go(() => moveFile(1))
+  if (k === '[') return go(() => moveFile(-1))
+  if (k === 's') return go(() => toggleSeen(currentPath()))
+  if (k === 'f') return go(() => { document.body.classList.toggle('focus'); SESSION.set('focus', document.body.classList.contains('focus')) })
+  if (k === 't') return go(() => { applyPalette(PALETTES[(PALETTES.indexOf(document.documentElement.dataset.p || 'slate') + 1) % PALETTES.length]); renderHelp() })
+  if (k === 'g') return go(() => scrollTo({ top: 0, behavior: 'smooth' }))
+  if (k === 'G') return go(() => scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }))
+  if (k === 'n') return go(() => document.querySelector('.rail .bm')?.click())
+  if (k === 'A') return go(() => { for (const f of allPaths) seen.add(f); SESSION.set('seen', [...seen]); refreshSeen() })
+  if (/^[1-9]$/.test(k) && TAB_KEYS[+k - 1]) return go(() => setTab(TAB_KEYS[+k - 1]))
+})
+
 showOverview()
+refreshSeen()
+
+// Restore the reader's position, then keep it current.
+if (SESSION.get('focus', false)) document.body.classList.add('focus')
+const savedTab = SESSION.get('tab', null)
+if (savedTab && TAB_KEYS.includes(savedTab)) setTab(savedTab)
+const savedScroll = SESSION.get('scroll', 0)
+if (savedScroll) requestAnimationFrame(() => scrollTo(0, savedScroll))
+let scrollSaveRaf = 0
+addEventListener('scroll', () => {
+  cancelAnimationFrame(scrollSaveRaf)
+  scrollSaveRaf = requestAnimationFrame(() => SESSION.set('scroll', Math.round(scrollY)))
+}, { passive: true })
+const setTabPlain = setTab
+setTab = function (id) { setTabPlain(id); SESSION.set('tab', id); cursor = -1 }
+
 addEventListener('resize', () => { if (!document.getElementById('pane-files').hidden) drawEdges() })
+
+// ── ask ──────────────────────────────────────────────────────────────────────
+// Live Q&A about an anchored piece of this report. Only reachable when the page
+// is served by scripts/serve.mjs, which injects the token below — the assembled
+// file and the published artifact have no endpoint to talk to, so the whole
+// feature stays absent rather than visibly broken.
+const SERVE = window.__WHYDIFF_SERVE__
+if (SERVE?.token) (() => {
+  document.body.classList.add('can-ask')
+
+  // ── markdown ───────────────────────────────────────────────────────────────
+  // A small renderer rather than a library: the page must stay self-contained,
+  // and a published artifact's CSP would block a CDN anyway. Everything is
+  // escaped before any markup is produced, so an answer cannot inject HTML.
+  const mdToHtml = (src) => {
+    const fences = []
+    let s = String(src == null ? '' : src).replace(/```([a-zA-Z0-9_+-]*)\n?([\s\S]*?)```/g, (_, lang, code) => {
+      fences.push(`<pre><code>${esc(code.replace(/\n$/, ''))}</code></pre>`)
+      return `F${fences.length - 1}`
+    })
+    s = esc(s)
+    const spans = []
+    const hold = (html) => `S${spans.push(html) - 1}`
+    s = s.replace(/`([^`\n]+)`/g, (_, c) => hold(`<code>${c}</code>`))
+    s = s.replace(/\[([^\]\n]+)\]\((https?:[^)\s]+)\)/g, (_, t, u) => hold(`<a href="${u}" target="_blank" rel="noopener">${t}</a>`))
+    s = s.replace(/\*\*([^*\n]+)\*\*/g, (_, t) => hold(`<strong>${t}</strong>`))
+    s = s.replace(/(^|[\s(])\*([^*\n]+)\*(?=[\s).,;:!?]|$)/g, (_, p, t) => p + hold(`<em>${t}</em>`))
+    s = s.replace(/(^|[\s(])_([^_\n]+)_(?=[\s).,;:!?]|$)/g, (_, p, t) => p + hold(`<em>${t}</em>`))
+
+    const out = []
+    let list = null // 'ul' | 'ol'
+    const closeList = () => { if (list) { out.push(`</${list}>`); list = null } }
+    for (const raw of s.split('\n')) {
+      const line = raw.trimEnd()
+      if (/^F\d+$/.test(line.trim())) { closeList(); out.push(line.trim()); continue }
+      if (!line.trim()) { closeList(); continue }
+      const h = line.match(/^(#{1,6})\s+(.*)$/)
+      if (h) { closeList(); out.push(`<h3>${h[2]}</h3>`); continue }
+      // The line is already escaped at this point, so the marker is &gt;, not >.
+      const q = line.match(/^&gt;\s?(.*)$/)
+      if (q) { closeList(); out.push(`<blockquote>${q[1]}</blockquote>`); continue }
+      const ul = line.match(/^\s*[-*+]\s+(.*)$/)
+      if (ul) { if (list !== 'ul') { closeList(); out.push('<ul>'); list = 'ul' } out.push(`<li>${ul[1]}</li>`); continue }
+      const ol = line.match(/^\s*\d+[.)]\s+(.*)$/)
+      if (ol) { if (list !== 'ol') { closeList(); out.push('<ol>'); list = 'ol' } out.push(`<li>${ol[1]}</li>`); continue }
+      closeList()
+      out.push(`<p>${line}</p>`)
+    }
+    closeList()
+    return out.join('')
+      .replace(/S(\d+)/g, (_, i) => spans[+i])
+      .replace(/F(\d+)/g, (_, i) => fences[+i])
+  }
+
+  const api = async (path, body, raw) => {
+    const res = await fetch('/api/' + path, {
+      method: body ? 'POST' : 'GET',
+      headers: { 'x-whydiff-token': SERVE.token, ...(body ? { 'content-type': 'application/json' } : {}) },
+      ...(body ? { body: JSON.stringify(body) } : {}),
+    })
+    if (raw) { if (!res.ok) throw new Error(`HTTP ${res.status}`); return res }
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`)
+    return data
+  }
+
+  // ── state ──────────────────────────────────────────────────────────────────
+  let threads = []
+  let current = null
+  const numbers = new Map()   // anchorKey → the number shown on its marker
+  const renumber = () => {
+    numbers.clear()
+    for (const t of threads) if (!numbers.has(t.anchorKey)) numbers.set(t.anchorKey, numbers.size + 1)
+  }
+  const forKey = (k) => threads.filter(t => t.anchorKey === k)
+
+  // ── panel (right column, full height) ──────────────────────────────────────
+  const panel = document.createElement('section')
+  panel.className = 'askpanel'
+  panel.innerHTML = `
+    <div class="dk-head"><b>${esc(L.askTitle)}</b><span class="grow"></span>
+      <button class="dk-btn dk-insp" title="${esc(L.askShowInspector)}">${esc(L.askInspector)}</button>
+      <button class="dk-x" aria-label="${esc(L.close)}">✕</button></div>
+    <div class="dk-anchor"></div><div class="dk-quote" hidden></div>
+    <div class="dk-threads"></div>
+    <div class="dk-form">
+      <div class="dk-mode">
+        <button data-mode="ask" class="on" title="${esc(L.modeAskTitle)}">${esc(L.modeAsk)}</button>
+        <button data-mode="instruct" title="${esc(L.modeInstructTitle)}">${esc(L.modeInstruct)}</button>
+        <button data-mode="propose" title="${esc(L.modeProposeTitle)}">${esc(L.modePropose)}</button>
+      </div>
+      <textarea placeholder="${esc(L.askPlaceholder)}"></textarea>
+      <div class="dk-row"><span class="dk-hint">${esc(L.askHint)}</span><button class="btn primary dk-send">${esc(L.askSend)}</button></div>
+      <div class="dk-err" hidden></div>
+    </div>`
+  document.getElementById('rightcol').appendChild(panel)
+  const dkAnchor = panel.querySelector('.dk-anchor')
+  const dkQuote = panel.querySelector('.dk-quote')
+  const dkThreads = panel.querySelector('.dk-threads')
+  const dkText = panel.querySelector('textarea')
+  const dkSend = panel.querySelector('.dk-send')
+  const dkErr = panel.querySelector('.dk-err')
+  const dkHint = panel.querySelector('.dk-hint')
+
+  // Two speech acts, one place: a question about this bit, or an instruction to
+  // change it. The switch changes what the reply is — an answer, or a plan the
+  // reviewer approves — not which panel you are in.
+  // Options are the third act: the reviewer types nothing, because the finding the
+  // map already reported IS the question. That is also why the mode is refused
+  // anywhere else — a proposal must cite a finding, and a text selection is not one.
+  let mode = 'ask'
+  const proposeBtn = panel.querySelector('.dk-mode button[data-mode="propose"]')
+  const canPropose = (anchor) => !!anchor && (
+    ['finding', 'gap'].includes(anchor.kind) || !!elFor(anchor.key)?.classList.contains('fixable'))
+  const setMode = (next) => {
+    mode = next
+    for (const b of panel.querySelectorAll('.dk-mode button')) b.classList.toggle('on', b.dataset.mode === next)
+    dkText.hidden = next === 'propose'
+    dkText.placeholder = next === 'instruct' ? L.instructPlaceholder : L.askPlaceholder
+    dkHint.textContent = next === 'ask' ? L.askHint : next === 'instruct' ? L.instructHint : L.proposeHint
+    dkSend.textContent = next === 'ask' ? L.askSend : next === 'instruct' ? L.instructSend : L.proposeSend
+  }
+  for (const b of panel.querySelectorAll('.dk-mode button')) {
+    b.addEventListener('click', () => { if (!b.disabled) { setMode(b.dataset.mode); if (!dkText.hidden) dkText.focus() } })
+  }
+
+  const closePanel = () => {
+    panel.classList.remove('on')
+    layoutEl.classList.remove('chatting')
+    current = null
+    applyAside(currentTab)
+    layoutRail()
+  }
+  panel.querySelector('.dk-x').addEventListener('click', closePanel)
+  // The inspector lives in the same column; this hands it back without losing
+  // the open thread — its marker reopens it.
+  panel.querySelector('.dk-insp').addEventListener('click', () => {
+    layoutEl.classList.remove('chatting')
+    panel.classList.remove('on')
+    revealAside()
+    layoutRail()
+  })
+
+  // ── multi-select bar + selection button ────────────────────────────────────
+  const bar = document.createElement('div')
+  bar.className = 'askbar'
+  bar.innerHTML = `<span class="bar-n"></span><button class="btn primary bar-ask">${esc(L.askSelected)}</button><button class="btn bar-clear">${esc(L.askClear)}</button>`
+  document.body.appendChild(bar)
+  const selBtn = document.createElement('button')
+  selBtn.className = 'asksel'
+  selBtn.textContent = L.askAboutSelection
+  document.body.appendChild(selBtn)
+  const rail = document.createElement('div')
+  rail.className = 'rail'
+  document.body.appendChild(rail)
+
+  // ── anchors ────────────────────────────────────────────────────────────────
+  const textOf = (el) => {
+    const c = el.cloneNode(true)
+    for (const x of c.querySelectorAll('.askbtn, .askmark, .askpin')) x.remove()
+    return (c.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 1800)
+  }
+  const filesOf = (el) => [...el.querySelectorAll('[data-goto]')].map(x => x.dataset.goto)
+  const anchorOf = (el) => ({
+    kind: el.dataset.anchor.split(':')[0],
+    key: el.dataset.anchor,
+    label: el.dataset.anchorLabel || el.dataset.anchor,
+    files: filesOf(el),
+    context: textOf(el),
+    lang: RM.meta.lang,
+  })
+  // A question about one diagram node has no element of its own (mermaid nodes are
+  // SVG, which cannot host the marker), so it falls back to its diagram — the
+  // bookmark still lands you in the right place instead of reading as "lost".
+  const elFor = (key) => document.querySelector(`[data-anchor="${CSS.escape(key)}"]`)
+    || (/^diagram:\d+:/.test(key) ? document.querySelector(`[data-anchor="${CSS.escape(key.split(':').slice(0, 2).join(':'))}"]`) : null)
+
+  // A selection question leaves the quoted text highlighted, the way a comment
+  // does in a document — otherwise the question has no visible home to return to.
+  const wrapQuote = (quote, key) => {
+    if (!quote || elFor(key)) return
+    const root = document.querySelector('.wrap')
+    const nodes = []
+    let flat = ''
+    const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+      acceptNode: (n) => (n.parentElement.closest('script, style, .rail, .askpanel, .askbar, .asksel, svg'))
+        ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT,
+    })
+    for (let n = walk.nextNode(); n; n = walk.nextNode()) { nodes.push([n, flat.length]); flat += n.nodeValue }
+    // Whitespace differs between the DOM and the stored quote, so search on a
+    // collapsed copy and map the hit back to real offsets.
+    const map = []
+    let norm = ''
+    for (let i = 0; i < flat.length; i++) {
+      const ch = /\s/.test(flat[i]) ? ' ' : flat[i]
+      if (ch === ' ' && norm.endsWith(' ')) continue
+      map.push(i); norm += ch
+    }
+    const needle = quote.replace(/\s+/g, ' ').trim()
+    const at = norm.indexOf(needle)
+    if (at < 0) return
+    const from = map[at], to = map[Math.min(at + needle.length - 1, map.length - 1)] + 1
+    const locate = (pos) => {
+      for (const [n, base] of nodes) if (pos >= base && pos <= base + n.nodeValue.length) return [n, pos - base]
+      return null
+    }
+    // Wrap each intersecting text node separately. A single surroundContents()
+    // throws whenever the selection crosses an element boundary — which here is
+    // the common case, since the prose is full of inline <code> and <b>.
+    const pieces = []
+    for (const [n, base] of nodes) {
+      const s = Math.max(from, base), e = Math.min(to, base + n.nodeValue.length)
+      if (e > s) pieces.push([n, s - base, e - base])
+    }
+    if (!pieces.length) return
+    const wrapped = []
+    for (const [node, s, e] of pieces) {
+      let target = node
+      if (e < target.nodeValue.length) target.splitText(e)
+      if (s > 0) target = target.splitText(s)
+      const span = document.createElement('span')
+      span.className = 'askquote'
+      target.parentNode.insertBefore(span, target)
+      span.appendChild(target)
+      wrapped.push(span)
+    }
+    // The anchor lives on the first piece; the pin goes after the last, the way
+    // a comment marker sits at the end of the commented phrase.
+    wrapped[0].dataset.anchor = key
+    wrapped[0].dataset.anchorLabel = needle.slice(0, 90)
+    if (wrapped.length > 1) wrapped[wrapped.length - 1].dataset.askPinHere = key
+  }
+
+  // ── markers ────────────────────────────────────────────────────────────────
+  const refreshMarks = () => {
+    renumber()
+    for (const t of threads) if (t.anchor?.kind === 'selection' && t.anchor.quote) wrapQuote(t.anchor.quote, t.anchorKey)
+    for (const el of document.querySelectorAll('[data-anchor]')) {
+      const key = el.dataset.anchor
+      const n = numbers.get(key)
+      const count = forKey(key).length
+      const isQuote = el.classList.contains('askquote')
+      // A multi-piece highlight puts its pin after the last piece, so the marker
+      // sits at the end of the phrase rather than in the middle of it.
+      // Diagrams put their marker in the header strip, next to ⛶ and ⧉, rather
+      // than floating it over the rendered graph.
+      const pinHost = isQuote
+        ? (document.querySelector(`[data-ask-pin-here="${CSS.escape(key)}"]`) || el)
+        : (el.querySelector(':scope > .dg-head > .dg-actions') || el)
+      let mark = pinHost.querySelector(`:scope > .${isQuote ? 'askpin' : 'askmark'}`)
+      if (n) {
+        if (!mark) {
+          mark = document.createElement('button')
+          mark.className = isQuote ? 'askpin' : 'askmark'
+          mark.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); openFor(anchorOf(el)) })
+          pinHost.appendChild(mark)
+        }
+        mark.textContent = count > 1 ? `${n}·${count}` : String(n)
+        mark.title = L.askOpenThread(count)
+      } else if (mark) mark.remove()
+
+      // The hover "ask" affordance only makes sense where no marker sits yet.
+      if (el.classList.contains('askable')) {
+        let b = el.querySelector(':scope > .askbtn')
+        if (n && b) b.remove()
+        else if (!n && !b) {
+          b = document.createElement('button')
+          b.className = 'askbtn'
+          b.textContent = L.askBadge
+          b.title = L.askAbout
+          b.addEventListener('click', (e) => { e.stopPropagation(); openFor(anchorOf(el)) })
+          el.appendChild(b)
+        }
+      }
+    }
+    layoutRail()
+  }
+
+  // ── left rail: bookmarks at the height of their anchor ─────────────────────
+  const tabOfEl = (el) => el?.closest('.pane')?.id?.replace('pane-', '') || null
+  // Diagram anchors only become real elements once mermaid has drawn that pane.
+  // Until then the key still says which tab the question belongs to, so it is
+  // counted there rather than reported as having lost its place.
+  const tabFromKey = (key) => key.startsWith('diagram:') ? 'diagrams'
+    : key.startsWith('story:') ? 'stories'
+    : /^blocks?:/.test(key) ? 'story' : null
+  let railRaf = 0
+  function layoutRail() {
+    cancelAnimationFrame(railRaf)
+    railRaf = requestAnimationFrame(() => {
+      const keys = [...numbers.keys()]
+      rail.classList.toggle('on', keys.length > 0)
+      document.body.classList.toggle('has-marks', keys.length > 0)
+      rail.innerHTML = ''
+      // Questions elsewhere are counted on the tab that holds them. Floating them
+      // in a corner of the window detached them from everything, which is not
+      // what a bookmark is.
+      const perTab = new Map()
+      const here = []
+      for (const key of keys) {
+        const el = elFor(key)
+        const tab = tabOfEl(el) || tabFromKey(key)
+        const entry = { key, el, tab, n: numbers.get(key), count: forKey(key).length }
+        if (el && (!tab || tab === currentTab)) here.push(entry)
+        else if (tab) perTab.set(tab, (perTab.get(tab) || 0) + 1)
+        else here.push({ ...entry, lost: true })
+      }
+      for (const b of tabsEl.querySelectorAll('.tab')) {
+        const n = perTab.get(b.dataset.pane) || 0
+        let q = b.querySelector('.qcnt')
+        if (!n) { q?.remove(); continue }
+        if (!q) { q = document.createElement('span'); q.className = 'qcnt'; b.appendChild(q) }
+        q.textContent = n
+        q.title = L.askOnThisTab(n)
+      }
+      if (!keys.length) return
+
+      // Document coordinates, so a bookmark sits beside its own content and
+      // scrolls with it instead of sliding along the window. Placed just left of
+      // the text column, inside the margin reserved by body.has-marks.
+      const wrapEl = document.querySelector('.wrap')
+      const wrapBox = wrapEl.getBoundingClientRect()
+      const padLeft = parseFloat(getComputedStyle(wrapEl).paddingLeft) || 0
+      rail.style.left = `${Math.max(0, wrapBox.left + scrollX + padLeft - 32)}px`
+      let floor = -Infinity
+      const sorted = here
+        .map(e => ({ ...e, y: e.lost ? 0 : e.el.getBoundingClientRect().top + scrollY }))
+        .sort((a, b) => a.y - b.y)
+      for (const e of sorted) {
+        const top = Math.max(e.y + 2, floor)
+        const b = document.createElement('button')
+        b.className = 'bm' + (current?.key === e.key ? ' here' : '')
+        b.style.top = `${top}px`
+        b.textContent = e.count > 1 ? `${e.n}·${e.count}` : e.n
+        b.title = `${e.lost ? L.askLostAnchor : (e.el.dataset.anchorLabel || e.key)} · ${L.askOpenThread(e.count)}`
+        b.addEventListener('click', () => jumpTo(e))
+        rail.appendChild(b)
+        floor = top + 24
+      }
+    })
+  }
+  const jumpTo = (e, tries = 0) => {
+    if (e.tab && e.tab !== currentTab) setTab(e.tab)
+    const el = elFor(e.key)
+    // A diagram's anchor appears only after mermaid has drawn it, which is a few
+    // frames after the tab opens — wait for it rather than declaring it lost.
+    if (!el && e.tab === 'diagrams' && tries < 40) return setTimeout(() => jumpTo(e, tries + 1), 100)
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      openFor(anchorOf(el))
+    } else {
+      // The anchor's text is gone (the report was regenerated) — the thread is
+      // still worth reading, so open it without a place to scroll to.
+      const t = forKey(e.key)[0]
+      openFor({ ...(t?.anchor || {}), key: e.key, label: t?.anchor?.label || e.key })
+    }
+  }
+  addEventListener('scroll', layoutRail, { passive: true })
+  addEventListener('resize', layoutRail)
+  new MutationObserver(layoutRail).observe(document.querySelector('.main-panel'), { attributes: true, attributeFilter: ['hidden'], subtree: true })
+
+  // ── multi-select of Logic blocks ───────────────────────────────────────────
+  const picked = new Set()
+  const syncBar = () => {
+    bar.classList.toggle('on', picked.size > 1)
+    bar.querySelector('.bar-n').textContent = L.askPickedN(picked.size)
+  }
+  const clearPicked = () => { for (const el of picked) el.classList.remove('picked'); picked.clear(); syncBar() }
+  storyEl.addEventListener('click', (e) => {
+    if (!(e.metaKey || e.ctrlKey || e.shiftKey)) return
+    const step = e.target.closest('.step[data-anchor]')
+    if (!step) return
+    e.preventDefault()
+    if (picked.has(step)) { picked.delete(step); step.classList.remove('picked') }
+    else { picked.add(step); step.classList.add('picked') }
+    syncBar()
+  })
+  bar.querySelector('.bar-clear').addEventListener('click', clearPicked)
+  bar.querySelector('.bar-ask').addEventListener('click', () => {
+    const els = [...picked]
+    openFor({
+      kind: 'blocks',
+      key: 'blocks:' + els.map(e => e.dataset.anchor.split(':')[1]).join('+'),
+      label: els.map(e => e.dataset.anchorLabel).join(' | '),
+      files: [...new Set(els.flatMap(filesOf))],
+      context: els.map(e => textOf(e)).join('\n\n---\n\n'),
+      lang: RM.meta.lang,
+    })
+  })
+
+  // ── text selection ─────────────────────────────────────────────────────────
+  const hideSel = () => { selBtn.style.display = 'none' }
+  document.addEventListener('mouseup', (e) => {
+    if (e.target.closest('.askpanel') || e.target === selBtn) return
+    setTimeout(() => {
+      const sel = window.getSelection()
+      const quote = (sel?.toString() || '').replace(/\s+/g, ' ').trim()
+      if (!sel || sel.isCollapsed || quote.length < 3 || !sel.anchorNode?.parentElement?.closest('.wrap')) return hideSel()
+      const r = sel.getRangeAt(0).getBoundingClientRect()
+      selBtn.style.display = 'block'
+      selBtn.style.top = `${Math.max(6, r.top + scrollY - 34)}px`
+      selBtn.style.left = `${Math.max(6, r.left + scrollX)}px`
+      selBtn.onclick = () => {
+        const host = sel.anchorNode?.parentElement?.closest('[data-anchor]')
+        hideSel()
+        openFor({
+          kind: 'selection',
+          key: 'sel:' + quote.slice(0, 60).toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+          label: quote.slice(0, 90),
+          quote,
+          files: host ? filesOf(host) : [],
+          context: host ? textOf(host) : '',
+          lang: RM.meta.lang,
+        })
+      }
+    }, 0)
+  })
+  addEventListener('scroll', hideSel, { passive: true })
+
+  // ── diagrams ───────────────────────────────────────────────────────────────
+  const wireDiagrams = () => {
+    // Guarded: this runs from a MutationObserver on the pane, and refreshMarks()
+    // inserts a marker into that same pane. Only a genuinely new anchor triggers
+    // a redraw, so the two cannot chase each other.
+    let fresh = false
+    document.querySelectorAll('#pane-diagrams .diagram').forEach((dg, i) => {
+      // The diagram itself is an anchor, so its questions get a marker and a rail
+      // bookmark like anywhere else. Not .askable: the "?" in the header below is
+      // already the ask affordance here.
+      if (!dg.dataset.anchor) {
+        dg.dataset.anchor = `diagram:${i}`
+        dg.dataset.anchorLabel = dg.querySelector('h3')?.textContent || `diagram ${i + 1}`
+        fresh = true
+      }
+      const head = dg.querySelector('.dg-actions')
+      if (head && !head.querySelector('.dg-ask')) {
+        const b = document.createElement('button')
+        b.className = 'dg-btn dg-ask'
+        b.textContent = '?'
+        b.title = L.askAboutDiagram
+        b.addEventListener('click', () => openFor({
+          kind: 'diagram',
+          key: `diagram:${i}`,
+          label: dg.querySelector('h3')?.textContent || `diagram ${i + 1}`,
+          files: filesOf(dg),
+          context: (RM.diagrams?.[i]?.mermaid || '').slice(0, 2500),
+          lang: RM.meta.lang,
+        }))
+        head.appendChild(b)
+      }
+      dg.querySelectorAll('svg .node, svg .er.entityBox, svg g[id^="entity-"]').forEach((node) => {
+        if (node.dataset.askWired) return
+        node.dataset.askWired = '1'
+        node.addEventListener('click', (e) => {
+          if (!e.altKey) return // plain click keeps its existing drill-down
+          e.preventDefault(); e.stopPropagation()
+          const label = (node.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 90)
+          openFor({
+            kind: 'diagram-node',
+            key: `diagram:${i}:${label.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40)}`,
+            label: `${dg.querySelector('h3')?.textContent || ''} → ${label}`,
+            files: filesOf(dg),
+            context: `Node "${label}" in this diagram:\n${(RM.diagrams?.[i]?.mermaid || '').slice(0, 2500)}`,
+            lang: RM.meta.lang,
+          })
+        })
+      })
+    })
+    if (fresh) refreshMarks() // diagrams anchor late; their markers are drawn now
+  }
+  tabsEl.querySelector('.tab[data-pane="diagrams"]')?.addEventListener('click', wireDiagrams)
+  new MutationObserver(wireDiagrams).observe(document.getElementById('pane-diagrams'), { childList: true, subtree: true })
+
+  // ── conversation ───────────────────────────────────────────────────────────
+  const traceHTML = (steps, open) => !steps?.length ? '' : `
+    <details class="trace"${open ? ' open' : ''}><summary>${esc(L.askTrace(steps.length))}</summary>
+      <div class="tr-body">${steps.map(s => `<div class="tr-step">${esc(s)}</div>`).join('')}</div></details>`
+  const accText = (a) => (L.acc[a?.type] || ((v) => v))(a?.name || a?.key || a?.what || '')
+  // A plan is read to decide on, so its fields are laid out rather than buried in
+  // prose: what changes, what proves it, what could break, what is still unknown.
+  const planHTML = (plan) => !plan ? '' : `
+    <div class="dk-plan"><dl>
+      <dt>${esc(L.planSpec)}</dt><dd>${esc(plan.spec)}</dd>
+      <dt>${esc(L.planAcceptance)}</dt><dd>${esc(accText(plan.acceptance))}</dd>
+      ${plan.files?.length ? `<dt>${esc(L.planFiles)}</dt><dd>${plan.files.map(f => `<code>${esc(f)}</code>`).join(', ')}</dd>` : ''}
+      ${plan.risks?.length ? `<dt>${esc(L.planRisks)}</dt><dd>${esc(plan.risks.join('; '))}</dd>` : ''}
+      ${plan.questions?.length ? `<dt class="dk-ask">${esc(L.planQuestions)}</dt><dd class="dk-ask">${esc(plan.questions.join('; '))}</dd>` : ''}
+    </dl></div>`
+  // What the reviewer does next with a plan: agree (a task opens), turn it down
+  // (recorded, so the offer is not made again), or — once a task exists — see its
+  // state. Nothing here starts work; the task is a queue the session drains.
+  // Options differ in KIND, so the kind leads each one: a point fix, a fix at the
+  // root, or a decision not to change behaviour at all. Same criterion field as a
+  // plan, because a chosen option becomes a task the same way.
+  const variantsHTML = (p, i) => !p ? '' : (p.noFixNeeded
+    ? `<div class="dk-plan"><dl><dt>${esc(L.proposeNoFix)}</dt><dd>${esc(p.noFixNeeded)}</dd></dl></div>`
+    : p.variants.map((v, vi) => `<div class="dk-var"><div class="dk-vhead"><span class="vk ${esc(v.kind)}">${esc(L.variantKind[v.kind] || v.kind)}</span>
+        <b>${esc(v.what)}</b></div>
+      <dl>${v.cost ? `<dt>${esc(L.variantCost)}</dt><dd>${esc(v.cost)}</dd>` : ''}
+        ${v.risk ? `<dt>${esc(L.variantRisk)}</dt><dd>${esc(v.risk)}</dd>` : ''}
+        ${v.blast?.length ? `<dt>${esc(L.variantBlast)}</dt><dd>${v.blast.map(f => `<code>${esc(f)}</code>`).join(', ')}</dd>` : ''}
+        <dt>${esc(L.planAcceptance)}</dt><dd>${esc(accText(v.acceptance))}</dd></dl>
+      <div class="dk-acts"><button class="btn primary dk-pick" data-i="${i}" data-v="${vi}">${esc(L.variantChoose)}</button></div></div>`).join(''))
+
+  // What the reviewer does next with a plan or a set of options: agree/choose (a
+  // task opens), turn it down (recorded, so the offer is not made again), or — once
+  // a task exists — see its state. Nothing here starts work.
+  // Turning what you just read into work, without retyping it and without a second
+  // model call. A first live session ended with the reviewer writing "ok add to task"
+  // into the Ask box and being told the session cannot write files — the answer was
+  // right there and there was no way to act on it.
+  const ACC_KINDS = ['manual', 'test', 'story', 'finding']
+  const taskFormHTML = (i, spec, acc) => `<div class="dk-tf" data-i="${i}">
+    <label class="dk-tfl">${esc(L.taskSpecLabel)}</label>
+    <textarea class="tf-spec" placeholder="${esc(L.taskSpecHint)}">${esc(spec || '')}</textarea>
+    <label class="dk-tfl">${esc(L.taskAccLabel)}</label>
+    <div class="dk-row">
+      <select class="tf-type">${ACC_KINDS.map(k => `<option value="${k}"${acc?.type === k ? ' selected' : ''}>${esc(L.accKind[k])}</option>`).join('')}</select>
+      <input class="tf-val" value="${esc(acc?.name || acc?.key || acc?.what || '')}" placeholder="${esc(L.accHint[acc?.type || 'manual'])}">
+    </div>
+    <div class="dk-acts"><button class="btn primary tf-create">${esc(L.taskCreate)}</button>
+      <button class="dk-btn tf-cancel">${esc(L.taskCancel)}</button></div>
+  </div>`
+
+  const turnTailHTML = (t, i) => {
+    // An answer is not work, but it is often where work is decided.
+    if (t.kind === 'ask') {
+      return t.task ? `<div class="dk-task"><b>${esc(L.taskOpened)}</b>
+          <span class="st ${esc(t.task.state)}">${esc(L.taskState[t.task.state] || t.task.state)}</span>
+          <span class="dk-hint">${esc(t.task.declinedReason || L.taskNothingRuns)}</span></div>`
+        : `<div class="dk-acts"><button class="dk-btn dk-make" data-i="${i}">${esc(L.makeTask)}</button></div>`
+    }
+    if (t.task) return `<div class="dk-task"><b>${esc(L.taskOpened)}</b>
+      <span class="st ${esc(t.task.state)}">${esc(L.taskState[t.task.state] || t.task.state)}</span>
+      <span class="dk-hint">${esc(t.task.declinedReason || L.taskNothingRuns)}</span></div>`
+    if (t.decision) return `<div class="dk-note">${esc(t.decision)}</div>`
+    if (t.kind === 'proposal') {
+      return t.proposal?.noFixNeeded ? ''
+        : `<div class="dk-acts"><button class="dk-btn dk-notnow" data-i="${i}">${esc(L.planNotNow)}</button></div>`
+    }
+    return `<div class="dk-acts"><button class="btn primary dk-agree" data-i="${i}">${esc(L.planAgree)}</button>
+      <button class="dk-btn dk-notnow" data-i="${i}">${esc(L.planNotNow)}</button></div>`
+  }
+  const KQ = { instruct: () => L.modeInstruct, proposal: () => L.modePropose }
+  const renderThreads = (toEnd) => {
+    const mine = forKey(current?.key)
+    dkThreads.innerHTML = mine.map((t, i) => `
+      <div class="dk-t">${t.request === null
+        ? `<div class="dk-q"><span class="kq">${esc(KQ[t.kind]?.() || '')}</span>${esc(L.proposeAsked)}</div>`
+        : `<div class="dk-q">${KQ[t.kind] ? `<span class="kq">${esc(KQ[t.kind]())}</span>` : ''}${esc(t.request)}</div>`}
+        ${traceHTML(t.steps)}
+        <div class="dk-a md">${mdToHtml(t.response)}</div>
+        ${planHTML(t.plan)}${variantsHTML(t.proposal, i)}${turnTailHTML(t, i)}</div>`).join('')
+    for (const b of dkThreads.querySelectorAll('.dk-agree, .dk-make')) {
+      b.addEventListener('click', () => openTaskForm(b, mine[+b.dataset.i]))
+    }
+    for (const b of dkThreads.querySelectorAll('.dk-notnow')) b.addEventListener('click', () => notNow(mine[+b.dataset.i], b))
+    for (const b of dkThreads.querySelectorAll('.dk-pick')) {
+      b.addEventListener('click', () => pick(mine[+b.dataset.i], +b.dataset.v, b))
+    }
+    // Opening a thread should start at the question, not at the end of the last
+    // answer; only a freshly arrived answer is worth scrolling to.
+    dkThreads.scrollTop = toEnd ? dkThreads.scrollHeight : 0
+  }
+
+  // Both actions go through the server so the journal on disk stays the truth —
+  // the page never holds a decision the terminal session cannot see.
+  const decide = async (path, body, btn) => {
+    const row = btn.closest('.dk-acts') || btn.parentElement
+    for (const b of row.querySelectorAll('button')) b.disabled = true
+    try {
+      const d = await api(path, body)
+      threads = d.threads || threads
+      review = d.review || review
+      renderThreads(true)
+      renderTasks()
+      refreshMarks()
+    } catch (e) {
+      dkErr.hidden = false
+      dkErr.textContent = `${L.askFailed}: ${e.message}`
+      for (const b of row.querySelectorAll('button')) b.disabled = false
+    }
+  }
+  // The reviewer confirms what the task will actually say. A plan is a draft, and
+  // an answer is not a spec at all — both are worth a look before they become work.
+  const firstSentence = (text) => String(text || '').replace(/\s+/g, ' ').split(/(?<=[.!?])\s/)[0].slice(0, 220)
+  const openTaskForm = (btn, t) => {
+    const row = btn.closest('.dk-acts')
+    const i = btn.dataset.i
+    const spec = t.plan?.spec || firstSentence(t.response)
+    const acc = t.plan?.acceptance || { type: 'manual', what: '' }
+    row.outerHTML = taskFormHTML(i, spec, acc)
+    const form = dkThreads.querySelector(`.dk-tf[data-i="${i}"]`)
+    const type = form.querySelector('.tf-type')
+    const val = form.querySelector('.tf-val')
+    type.addEventListener('change', () => { val.placeholder = L.accHint[type.value] })
+    form.querySelector('.tf-cancel').addEventListener('click', () => renderThreads())
+    form.querySelector('.tf-create').addEventListener('click', (e) => {
+      const spec2 = form.querySelector('.tf-spec').value.trim()
+      const v = val.value.trim()
+      if (!spec2 || !v) { (spec2 ? val : form.querySelector('.tf-spec')).focus(); return }
+      const field = type.value === 'test' ? 'name' : type.value === 'manual' ? 'what' : 'key'
+      decide('task', {
+        anchor: t.anchor, anchorKey: t.anchorKey, from: t.requestId,
+        ...(t.kind === 'proposal' ? { origin: 'proposal', finding: t.proposal?.finding || t.anchorKey } : {}),
+        spec: spec2, acceptance: { type: type.value, [field]: v },
+      }, e.target)
+    })
+    form.querySelector('.tf-spec').focus()
+  }
+  const notNow = (t, btn) => decide('note', {
+    anchor: t.anchor, anchorKey: t.anchorKey, replyTo: t.requestId, text: L.planDeclined,
+  }, btn)
+  // A chosen option is what the task's spec becomes — the reviewer picked which
+  // kind of answer this finding gets, and the task carries the finding with it.
+  const pick = (t, vi, btn) => {
+    const v = t.proposal?.variants?.[vi]
+    if (!v) return
+    return decide('task', {
+      anchor: t.anchor, anchorKey: t.anchorKey, from: t.requestId,
+      origin: 'proposal', finding: t.proposal.finding || t.anchorKey,
+      spec: v.what, acceptance: v.acceptance,
+    }, btn)
+  }
+  function openFor(anchor) {
+    current = anchor
+    const fixable = canPropose(anchor)
+    proposeBtn.disabled = !fixable
+    proposeBtn.title = fixable ? L.modeProposeTitle : L.modeProposeOff
+    if (!fixable && mode === 'propose') setMode('ask')
+    layoutEl.classList.add('chatting')
+    revealAside()
+    panel.classList.add('on')
+    // A thread whose place is gone still reads; it must say so rather than look
+    // like a remark about whatever now sits at that key.
+    const stale = forKey(anchor.key).some(t => t.anchor?.stale)
+    dkAnchor.innerHTML = `${esc(`${anchor.kind} · ${anchor.label}`.slice(0, 220))}${stale ? ` <span class="stale" title="${esc(L.staleWhy)}">${esc(L.staleTag)}</span>` : ''}`
+    dkQuote.hidden = !anchor.quote
+    dkQuote.textContent = anchor.quote || ''
+    dkErr.hidden = true
+    renderThreads()
+    layoutRail()
+    dkText.focus()
+  }
+
+  const send = async () => {
+    const question = dkText.value.trim()
+    // In Options mode the finding is the input, so there is nothing to type.
+    if ((!question && mode !== 'propose') || !current || dkSend.disabled) return
+    const label = mode === 'propose' ? (current.label || current.key) : question
+    const thinking = mode === 'ask' ? L.askThinking : mode === 'instruct' ? L.instructThinking : L.proposeThinking
+    dkSend.disabled = true
+    dkErr.hidden = true
+    const row = document.createElement('div')
+    row.className = 'dk-t'
+    row.innerHTML = `<div class="dk-q">${mode === 'ask' ? '' : `<span class="kq">${esc(mode === 'instruct' ? L.modeInstruct : L.modePropose)}</span>`}${esc(mode === 'propose' ? L.proposeAsked : label)}</div>
+      <details class="trace" open><summary><span class="spin"></span> ${esc(thinking)}</summary>
+        <div class="tr-body"><div class="tr-steps"></div><div class="tr-live"></div></div></details>
+      <div class="dk-a md"></div>`
+    dkThreads.appendChild(row)
+    dkThreads.scrollTop = dkThreads.scrollHeight
+    const elSteps = row.querySelector('.tr-steps')
+    const elLive = row.querySelector('.tr-live')
+    const elTrace = row.querySelector('.trace')
+    const elSum = row.querySelector('summary')
+    let steps = 0, live = '', gotDelta = false
+    try {
+      const res = mode === 'ask'
+        ? await api('ask', { anchor: current, anchorKey: current.key, question }, true)
+        : mode === 'instruct'
+          ? await api('instruct', { anchor: current, anchorKey: current.key, instruction: question }, true)
+          : await api('propose', { anchor: current, anchorKey: current.key, finding: label }, true)
+      const reader = res.body.getReader()
+      const dec = new TextDecoder()
+      let buf = ''
+      for (;;) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buf += dec.decode(value, { stream: true })
+        const lines = buf.split('\n')
+        buf = lines.pop()
+        for (const line of lines) {
+          if (!line.trim()) continue
+          let ev
+          try { ev = JSON.parse(line) } catch { continue }
+          if (ev.kind === 'step') {
+            steps++
+            const d = document.createElement('div')
+            d.className = 'tr-step'
+            d.textContent = ev.text
+            elSteps.appendChild(d)
+            elSum.innerHTML = `<span class="spin"></span> ${esc(L.askWorking(steps))}`
+          } else if (ev.kind === 'delta') {
+            gotDelta = true
+            live += ev.text
+            elLive.textContent = live.slice(-600)
+            elLive.scrollTop = elLive.scrollHeight
+          } else if (ev.kind === 'text' && !gotDelta) {
+            live = ev.text
+            elLive.textContent = live.slice(-600)
+          } else if (ev.kind === 'done') {
+            threads.push(ev.turn)
+            // The trace did its job while waiting; fold it away now that the
+            // answer is here, but keep it one click from view.
+            elTrace.open = false
+            elSum.textContent = L.askTrace(ev.turn.steps?.length || steps)
+            if (!ev.turn.steps?.length && !steps) elTrace.remove()
+            elLive.remove()
+            row.querySelector('.dk-a').innerHTML = mdToHtml(ev.turn.response)
+            dkText.value = ''
+            refreshMarks()
+            // A plan brings its fields and its decision buttons, which have to be
+            // wired — so the whole thread is re-rendered rather than patched.
+            if (ev.turn.kind !== 'ask') renderThreads(true)
+            dkThreads.scrollTop = dkThreads.scrollHeight
+          } else if (ev.kind === 'error') throw new Error(ev.error)
+        }
+      }
+    } catch (e) {
+      row.remove()
+      dkErr.hidden = false
+      dkErr.textContent = `${mode === 'ask' ? L.askFailed : mode === 'instruct' ? L.instructFailed : L.proposeFailed}: ${e.message}`
+    } finally { dkSend.disabled = false }
+  }
+  dkSend.addEventListener('click', send)
+  dkText.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return
+    // Enter sends, Shift+Enter is a newline — the convention every chat box has.
+    // ⌘/Ctrl+Enter keeps working for the muscle memory it was trained on.
+    if (e.shiftKey) return
+    e.preventDefault()
+    send()
+  })
+
+  // ── Tasks: the one tab that answers "can this be merged" ───────────────────
+  // Built here, not in the template, so the standalone file and the published
+  // artifact have no tab at all — absent rather than empty, the way the ask UI is.
+  let review = null
+  const tkPane = document.createElement('div')
+  tkPane.id = 'pane-tasks'
+  tkPane.className = 'pane'
+  tkPane.hidden = true
+  tkPane.innerHTML = `<div class="tkhead-row"><h2>${esc(L.reviewTitle)}</h2>
+      <button class="dk-btn tk-copy">${esc(L.tasksCopy)}</button><span class="dk-hint tk-said"></span></div>
+    <div class="statline" id="tkVerdict"></div>
+    <div id="tkGroups"></div>`
+  document.querySelector('.main-panel').appendChild(tkPane)
+  // Not a tab. The report answers "what does this change mean"; the review answers
+  // "what is still unsettled" — a different job, on a different kind of page, so it
+  // gets its own destination instead of hiding among the report's tabs.
+  PANES.push(['tasks', L.tabs.tasks, ''])
+  // Report and Review are the two top-level modes, so they are a segmented switch
+  // that sits above the report's sub-tabs — peers, not one more tab in the strip.
+  const modebar = document.createElement('div')
+  modebar.className = 'modebar'
+  modebar.setAttribute('role', 'tablist')
+  const reportTab = document.createElement('button')
+  reportTab.className = 'modetab active'
+  reportTab.textContent = L.reviewBack
+  const reviewTab = document.createElement('button')
+  reviewTab.className = 'modetab'
+  reviewTab.title = L.reviewOpenTitle
+  reviewTab.innerHTML = `${esc(L.reviewOpen)} <span class="cnt"></span>`
+  modebar.append(reportTab, reviewTab)
+  tabsEl.parentNode.insertBefore(modebar, tabsEl)
+  let lastReportTab = 'story'
+  const markMode = (on) => {
+    reportTab.classList.toggle('active', !on)
+    reviewTab.classList.toggle('active', on)
+  }
+  const setReviewing = (on) => {
+    document.body.classList.toggle('reviewing', on)
+    markMode(on)
+    if (on) setTab('tasks')
+    else setTab(lastReportTab)
+  }
+  reportTab.addEventListener('click', () => setReviewing(false))
+  reviewTab.addEventListener('click', () => setReviewing(true))
+  // Any move back into the report leaves review mode, including a jump from a card.
+  const wrappedSetTab = setTab
+  setTab = (id) => {
+    if (id !== 'tasks') {
+      lastReportTab = id
+      document.body.classList.remove('reviewing')
+      markMode(false)
+    }
+    wrappedSetTab(id)
+  }
+  const tkVerdict = tkPane.querySelector('#tkVerdict')
+  const tkGroups = tkPane.querySelector('#tkGroups')
+  const tkSaid = tkPane.querySelector('.tk-said')
+
+  // Grouped by where the problem came from, not by status: an instruction of your
+  // own and a defect the map found are different kinds of work, and the same
+  // status on both says nothing. Proposal-born tasks name their finding.
+  const GROUPS = ['questions', 'reviewer', 'story', 'standards', 'tests', 'other']
+  const sourceOf = (t) => {
+    if (t.origin === 'reviewer') return 'reviewer'
+    const kind = String(t.finding || '').split(':')[0]
+    return kind === 'gap' ? 'tests' : kind === 'story' ? 'story' : kind === 'finding' ? 'standards' : 'other'
+  }
+  // Blocking first, terminal last — a column of cards has to read as a queue.
+  const RANK = { open: 0, in_progress: 0, proposed: 1, done: 2, verified: 3, declined: 4 }
+  const tabOfKey = (key) => tabOfEl(elFor(key))
+
+  // The patch a worked task produced, read as a change rather than as a claim that
+  // one was made. It is not in the reviewer's tree until they apply it.
+  const patchHTML = (files, applied) => {
+    const headline = applied ? L.tasksApplied : L.tasksPatch(files.length)
+    // Hunks exist only for a patch this page just watched being produced; a task
+    // loaded from the journal has file names and nothing to expand.
+    const expandable = files.some(f => f.hunks?.length)
+    return `<div class="tkpatch">
+    <div class="tkpline"><b>${esc(headline)}</b>
+      ${expandable ? `<button class="dk-btn tk-toggle">${esc(L.tasksShowPatch)}</button>` : ''}
+      ${applied ? '' : `<button class="btn primary tk-apply">${esc(L.tasksApply)}</button>`}</div>
+    <div class="tkfiles" hidden>${files.map(f => `<div class="tkfile">
+      <div class="tkfhead"><code>${esc(f.path)}</code>${f.hunks ? `<span class="tkfn">+${f.add} −${f.del}${f.isNew ? ' · new' : ''}</span>` : ''}</div>
+      <div class="frag">${(f.hunks || []).map(([cls, text]) => `<div class="cl ${esc(cls)}">${esc(text)}</div>`).join('')}</div>
+    </div>`).join('')}</div></div>`
+  }
+
+  const staleTag = (a) => a?.stale ? ` <span class="stale" title="${esc(L.staleWhy)}">${esc(L.staleTag)}</span>` : ''
+  const cardHTML = (t, applied) => `<div class="tkcard ${esc(t.state)}" data-id="${esc(t.taskId)}">
+    <div class="tkhead"><span class="st ${esc(t.state)}">${esc(L.taskState[t.state] || t.state)}</span>
+      <b class="tk-open" data-key="${esc(t.anchor.key)}" title="${esc(String(t.spec).replace(/<[^>]+>/g, ''))}">${prose(t.spec)}</b></div>
+    <div class="tkmeta">${esc(L.planAcceptance)}: ${esc(accText(t.acceptance))} · ${prose(t.anchor.label || t.anchor.key)}${staleTag(t.anchor)}${t.declinedReason ? ` · ${prose(t.declinedReason)}` : ''}</div>
+    <div class="tkrow">
+      ${t.state === 'declined' ? `<button class="dk-btn tk-reopen">${esc(L.tasksReopen)}</button>`
+        : RANK[t.state] <= 1 ? `<button class="dk-btn tk-decline">${esc(L.tasksDecline)}</button>` : ''}
+      ${RANK[t.state] === 0 ? `<button class="dk-btn tk-run"${SERVE.work ? '' : ' disabled'} title="${esc(SERVE.work ? L.tasksWork : L.tasksWorkOff)}">${esc(L.tasksWork)}</button>` : ''}
+    </div>
+    ${t.resolution?.files?.length ? patchHTML(t.resolution.files.map(p => ({ path: p })), applied.has(t.taskId)) : ''}
+    <div class="tkwork" hidden></div></div>`
+  const questionHTML = (n) => `<div class="tkcard open">
+    <div class="tkhead"><span class="st open">${esc(L.tasksGroup.questions[0])}</span>
+      <b class="tk-open" data-key="${esc(n.anchor.key)}" title="${esc(n.text)}">${prose(n.text)}</b></div>
+    <div class="tkmeta">${prose(n.anchor.label || n.anchor.key)}${staleTag(n.anchor)}</div></div>`
+
+  const renderTasks = () => {
+    if (!review) return
+    const c = review.counts
+    const applied = new Set(review.notes.filter(n => n.applied && n.taskId).map(n => n.taskId))
+    const parts = [c.blocking ? `<span class="hot"><b>${esc(L.tasksBlocking(c.blocking))}</b></span>` : `<b>${esc(L.tasksNothingBlocking)}</b>`]
+    for (const k of ['proposed', 'done', 'verified', 'declined']) if (c[k]) parts.push(esc(L.tasksCount[k](c[k])))
+    // The decision manifest, next to the file manifest in spirit: every problem the
+    // map reported either has a decision or is openly counted as undecided.
+    const cov = review.coverage
+    if (cov?.total) parts.push(esc(L.tasksDecided(cov.decided, cov.total)))
+    tkVerdict.innerHTML = parts.join('<span class="vsep">·</span>')
+    // The badge counts what blocks, not what exists, and says so by colour: this
+    // tab is a gate, and a neutral number would read as "nothing to do here".
+    const cnt = reviewTab.querySelector('.cnt')
+    // What this page is for: what blocks, what nobody decided, and what is waiting
+    // to be applied. A count that ignored any of the three would send you elsewhere.
+    const waiting = review.tasks.filter(t => t.state === 'done' && !applied.has(t.taskId)).length
+    const needsDecision = c.blocking + (review.coverage?.open?.length || 0) + waiting
+    cnt.textContent = needsDecision || ''
+    cnt.className = 'cnt' + (c.blocking ? ' hot' : '')
+
+    const bucket = {}
+    const settled = []
+    for (const n of review.notes) if (n.kind === 'question' && !n.answered) (bucket.questions ||= []).push(questionHTML(n))
+    // `done` is not finished: a patch that is not in your tree yet is the most
+    // actionable thing on this page, so it stays in the open list and only folds
+    // away once it has been applied. Verified and declined are history.
+    const openStill = (t) => RANK[t.state] <= 1 || (t.state === 'done' && !applied.has(t.taskId))
+    for (const t of [...review.tasks].sort((a, b) => (RANK[a.state] - RANK[b.state]) || a.openedAt.localeCompare(b.openedAt))) {
+      if (openStill(t)) (bucket[sourceOf(t)] ||= []).push(cardHTML(t, applied))
+      else settled.push(cardHTML(t, applied))
+    }
+    const html = GROUPS.filter(g => bucket[g]?.length).map(g => {
+      // Heading only: the one-line "why" under each group was prose nobody re-reads,
+      // and it lives in the ? panel for whoever wants it.
+      const [name] = L.tasksGroup[g]
+      return `<section class="tkgroup"><h3>${esc(name)} <span class="cnt">${bucket[g].length}</span></h3>${bucket[g].join('')}</section>`
+    }).join('')
+    // Undecided findings are listed, not just counted: a number nobody can act on
+    // is the same as no manifest at all.
+    const undecided = cov?.open?.length
+      ? `<section class="tkgroup"><h3>${esc(L.tasksUndecided)} <span class="cnt">${cov.open.length}</span></h3>
+          ${cov.open.map(f => `<div class="tkcard undecided">
+            <div class="tkhead"><span class="st proposed">${esc(f.kind)}</span>
+              <b class="tk-open" data-key="${esc(f.key)}" title="${esc(String(f.text).replace(/<[^>]+>/g, ''))}">${prose(f.text)}</b></div></div>`).join('')}
+        </section>`
+      : ''
+    const decided = settled.length
+      ? `<details class="tkdone"><summary>${esc(L.tasksDone(settled.length))}</summary>${settled.join('')}</details>`
+      : ''
+    tkGroups.innerHTML = (html + undecided + decided) || `<p class="pane-hint">${esc(L.tasksEmpty)}</p>`
+
+    for (const b of tkGroups.querySelectorAll('.tk-open')) {
+      // The whole line is the way in: a per-row button repeated six times was the
+      // page's loudest element and its least informative one.
+      b.addEventListener('click', () => jumpTo({ key: b.dataset.key, tab: tabOfKey(b.dataset.key) }))
+    }
+    for (const b of tkGroups.querySelectorAll('.tk-run')) {
+      if (!b.disabled) b.addEventListener('click', () => work(b.closest('.tkcard'), b))
+    }
+    for (const b of tkGroups.querySelectorAll('.tk-apply')) {
+      b.addEventListener('click', () => apply(b.closest('.tkcard'), b))
+    }
+    for (const b of tkGroups.querySelectorAll('.tk-toggle')) {
+      b.addEventListener('click', () => {
+        const box = b.closest('.tkpatch').querySelector('.tkfiles')
+        box.hidden = !box.hidden
+        b.textContent = box.hidden ? L.tasksShowPatch : L.tasksHidePatch
+      })
+    }
+    for (const b of tkGroups.querySelectorAll('.tk-reopen')) {
+      b.addEventListener('click', () => taskState(b.closest('.tkcard').dataset.id, 'open'))
+    }
+    // Declining asks for the reason on the spot: the journal refuses a decline
+    // without one, and a reason nobody has to type is a reason nobody reads.
+    for (const b of tkGroups.querySelectorAll('.tk-decline')) {
+      b.addEventListener('click', () => {
+        const row = b.closest('.tkrow')
+        row.innerHTML = `<input class="tk-why" placeholder="${esc(L.tasksDeclineWhy)}">
+          <button class="dk-btn tk-do" disabled>${esc(L.tasksDeclineDo)}</button>`
+        const input = row.querySelector('.tk-why')
+        const go = row.querySelector('.tk-do')
+        input.addEventListener('input', () => { go.disabled = !input.value.trim() })
+        input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && input.value.trim()) go.click() })
+        go.addEventListener('click', () => taskState(row.closest('.tkcard').dataset.id, 'declined', input.value.trim()))
+        input.focus()
+      })
+    }
+  }
+
+  // Working a task: an agent edits a throwaway copy of the tree and hands back a
+  // patch. The steps show while it runs, because a silent minutes-long wait on
+  // something that spends money is not a progress indicator.
+  const work = async (card, btn) => {
+    const taskId = card.dataset.id
+    btn.disabled = true
+    const box = card.querySelector('.tkwork')
+    box.hidden = false
+    box.innerHTML = `<details class="trace" open><summary><span class="spin"></span> ${esc(L.tasksWorking)}</summary>
+      <div class="tr-body"><div class="tr-steps"></div><div class="tr-live"></div></div></details>`
+    const elSteps = box.querySelector('.tr-steps')
+    const elLive = box.querySelector('.tr-live')
+    let live = '', gotDelta = false, steps = 0
+    try {
+      const res = await api('work', { taskId }, true)
+      const reader = res.body.getReader()
+      const dec = new TextDecoder()
+      let buf = ''
+      for (;;) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buf += dec.decode(value, { stream: true })
+        const lines = buf.split('\n')
+        buf = lines.pop()
+        for (const line of lines) {
+          if (!line.trim()) continue
+          let ev
+          try { ev = JSON.parse(line) } catch { continue }
+          if (ev.kind === 'step') {
+            steps++
+            const d = document.createElement('div')
+            d.className = 'tr-step'
+            d.textContent = ev.text
+            elSteps.appendChild(d)
+            box.querySelector('summary').innerHTML = `<span class="spin"></span> ${esc(L.askWorking(steps))}`
+          } else if (ev.kind === 'delta') {
+            gotDelta = true
+            live += ev.text
+            elLive.textContent = live.slice(-600)
+          } else if (ev.kind === 'text' && !gotDelta) {
+            elLive.textContent = ev.text.slice(-600)
+          } else if (ev.kind === 'done') {
+            review = ev.review || review
+            threads = ev.threads || threads
+            renderTasks()
+            // The report is worth reading whether or not anything changed.
+            const fresh = tkGroups.querySelector(`.tkcard[data-id="${CSS.escape(taskId)}"]`)
+            if (fresh) {
+              const w = fresh.querySelector('.tkwork')
+              w.hidden = false
+              w.innerHTML = `<div class="dk-a md">${mdToHtml(ev.report || '')}</div>
+                ${ev.empty ? `<div class="dk-note">${esc(L.tasksWorkEmpty)}</div>` : ''}`
+              if (!ev.empty && ev.files?.length) {
+                fresh.querySelector('.tkpatch')?.remove()
+                w.insertAdjacentHTML('beforebegin', patchHTML(ev.files, false))
+                fresh.querySelector('.tk-apply').addEventListener('click', (e) => apply(fresh, e.target))
+                fresh.querySelector('.tk-toggle').addEventListener('click', (e) => {
+                  const list = fresh.querySelector('.tkfiles')
+                  list.hidden = !list.hidden
+                  e.target.textContent = list.hidden ? L.tasksShowPatch : L.tasksHidePatch
+                })
+              }
+            }
+          } else if (ev.kind === 'error') throw new Error(ev.error)
+        }
+      }
+    } catch (e) {
+      box.innerHTML = `<div class="dk-err">${esc(L.tasksWorkFailed)}: ${esc(e.message)}</div>`
+      btn.disabled = false
+    }
+  }
+
+  const apply = async (card, btn) => {
+    btn.disabled = true
+    try {
+      const d = await api('apply', { taskId: card.dataset.id })
+      review = d.review || review
+      threads = d.threads || threads
+      renderTasks()
+      refreshMarks()
+    } catch (e) {
+      btn.insertAdjacentHTML('afterend', `<span class="dk-err">${esc(L.tasksApplyFailed)}: ${esc(e.message)}</span>`)
+      btn.disabled = false
+    }
+  }
+
+  const taskState = async (taskId, state, reason) => {
+    try {
+      const d = await api('task-state', { taskId, state, reason })
+      review = d.review || review
+      threads = d.threads || threads
+      renderTasks()
+      if (current) renderThreads()
+      refreshMarks()
+    } catch (e) { tkSaid.textContent = e.message }
+  }
+
+  // The handoff: nothing here executes, so what the tab can do is hand the queue
+  // to the session that does. Text, not a file, because pasting is the shortest
+  // path from a decision to work starting.
+  tkPane.querySelector('.tk-copy').addEventListener('click', async () => {
+    const queue = (review?.tasks || []).filter(t => RANK[t.state] === 0)
+    if (!queue.length) { tkSaid.textContent = L.tasksCopyNothing; return }
+    const text = [
+      `Work the whydiff review queue in ${SERVE.repo} — use the whydiff-work skill (/whydiff:whydiff-work).`,
+      SERVE.journal ? `The review journal is ${SERVE.journal}; read the discussion behind each task with \`review.mjs --thread <id>\`.` : '',
+      '',
+      ...queue.map((t, i) => [
+        `${i + 1}. [${t.taskId}] ${t.spec}`,
+        `   proved done by: ${accText(t.acceptance)}`,
+        `   discussed at: ${t.anchor.label || t.anchor.key}`,
+        t.anchor.files?.length ? `   files: ${t.anchor.files.join(', ')}` : '',
+      ].filter(Boolean).join('\n')),
+      '',
+      'Do them one at a time, in order, and report back. Only close a criterion you actually ran.',
+    ].filter((l) => l !== undefined).join('\n')
+    try { await navigator.clipboard.writeText(text) } catch {
+      const ta = document.createElement('textarea')
+      ta.value = text
+      document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove()
+    }
+    tkSaid.textContent = L.tasksCopied
+  })
+
+  api('threads').then((d) => { threads = d.threads || []; refreshMarks() }).catch(() => refreshMarks())
+  api('review').then((d) => { review = d; renderTasks() }).catch((e) => console.error('review load failed:', e))
+})()
 </script>

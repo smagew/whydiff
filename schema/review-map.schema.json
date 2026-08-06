@@ -28,7 +28,7 @@
       }
     },
 
-    "intent": { "type": "string", "description": "Суть изменения одним абзацем: что + почему + что могло сломаться. Допустим <b>/<code>." },
+    "intent": { "type": "string", "description": "The tl;dr of the change in one sentence — what it does, so a reviewer gets the gist without opening a tab. Not the mechanics (that is story) or the risks (those are ops). Inline <b>/<code> allowed." },
 
     "story": {
       "type": "array",
@@ -107,7 +107,7 @@
 
     "diagrams": {
       "type": "array",
-      "description": "Только там, где меняется поток управления/данных (принцип 6). Diff-маркировка в одном графе (принцип 7): classDef added/removed/changed.",
+      "description": "Только там, где меняется поток управления/данных (принцип 6). Diff-маркировка в одном графе (принцип 7): классы added/removed/changed БЕЗ classDef — цвет даёт вьюер из своих токенов.",
       "items": {
         "type": "object", "required": ["kind", "title", "mermaid"],
         "properties": {
@@ -141,6 +141,31 @@
         "fixed": { "type": "array", "items": { "type": "string" }, "description": "Какие утверждения зафиксированы — человеческим языком" },
         "gaps": { "type": "array", "items": { "type": "string" }, "description": "Что НЕ покрыто — ценнее процента покрытия" },
         "files": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+
+    "userStories": {
+      "type": "object",
+      "description": "Что изменилось СНАРУЖИ, языком актора: истории, восстановленные из диффа. Остальные секции инженерные — эта отвечает на вопрос «что человек теперь может и что для него сломалось». Пустой массив значим: «поведение снаружи не изменилось» — тоже информация (принцип 5).",
+      "properties": {
+        "summary": { "type": "string", "description": "1–2 предложения: изменилось ли поведение снаружи вообще. Для чисто внутреннего изменения обязано сказать это прямо." },
+        "stories": {
+          "type": "array",
+          "items": {
+            "type": "object", "required": ["actor", "story", "status", "why"],
+            "properties": {
+              "actor": { "type": "string", "description": "Кто действует: роль пользователя, оператор, внешняя система. Только те, кого видно в диффе — не выдумывать." },
+              "story": { "type": "string", "description": "«Я могу …, чтобы …» с точки зрения актора. Без имён классов, таблиц и функций — они идут в files." },
+              "status": {
+                "enum": ["delivered", "partial", "broken", "regressed"],
+                "description": "Даёт ли дифф эту историю на самом деле: delivered — да; partial — работает, но с дефектом; broken — код есть, но путь не срабатывает; regressed — снаружи стало ХУЖЕ, чем было. Это и превращает вкладку из документации в инструмент ревью."
+              },
+              "why": { "type": "string", "description": "Чем в диффе подтверждается и что именно мешает. Для всего, кроме delivered, обязательно назвать причину и место." },
+              "files": { "type": "array", "items": { "type": "string" }, "description": "Файлы диффа, дающие эту историю — drill-down. Проверяется validate.mjs." },
+              "covered": { "type": "boolean", "description": "Есть ли тест, фиксирующий именно эту историю. false — заметный сигнал для истории про деньги или доступ." }
+            }
+          }
+        }
       }
     },
 

@@ -1,7 +1,7 @@
 ---
 name: diagrammer
 description: whydiff analysis pass - produces diff-marked mermaid diagrams for flows that the change actually altered. Spawned by the whydiff skill; not for proactive use.
-tools: Read, Grep, Glob
+tools: Read, Grep, Glob, Write
 model: sonnet
 ---
 
@@ -15,7 +15,11 @@ files entirely; if `GRAPH: <path>` is given, the prebuilt code graph already
 contains call/data edges for `sequence` and `components` diagrams — read it before
 tracing flows by hand (it predates the diff; the diff wins on conflict).
 
-Return ONLY a JSON object (no prose, no code fences): `{ "diagrams": [...] }`.
+The task prompt gives you `OUT: <absolute path>` inside the run's `.whydiff/`
+directory. **Write `{ "diagrams": [...] }` there with the Write tool** — one JSON
+object, no prose, no code fences — then reply with a single line:
+`wrote <path>: <n> diagrams`. Do NOT repeat the JSON in your reply; generating it
+twice is the slowest thing this pipeline can do.
 
 Each diagram: `{ "kind", "title", "caption", "mermaid", "files": [paths] }`.
 
@@ -28,17 +32,16 @@ Kinds and when to use them:
 - `flow-diff` — the logic of one flow changed. ONE graph showing before AND after
   with diff marking, never two side-by-side versions:
   nodes that are new get `:::added`, removed paths stay in the graph as `:::removed`,
-  changed behavior gets `:::changed`. Always end the mermaid with exactly:
-  ```
-  classDef added fill:#e2f2e6,stroke:#1a7f37,color:#14521f
-  classDef removed fill:#f9e7e5,stroke:#b3392e,color:#7a2620,stroke-dasharray: 5 5
-  classDef changed fill:#fdf3e4,stroke:#b45309,color:#6b3706
-  ```
-  (omit classDef lines for classes you did not use).
+  changed behavior gets `:::changed`.
+  Emit the class markers and NOTHING ELSE: no `classDef` lines, no `style` lines,
+  no colours of any kind. The viewer paints these three classes from its own
+  design tokens, so it follows the reader's palette and the diff-colour setting;
+  a hex written here would compile into an inline `!important` style and pin the
+  diagram to one palette for good. assemble.mjs strips such lines if they appear.
 - `sequence` — data/requests cross service boundaries. `sequenceDiagram` with the
   real actors (user, services, DB, external APIs); use `alt/else` for branches.
 - `components` — where state lives / sources of truth changed. `flowchart LR`
-  with subgraphs for stores; mark new/changed elements with the same classDefs.
+  with subgraphs for stores; mark new/changed elements with the same three classes.
 - `er-diff` — the DATA SHAPE changed: the diff contains schema migrations, ORM
   entity/schema files, or DDL. `erDiagram` with ONLY the affected tables and
   their direct relations — never the whole schema. erDiagram has no classDef
@@ -57,8 +60,7 @@ Kinds and when to use them:
 
 **Drill-down clicks** (flowchart kinds only — `flow-diff` and `components`;
 `sequenceDiagram` has no click support): for every node that represents ONE
-specific changed file, add a click line after the graph body, before the classDef
-lines:
+specific changed file, add a click line at the end of the graph body:
 ```
 click NODEID call whydiffOpen("repo/relative/path.ts")
 ```
@@ -74,5 +76,8 @@ Mermaid discipline (broken syntax is worse than no diagram):
 - Mentally parse your output before returning it.
 
 `title` and `caption` in REPORT_LANGUAGE; `caption` is one sentence saying what the
-reviewer sees. `files` lists the diff files this diagram drills into — only paths
-present in the manifest.
+reviewer sees. Never name a colour in it ("red means removed"): the reader picks a
+palette and one of them is monochrome, so describe the change, not the paint —
+name the shape instead if you must ("the dashed path is the one that went away").
+`files` lists the diff files this diagram drills into — only paths present in the
+manifest.
