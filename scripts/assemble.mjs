@@ -45,6 +45,19 @@ for (const [path, f] of Object.entries(rm.files)) {
 
 // ── static diagram HTML + inlined mermaid bundle ─────────────────────────────
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+// Same single escape path the viewer uses: escape everything, then restore the
+// inline set the generator is allowed to emit. A caption written with <code>
+// must not reach the page as a literal string.
+const prose = (s) => esc(s == null ? '' : s).replace(/&lt;(\/?)(code|b|i|em|strong)&gt;/g, '<$1$2>')
+// Colour is a role, not data. mermaid compiles a `classDef` into an inline
+// style AND an injected `!important` rule, both of which outrank the page's own
+// stylesheet — so a hex written by the generator would pin the diagram to one
+// palette for good. Stripping the colour directives here (rather than only in
+// the agent prompt) means maps generated before this rule also obey the palette:
+// the viewer paints `.added` / `.removed` / `.changed` from tokens instead.
+const stripDiagramColour = (src) => String(src).split('\n')
+  .filter(l => !/^\s*classDef\s/.test(l) && !/^\s*style\s+\S+\s+.*(?:fill|stroke|color)\s*:/.test(l))
+  .join('\n').replace(/\n{3,}/g, '\n\n').trimEnd()
 const diagrams = rm.diagrams || []
 const diagramsHtml = diagrams.map(d => `
   <div class="diagram">
@@ -52,8 +65,8 @@ const diagramsHtml = diagrams.map(d => `
       <h3>${esc(d.title)}</h3>
       <span class="dg-actions"><button class="dg-btn" data-fs>⛶</button><button class="dg-btn" data-pop>⧉</button></span>
     </div>
-    ${d.caption ? `<p class="cap">${esc(d.caption)}</p>` : ''}
-    <div class="mermaid-box"><pre class="mermaid">${esc(d.mermaid)}</pre></div>
+    ${d.caption ? `<p class="cap">${prose(d.caption)}</p>` : ''}
+    <div class="mermaid-box"><pre class="mermaid">${esc(stripDiagramColour(d.mermaid))}</pre></div>
     ${(d.files || []).length ? `<div class="step-files">${d.files.map(p =>
       `<button class="fchip" data-goto="${esc(p)}">${esc(p.split('/').slice(-2).join('/'))}</button>`).join('')}</div>` : ''}
   </div>`).join('\n')

@@ -37,8 +37,11 @@ page.on('console', (m) => { if (m.type() === 'error') errors.push(`console: ${m.
 
 await page.goto('file://' + htmlPath)
 
+// The reference example predates the user-stories pass, so the tab must NOT be
+// there: an empty "nothing changed outside" pane would be a claim this run never
+// made. The second pass below covers the tab when the section is present.
 const tabs = await page.locator('#tabs .tab').count()
-if (tabs !== 6) fail(`expected 6 tabs, got ${tabs}`)
+if (tabs !== 6) fail(`expected 6 tabs on a map without userStories, got ${tabs}`)
 
 // Diagrams render lazily on first tab open.
 await page.locator('#tabs .tab').nth(1).click()
@@ -71,7 +74,67 @@ await popup.waitForLoadState()
 if ((await popup.locator('svg').count()) !== 1) fail('diagram pop-out window has no svg')
 await popup.close()
 
+// ── second pass: the user-stories tab ────────────────────────────────────────
+// Tabs are addressed by data-pane, not by index, so adding a tab cannot silently
+// repoint these assertions at a neighbour.
+const paths = Object.keys(rm.files)
+const withStories = {
+  ...rm,
+  userStories: {
+    summary: 'Smoke summary: outside behavior changed.',
+    stories: [
+      { actor: 'caller', story: 'I get a clear error when I exceed the limit.', status: 'delivered', why: 'guard added', files: [paths[0]], covered: true },
+      { actor: 'operator', story: 'I can no longer see the old counter.', status: 'regressed', why: 'field dropped', files: [paths[1] || paths[0]], covered: false },
+      { actor: 'caller', story: 'I am throttled per key rather than globally.', status: 'partial', why: 'key derivation incomplete', files: [paths[0]] },
+    ],
+  },
+}
+const storiesHtml = join(work, 'review-map-stories.html')
+const storiesJson = join(work, 'review-map-stories.json')
+writeFileSync(storiesJson, JSON.stringify(withStories))
+execFileSync('node', [join(root, 'scripts', 'assemble.mjs'), storiesJson, '--out', storiesHtml], { stdio: 'inherit' })
+
+const page2 = await browser.newPage()
+const errors2 = []
+page2.on('pageerror', (e) => errors2.push(`pageerror: ${e.message}`))
+page2.on('console', (m) => { if (m.type() === 'error') errors2.push(`console: ${m.text()}`) })
+await page2.goto('file://' + storiesHtml)
+
+const tabs2 = await page2.locator('#tabs .tab').count()
+if (tabs2 !== 7) fail(`expected 7 tabs on a map with userStories, got ${tabs2}`)
+
+// The tab badge counts problems (regressed+broken+partial), not total stories.
+const badge = (await page2.locator('#tabs .tab[data-pane="stories"] .cnt').textContent() || '').trim()
+if (badge !== '2') fail(`expected the stories tab to badge 2 problems, got "${badge}"`)
+
+await page2.locator('#tabs .tab[data-pane="stories"]').click()
+await page2.waitForTimeout(200)
+
+const cards = await page2.locator('#stories .ustory').count()
+if (cards !== 3) fail(`expected 3 story cards, got ${cards}`)
+
+// Bad news first, regardless of the order the model emitted.
+const STATUSES = ['regressed', 'broken', 'partial', 'delivered']
+const order = await page2.locator('#stories .ustory').evaluateAll(
+  (els, statuses) => els.map((e) => [...e.classList].find((c) => statuses.includes(c))), STATUSES)
+if (order.join(',') !== 'regressed,partial,delivered') fail(`stories not sorted problems-first: ${order.join(',')}`)
+
+const uncovered = await page2.locator('#stories .ucov.no').count()
+if (uncovered !== 1) fail(`expected 1 "no test" marker, got ${uncovered}`)
+
+// The inspector is collapsed on this prose tab, and a story's file chip must
+// bring it back — otherwise the chips would look broken.
+if (!(await page2.locator('.layout.solo').count())) fail('inspector did not collapse on the stories tab')
+await page2.locator('#stories .ustory .fchip').first().click()
+await page2.waitForTimeout(250)
+if (await page2.locator('.layout.solo').count()) fail('story chip click did not reveal the inspector')
+const insp2 = (await page2.locator('#inspector h3').textContent()) || ''
+if (!insp2.includes('/')) fail(`story chip did not open a file (got: "${insp2}")`)
+
+if (errors2.length) fail('page errors (stories pass):\n' + errors2.join('\n'))
+
 if (errors.length) fail('page errors:\n' + errors.join('\n'))
 
 await browser.close()
 console.log(`OK: 6 tabs, ${clickable} clickable diagram nodes, node click opened ${insp.trim()}, ${scopeChips} scope chips (filter dims ${dimmed}), diagram pop-out works, no page errors`)
+console.log(`OK: user stories — 7 tabs, badge ${badge}, ${cards} cards sorted ${order.join('/')}, chip revealed inspector and opened ${insp2.trim()}`)

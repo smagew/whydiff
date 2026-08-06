@@ -13,7 +13,7 @@
       "attentionFiles": 2
     }
   },
-  "intent": "Public API endpoints had no throttling — a single client could exhaust the service. This change adds a <b>token-bucket rate limiter</b> keyed by API key (IP as fallback): limits come from config, bucket state lives in atomic Redis counters, and a throttled request gets a <code>429</code> with <code>Retry-After</code> in the project's shared error shape. Main risks: naive get+set counters losing increments under load (closed with an atomic Lua script) and accidentally throttling health checks (closed by scoping the middleware to <code>/api/*</code>).",
+  "intent": "Public API endpoints get a <b>token-bucket rate limiter</b> keyed by API key, returning <code>429</code> with <code>Retry-After</code> once a client exceeds its budget.",
   "story": [
     {
       "label": "Goal",
@@ -408,8 +408,8 @@
     {
       "kind": "flow-diff",
       "title": "Request path: before / after",
-      "caption": "Red (dashed) removed, green added. Requests used to go straight to the handler; now the bucket decides.",
-      "mermaid": "flowchart TD\n    A[\"Request to /api/*\"] --> B[\"Auth\"]\n    B --> D[\"(before) straight to handler\"]:::removed\n    D --> C[\"Handler\"]\n    B --> RL{\"Tokens left<br/>in the bucket?\"}:::added\n    RL -- \"yes\" --> C\n    RL -- \"no\" --> R[\"429 Too Many Requests<br/>Retry-After + standard error body\"]:::added\n    click RL call whydiffOpen(\"src/middleware/rateLimit.ts\")\n    click R call whydiffOpen(\"src/middleware/errorHandler.ts\")\n    classDef added fill:#e2f2e6,stroke:#1a7f37,color:#14521f\n    classDef removed fill:#f9e7e5,stroke:#b3392e,color:#7a2620,stroke-dasharray: 5 5",
+      "caption": "Dashed outline is the path that went away. Requests used to go straight to the handler; now the bucket decides.",
+      "mermaid": "flowchart TD\n    A[\"Request to /api/*\"] --> B[\"Auth\"]\n    B --> D[\"(before) straight to handler\"]:::removed\n    D --> C[\"Handler\"]\n    B --> RL{\"Tokens left<br/>in the bucket?\"}:::added\n    RL -- \"yes\" --> C\n    RL -- \"no\" --> R[\"429 Too Many Requests<br/>Retry-After + standard error body\"]:::added\n    click RL call whydiffOpen(\"src/middleware/rateLimit.ts\")\n    click R call whydiffOpen(\"src/middleware/errorHandler.ts\")",
       "files": [
         "src/middleware/rateLimit.ts",
         "src/middleware/errorHandler.ts",
@@ -419,8 +419,8 @@
     {
       "kind": "components",
       "title": "Where bucket state lives",
-      "caption": "Counters are ephemeral Redis keys with a TTL; config is the only knob (green — new).",
-      "mermaid": "flowchart LR\n    subgraph REDIS[\"Redis\"]\n        K[\"rl:{key}:{window} counters<br/>INCR + EXPIRE, one Lua script\"]:::added\n    end\n    API[\"routes /api/*\"] --> MW[\"rateLimit middleware\"]:::added\n    MW -- \"take token\" --> K\n    CFG[\"config: RATE_LIMIT_RPM / BURST<br/>unset → limiter off\"]:::added --> MW\n    MW -- \"429 via shared shape\" --> EH[\"errorHandler\"]\n    click MW call whydiffOpen(\"src/middleware/rateLimit.ts\")\n    click K call whydiffOpen(\"src/lib/redis.ts\")\n    click CFG call whydiffOpen(\"src/config.ts\")\n    click EH call whydiffOpen(\"src/middleware/errorHandler.ts\")\n    classDef added fill:#e2f2e6,stroke:#1a7f37,color:#14521f",
+      "caption": "Counters are ephemeral Redis keys with a TTL; config is the only knob (filled — new).",
+      "mermaid": "flowchart LR\n    subgraph REDIS[\"Redis\"]\n        K[\"rl:{key}:{window} counters<br/>INCR + EXPIRE, one Lua script\"]:::added\n    end\n    API[\"routes /api/*\"] --> MW[\"rateLimit middleware\"]:::added\n    MW -- \"take token\" --> K\n    CFG[\"config: RATE_LIMIT_RPM / BURST<br/>unset → limiter off\"]:::added --> MW\n    MW -- \"429 via shared shape\" --> EH[\"errorHandler\"]\n    click MW call whydiffOpen(\"src/middleware/rateLimit.ts\")\n    click K call whydiffOpen(\"src/lib/redis.ts\")\n    click CFG call whydiffOpen(\"src/config.ts\")\n    click EH call whydiffOpen(\"src/middleware/errorHandler.ts\")",
       "files": [
         "src/middleware/rateLimit.ts",
         "src/lib/redis.ts",

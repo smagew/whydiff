@@ -28,9 +28,10 @@ code lazily behind a click; every claim traceable to a real line of the diff.
 
 ## Working directory
 
-Create `<repo>/.whydiff/` for intermediate and output files. If the repo has a
-`.gitignore` that does not cover it, suggest adding `.whydiff/` (do not edit
-without the user's go-ahead).
+Create `<repo>/.whydiff/` for intermediate and output files. The manifest excludes
+this directory, so the map never reviews the run's own artifacts even in a repo
+whose `.gitignore` does not cover it — but suggest adding `.whydiff/` anyway so the
+files stay out of the user's commits (do not edit `.gitignore` without a go-ahead).
 
 ## Pipeline
 
@@ -75,56 +76,125 @@ consult it before exploratory grepping.
 
 You are done reading: `timing.mjs log briefing_done --repo <repo>`.
 
-Spawn all four plugin agents IN ONE MESSAGE (they are independent), logging
+Spawn all five plugin agents IN ONE MESSAGE (they are independent), logging
 `timing.mjs log agents_spawned --repo <repo>` right before the spawn message and
 `timing.mjs log agents_done --repo <repo>` in your first tool call after all
-four return:
+five return. **Never skip `agents_done`** — without it the timing report cannot
+separate agent time from your own, and 80% of the run becomes unattributable.
 
-| Agent | Returns (JSON) |
-|---|---|
-| `whydiff:classifier` | `intent`, `attentionFiles`, `story`, `groups`, `files`, `edges`, `ops` |
-| `whydiff:diagrammer` | `diagrams` |
-| `whydiff:standards-reviewer` | `standards`, `blastRadius` |
-| `whydiff:tests-analyst` | `tests` |
+**Every agent writes its own output file; you never retype an agent's answer.**
+Each returns one confirmation line, and `merge.mjs` reads the files. Retyping a
+150 KB answer into a file costs more wall-clock than the entire merge.
+
+| Agent | Writes (`OUT:`) | Contents |
+|---|---|---|
+| `whydiff:classifier` | `.whydiff/classifier.json` | `intent`, `attentionFiles`, `story`, `groups`, `files`, `edges`, `ops` |
+| `whydiff:diagrammer` | `.whydiff/diagrammer.json` | `diagrams` |
+| `whydiff:standards-reviewer` | `.whydiff/standards.json` | `standards`, `blastRadius` |
+| `whydiff:tests-analyst` | `.whydiff/tests.json` | `tests` |
+| `whydiff:story-writer` | `.whydiff/stories.json` | `userStories` |
 
 Each agent prompt MUST include:
 - `REPO: <absolute repo path>`
+- `OUT: <repo>/.whydiff/<name>.json` — where it writes its JSON (absolute path)
 - `DIFF: <repo>/.whydiff/diff.patch`
 - `MANIFEST: <repo>/.whydiff/manifest.json`
 - `REPORT_LANGUAGE: <lang>` (e.g. `ru`, `en`)
 - `BRIEFING:` — your per-file one-liners from step 2 (this is the main speed lever:
   agents verify instead of re-discovering)
 - `SKIP:` — generated/vendored paths whose hunks must not be read
+- `GROUPS:` (classifier only) — the group ids you decided on, with `name`, `role`
+  and `why` for each. Shards then emit `{id, files}` instead of re-authoring the
+  same group three times, and cannot describe one group three different ways.
 - `GRAPH: <path>` — only if a prebuilt code graph exists (see step 2); note that
   the graph predates the diff, so on any conflict the diff wins
 
-**Large diffs (> ~30 substantive files):** shard the classifier. Spawn 2–3
-classifier instances in the same message, each with a `SCOPE:` line listing its
-subset of files (split by service/area; every non-skipped manifest file in exactly
-one scope). Each returns `files`, candidate `groups` and `edges` for its scope; you
-merge: unify duplicate groups, keep edges whose both ends survived, and write
-`intent`/`story`/`ops` yourself from the classifier outputs plus your own step-2
-reading. The other three agents are never sharded.
+**Large diffs (> ~30 substantive files): shard the classifier, and let the script
+decide the split.** A classifier's wall-clock is set by how many bytes it writes
+and nothing else — measured at 102–119 bytes/sec across three shards of one run.
+Splitting by service area produced a 17× imbalance there (5 KB against 86 KB) and
+the whole run waited on the big one.
 
-### 4. Merge into review-map.json
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/shards.mjs --repo <repo> [--ref <spec>] \
+  --budget 300 --skip <comma-separated SKIP paths>
+```
 
-Assemble `<repo>/.whydiff/review-map.json`:
+It writes `.whydiff/shards.json`: balanced file lists plus a per-shard time
+estimate. Spawn one classifier per shard, in the same message, each with:
 
-- `meta`: `project` = repo directory name; `lang`; `ref` = human label
-  (`"working tree (main)"`, `"HEAD~3..HEAD"`, `"PR #14"`); `generatedAt` = today
-  (`date +%F`); `title` = short feature name you derive from the intent;
-  `stats` = manifest totals + `attentionFiles` from the classifier.
-- `manifest`: rows from manifest.json with the classifier's group id appended:
-  `[path, add, del, groupId, isNew]`.
-- Everything else from the agents — but merge critically: you have read the diff;
-  fix agent claims that contradict it, drop diagrams that do not show a flow
-  change, and make sure `files` referenced by story/edges/diagrams/tests all exist.
-- Mark 2–4 highest-attention files with `embedFull: true` so reviewers can open
-  them whole.
+- `SCOPE:` — that shard's file list, verbatim from `shards.json`
+- `OUT: <repo>/.whydiff/classifier-<id>.json` — the id from the plan
+
+Filenames must start with `classifier`; `merge.mjs` picks up every
+`classifier*.json`. Each shard covers `files` plus group membership and `edges`
+for its scope, and skips `intent`/`story`/`ops`.
+
+If the plan warns that even `--max-shards` does not fit the budget, the input is
+too big rather than the split wrong: extend `SKIP:` or narrow the diff. Say so in
+the final summary instead of silently taking longer.
+
+You do NOT merge the shards by hand — `merge.mjs` unifies groups, keeps only edges
+whose both ends survived, and holds every file to one group. The other three agents
+are never sharded.
+
+### 4. Write the narrative, then merge by script
+
+The only thing you author here is what no agent can: the causal narrative. Write
+`<repo>/.whydiff/narrative.json`:
+
+```json
+{
+  "meta": { "lang": "ru", "ref": "working tree (main)", "title": "short feature name" },
+  "intent": "one paragraph: what + why + what could break",
+  "story": [ … ],
+  "groups": [{ "id": "…", "name": "…", "role": "read", "tag": "…", "why": "…" }],
+  "attentionFiles": 8,
+  "embedFull": ["path/a.ts", "path/b.ts"],
+  "skip": ["path/to/generated.json"],
+  "ops": { … },
+  "strings": { "unclassifiedGroup": "…", "unclassified": "…" }
+}
+```
+
+`meta.project`, `meta.generatedAt` and `stats` are filled in for you. On an
+unsharded run the classifier already wrote `intent`/`story`/`ops`, so omit them
+here unless you are correcting it — `meta` is what only you can supply. `ops` is
+optional — omitted, the shards' `ops` are concatenated.
+
+- `groups` carries the same list you passed to the shards as `GROUPS:` — metadata
+  only, no `files`. A group nobody assigned a file to is dropped.
+- `skip` is your `SKIP:` list. Those files get no code fragment; everything else
+  gets one lifted from the patch.
+- `strings` supplies the report-language wording for the fallback group
+  `merge.mjs` creates if some diff file was described by no pass; omit it for an
+  English report.
+
+Nothing else goes in this file. Do not copy `files`, `edges`, `diagrams`,
+`standards`, `tests`, group membership, or code lines into it — all of that is
+already on disk or derived from the patch.
+
+Then merge:
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/merge.mjs --repo <repo> [--ref <spec>]
+```
+
+It re-collects the manifest from git (files can appear mid-run), takes
+`add`/`del`/`isNew` from git and each file's `frag`/`preview` from the patch rather
+than from the model, unifies the shards, validates, logs `map_written`, and refuses
+to write a map that would not validate.
+Its warnings are worth reading: a file described by no pass, or described by two
+shards, usually means the `SCOPE:` split was wrong.
+
+You have read the diff — so review the result critically: fix agent claims the diff
+contradicts, drop diagrams that do not show a flow change. Edit
+`review-map.json` in place for that, or fix the agent's own file and re-run
+`merge.mjs`.
 
 ### 5. Validate — script, not judgment
 
-After writing the JSON: `timing.mjs log map_written --repo <repo>`. Then:
+`merge.mjs` already ran the structural checks. Confirm against git too:
 
 ```bash
 node ${CLAUDE_PLUGIN_ROOT}/scripts/validate.mjs <repo>/.whydiff/review-map.json --repo <repo> [--ref <spec>]
@@ -134,6 +204,20 @@ node ${CLAUDE_PLUGIN_ROOT}/scripts/validate.mjs <repo>/.whydiff/review-map.json 
 
 Fix every reported error and re-run until clean. Never hand-wave a failure: the
 whole point is that completeness is enforced deterministically.
+
+Then re-attach any review discussion from a previous run of this map — always, even
+on a first run, when it prints one line and does nothing:
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/rebind.mjs --repo <repo>
+```
+
+A journal of questions, plans and agreed tasks (`.whydiff/review.log.jsonl`) outlives
+the map it discusses. Regenerating moves the places those remarks were attached to,
+so this decides per anchor whether its place still exists: moved → rebound, gone →
+kept and marked `stale` with its original text, back again → revived. **Nothing is
+dropped**, and if it reports anything stale, say so in the final summary: the user
+had a remark on something that is no longer in the report.
 
 ### 6. Assemble and deliver
 
@@ -156,10 +240,64 @@ too. Generate the timing report:
 node ${CLAUDE_PLUGIN_ROOT}/scripts/timing.mjs report --repo <repo>
 ```
 
+### 6b. Live Q&A about the map (optional, on request)
+
+The assembled file cannot ask a model anything: it is self-contained, and a
+published artifact's CSP blocks every outgoing request. When the user wants to
+select something in the report and ask about it, serve it instead:
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/serve.mjs <repo>/.whydiff/review-map.json \
+  --repo <repo> [--port 7777]
+```
+
+It serves the map at `http://127.0.0.1:<port>/`, injects a per-run token, and
+answers questions from the page by calling `claude -p` in the repo. Anchors:
+a user-story card, a Logic block (⌘/Ctrl-click several for one question about the
+set), a diagram (Alt-click one node), or any text selection. Answers are appended
+to the review journal at `<repo>/.whydiff/review.log.jsonl` and reloaded on the
+next serve, so they are not lost when the tab closes. To read that journal from a
+terminal: `node ${CLAUDE_PLUGIN_ROOT}/scripts/review.mjs <repo>/.whydiff`.
+
+The same panel has an **Instruct** mode: the user says what should change at the
+anchored place, and the reply is a plan (files, what proves it done, blast radius,
+open questions) they agree to or turn down. Agreeing opens a task in the journal.
+Nothing runs and nothing is edited — the CLI is spawned with a read-only tool
+allowlist, and the tasks are a queue this session drains when the user asks.
+
+On a problem the map itself reported — a standards `warn`, a test gap, a story that
+is not `delivered` — a third mode, **Options**, asks for two or three ways to deal
+with it that differ in kind: fix the symptom, fix the invariant, or leave the
+behaviour alone and pin it with a test. Each option carries cost, risk, blast radius
+and the criterion it would be judged by; the one the user chooses becomes the task.
+
+Agreed tasks and unanswered questions collect in a **Tasks** tab (served copy only):
+`blocking N` in the header, `decided d/t` for the findings the map reported, grouped
+by where each problem came from, every card linking back to its place in the report. Its *Copy the queue as a prompt* button produces the
+handoff to paste into a session — when the user does that, work the tasks one at a
+time against the acceptance criterion each one carries, and do not call anything
+verified yourself.
+
+When the user wants that queue done, there are two ways, and they do the same work
+in different places:
+- `/whydiff-work` (a separate skill in this plugin) — in this session, one task at a
+  time, against the criterion each task carries;
+- `serve.mjs --work` — from the report itself: each agreed task gets a *do it in a
+  worktree* button, the agent works a throwaway copy of the tree, and the resulting
+  patch reaches the real tree only when the user applies it. Mention this only if
+  they ask for it: it spends tokens per task and lets an agent edit files (in the
+  worktree), so it must be their choice.
+
+Three things to tell the user plainly when you start it: the ask UI exists **only**
+on this served copy — the file on disk and the published artifact are unchanged
+and show no ask controls; every question and every plan spends tokens through the
+CLI; and an agreed task is a queue entry, not work in progress.
+
 Finish with a chat summary in the report language: the intent paragraph, how
-many files need careful reading and which, the test gaps, any deploy notes —
-and one line pointing at `.whydiff/timing-report.md` (total time + slowest
-phase) so performance can be discussed with data.
+many files need careful reading and which, any story that is not `delivered`,
+the test gaps, any deploy notes — and one line pointing at
+`.whydiff/timing-report.md` (total time + slowest phase) so performance can be
+discussed with data.
 
 ## Quality bar (from the project principles)
 
@@ -172,3 +310,6 @@ phase) so performance can be discussed with data.
    schema-changing migrations get an `er-diff` (tables/columns before/after).
 5. Empty ops sections are information ("no env changes") — never omit `ops`.
 6. Completeness is proven by `validate.mjs`, not asserted.
+7. Every user story carries a verdict (`delivered`/`partial`/`broken`/`regressed`)
+   backed by the diff. A story without one is documentation, not review. An empty
+   `stories` list is a real answer for a refactor — never pad it.

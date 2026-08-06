@@ -54,5 +54,9 @@ report-%: ## show the timing report from the last run against fixture <name>
 map-%: ## open the HTML map produced by the last run against fixture <name>
 	@open $$(ls -t $(FIXDIR)/$*/.whydiff/*.html | head -1)
 
+serve-%: ## serve fixture <name>'s map with live Q&A (asks via `claude -p`)
+	@echo "→ open the printed URL; the ask UI exists only on this served copy"
+	@node scripts/serve.mjs $(FIXDIR)/$*/.whydiff/review-map.json --repo $(FIXDIR)/$*
+
 clean-fixtures: ## remove all prepared fixtures
 	rm -rf $(FIXDIR)
