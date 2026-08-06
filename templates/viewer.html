@@ -108,8 +108,10 @@
     transition: transform var(--t), box-shadow var(--t); }
   .themepick button::after { content: ''; position: absolute; right: 3px; bottom: 3px;
     width: 6px; height: 6px; border-radius: 50%; background: var(--sw-fg); }
-  .themepick button:hover { transform: translateY(-1px); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
-  .themepick button.on { box-shadow: 0 0 0 1.5px var(--bg), 0 0 0 3px var(--accent); }
+  /* A ring and a lift, not shadows: this design system has none outside overlays,
+     and its own test enforces that. An outline draws the same ring without one. */
+  .themepick button:hover { transform: translateY(-1px); border-color: var(--accent); }
+  .themepick button.on { outline: 2px solid var(--accent); outline-offset: 2px; }
   .themepick button:focus-visible { outline: 1.5px solid var(--accent); outline-offset: 2px; }
   body.focus .themepick { display: none; }
 
@@ -1618,16 +1620,27 @@ document.body.classList.add('can-read')
 // Settings that change how the diff reads, never what it says.
 // One palette ships at a time; the others exist so the choice stays reviewable.
 const PALETTES = ['slate', 'graphite', 'bond']
-// Representative colours per palette (canvas + accent), fixed hex: a swatch shows
-// a palette OTHER than the current one, so it can't read the live CSS variables.
-const PAL_SWATCH = { slate: ['#EEF0F2', '#15181B'], graphite: ['#14161A', '#C9A227'], bond: ['#FBFBF9', '#5B2B4A'] }
+// A swatch has to show a palette that is NOT the active one, so it cannot read the
+// live variables — but it must not restate their values either, or the swatches drift
+// the first time a token changes. A palette is an attribute selector, so an offscreen
+// probe carrying that attribute resolves that palette's own tokens.
+const palSwatch = (v) => {
+  const probe = document.createElement('div')
+  probe.dataset.p = v
+  probe.style.cssText = 'position:absolute;left:-9999px;width:0;height:0'
+  document.body.appendChild(probe)
+  const cs = getComputedStyle(probe)
+  const pair = [cs.getPropertyValue('--canvas').trim(), cs.getPropertyValue('--mark').trim()]
+  probe.remove()
+  return pair
+}
 const themePick = document.createElement('div')
 themePick.className = 'themepick'
 themePick.setAttribute('role', 'group')
 themePick.setAttribute('aria-label', L.setPalette)
 for (const v of PALETTES) {
   const b = document.createElement('button')
-  const [bg, fg] = PAL_SWATCH[v] || ['#888', '#fff']
+  const [bg, fg] = palSwatch(v)
   b.style.setProperty('--sw-bg', bg)
   b.style.setProperty('--sw-fg', fg)
   b.dataset.v = v
