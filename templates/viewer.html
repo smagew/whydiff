@@ -99,7 +99,21 @@
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--canvas); color: var(--ink); font-family: var(--font-ui); font-size: 14px;
     line-height: 1.45; -webkit-font-smoothing: antialiased; font-variant-numeric: tabular-nums; }
-  .wrap { max-width: 1360px; margin: 0 auto; padding: 28px 24px 64px; }
+  .wrap { max-width: 1360px; margin: 0 auto; padding: 28px 24px 64px; position: relative; }
+  /* Quick palette switch — three swatches in the top-right corner, each painted in
+     its own palette's canvas + accent so it reads as a theme, not a button. */
+  .themepick { position: absolute; top: 24px; right: 24px; display: inline-flex; gap: 5px; z-index: 6; }
+  .themepick button { width: 20px; height: 20px; padding: 0; cursor: pointer; border-radius: 5px;
+    border: 1px solid var(--line); background: var(--sw-bg); position: relative; overflow: hidden;
+    transition: transform var(--t), box-shadow var(--t); }
+  .themepick button::after { content: ''; position: absolute; right: 3px; bottom: 3px;
+    width: 6px; height: 6px; border-radius: 50%; background: var(--sw-fg); }
+  /* A ring and a lift, not shadows: this design system has none outside overlays,
+     and its own test enforces that. An outline draws the same ring without one. */
+  .themepick button:hover { transform: translateY(-1px); border-color: var(--accent); }
+  .themepick button.on { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .themepick button:focus-visible { outline: 1.5px solid var(--accent); outline-offset: 2px; }
+  body.focus .themepick { display: none; }
 
   /* ── type ──────────────────────────────────────────────────────────────────
      Two families only. Everything readable is --ui; code, paths, ids, labels and
@@ -1606,9 +1620,44 @@ document.body.classList.add('can-read')
 // Settings that change how the diff reads, never what it says.
 // One palette ships at a time; the others exist so the choice stays reviewable.
 const PALETTES = ['slate', 'graphite', 'bond']
+// A swatch has to show a palette that is NOT the active one, so it cannot read the
+// live variables — but it must not restate their values either, or the swatches drift
+// the first time a token changes. A palette is an attribute selector, so an offscreen
+// probe carrying that attribute resolves that palette's own tokens.
+const palSwatch = (v) => {
+  const probe = document.createElement('div')
+  probe.dataset.p = v
+  probe.style.cssText = 'position:absolute;left:-9999px;width:0;height:0'
+  document.body.appendChild(probe)
+  const cs = getComputedStyle(probe)
+  const pair = [cs.getPropertyValue('--canvas').trim(), cs.getPropertyValue('--mark').trim()]
+  probe.remove()
+  return pair
+}
+const themePick = document.createElement('div')
+themePick.className = 'themepick'
+themePick.setAttribute('role', 'group')
+themePick.setAttribute('aria-label', L.setPalette)
+for (const v of PALETTES) {
+  const b = document.createElement('button')
+  const [bg, fg] = palSwatch(v)
+  b.style.setProperty('--sw-bg', bg)
+  b.style.setProperty('--sw-fg', fg)
+  b.dataset.v = v
+  b.title = v
+  b.setAttribute('aria-label', v)
+  b.addEventListener('click', () => applyPalette(v))
+  themePick.appendChild(b)
+}
+document.querySelector('.wrap').prepend(themePick)
+const syncThemePick = () => {
+  const cur = document.documentElement.dataset.p || 'slate'
+  for (const b of themePick.children) b.classList.toggle('on', b.dataset.v === cur)
+}
 const applyPalette = (v) => {
   document.documentElement.dataset.p = PALETTES.includes(v) ? v : 'slate'
   SESSION.set('palette', document.documentElement.dataset.p)
+  syncThemePick()
   // the diff-mark CSS follows the tokens on its own; the diagram's own theme is
   // baked into rendered SVG and has to be rebuilt
   if (diagramsRendered) runDiagrams()

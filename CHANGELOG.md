@@ -177,6 +177,17 @@ that nothing an LLM writes reaches the working tree unlooked-at.
     five-agent pipeline, which does not belong in an HTTP handler; `/whydiff` after
     applying is how you get one. Worktree isolation protects files, not the machine —
     the worker can run commands, which is why the mode is opt-in.
+- **A palette switcher in the corner, so the choice is one click instead of a
+  keystroke.** Three swatches top-right, each painted in the palette it selects —
+  the active one carries a ring, and the whole control disappears in focus mode.
+  - A swatch has to show a palette that is *not* the active one, so it cannot read
+    the live CSS variables. It does not restate their values either: a palette is an
+    attribute selector, so an offscreen probe carrying `data-p` resolves that
+    palette's own `--canvas` and `--mark`. Swatches therefore cannot drift from the
+    tokens they advertise, and the "no hardcoded hex outside the token block" rule
+    stays absolute — its own test caught the first version of this.
+  - The ring is an `outline`, not a `box-shadow`: this system has no shadows outside
+    overlays, and `tests/design.mjs` enforces it.
 - **`scripts/rebind.mjs` — the journal survives regenerating the map, and says
   honestly when it cannot.** A map is an observation of one snapshot: regenerate it
   and a story sits at a different index, a fixed finding is gone, a Logic block was
