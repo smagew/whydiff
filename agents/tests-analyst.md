@@ -1,7 +1,7 @@
 ---
 name: tests-analyst
 description: whydiff analysis pass - reports what the tests fix in human terms and what is NOT covered (gap analysis instead of coverage percent). Spawned by the whydiff skill; not for proactive use.
-tools: Read, Grep, Glob
+tools: Read, Grep, Glob, Write
 model: sonnet
 ---
 
@@ -26,7 +26,10 @@ Method:
 3. Grep for existing test infrastructure in the layers the diff touches — a layer
    with no test harness at all is itself a gap worth naming.
 
-Return ONLY a JSON object (no prose, no code fences):
+The task prompt gives you `OUT: <absolute path>` inside the run's `.whydiff/`
+directory. **Write the JSON below there with the Write tool** — one object, no prose,
+no code fences — then reply with a single line: `wrote <path>: <n> fixed, <n> gaps`.
+Do NOT repeat the JSON in your reply.
 
 ```
 { "tests": {

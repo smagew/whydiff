@@ -79,21 +79,37 @@ const agg = [
   ['Deterministic data (manifest + diff)', span('run_start', 'deterministic_done')],
   ['Main model: read diff, build briefing', span('deterministic_done', 'briefing_done')],
   ['Parallel agents (wall-clock of slowest)', span('agents_spawned', 'agents_done')],
-  ['Merge into review-map.json (main model)', span('agents_done', 'map_written')],
+  ['Merge into review-map.json (merge.mjs + fixes)', span('agents_done', 'map_written')],
 ]
 const validates = events.filter((e) => e.event === 'validate_pass' || e.event === 'validate_fail')
-if (at('map_written') !== undefined && validates.length) {
-  agg.push(['Validation + fixes', validates[validates.length - 1].t - at('map_written')])
+const lastValidate = validates.length ? validates[validates.length - 1].t : undefined
+if (at('map_written') !== undefined && lastValidate !== undefined) {
+  agg.push(['Validation + fixes', lastValidate - at('map_written')])
+}
+if (at('assembled') !== undefined) {
+  const from = lastValidate ?? at('map_written')
+  if (from !== undefined) agg.push(['Assemble HTML', at('assembled') - from])
 }
 lines.push('## Phase summary')
 lines.push('')
 lines.push('| phase | duration | share of total |')
 lines.push('|---|---|---|')
+let attributed = 0
+const missing = []
 for (const [name, ms] of agg) {
-  if (ms === null) continue
+  if (ms === null) { missing.push(name); lines.push(`| ${name} | not measured | — |`); continue }
+  attributed += ms
   lines.push(`| ${name} | ${fmt(ms)} | ${Math.round((ms / total) * 100)}% |`)
 }
 lines.push('')
+// A phase whose boundary event was never logged used to vanish from this table,
+// which silently understated the run. Say what is unaccounted for instead.
+const gap = total - attributed
+if (gap > 1000) {
+  lines.push(`Unattributed: **${fmt(gap)}** (${Math.round((gap / total) * 100)}% of the run)` +
+    (missing.length ? ` — no boundary event for: ${missing.join(', ')}.` : '.'))
+  lines.push('')
+}
 if (validates.length) {
   lines.push(`Validation iterations: ${validates.length} (${validates.map((v) => `${v.meta?.errors ?? '?'} errors`).join(' → ')})`)
   lines.push('')

@@ -1,7 +1,7 @@
 ---
 name: classifier
 description: whydiff analysis pass - groups diff hunks by cause, builds the causal story, per-file explanations, labeled edges and the ops checklist. Spawned by the whydiff skill; not for proactive use.
-tools: Read, Grep, Glob
+tools: Read, Grep, Glob, Write
 ---
 
 You are the classifier pass of the whydiff generator. The task prompt gives you
@@ -19,21 +19,44 @@ Speed inputs (when present in the task prompt):
 - `GRAPH: <path>` — a prebuilt code graph. Consult it BEFORE exploratory grepping
   (imports, callers, service boundaries). It predates the diff: on any conflict
   the diff wins.
+- `GROUPS:` — group ids with their names, roles and rationale, decided by the
+  orchestrator for the whole run. Assign your files to these ids and emit
+  `{ "id", "files" }` only — do NOT re-author `name`/`role`/`why`, the merge takes
+  them from the orchestrator. Add a full group object only when your scope needs a
+  group the list genuinely lacks.
 - `SCOPE: <paths>` — you are one shard of a larger run. Cover exactly these files
   in `files`, propose `groups`/`edges` for them only, and skip `intent`/`story`/
-  `ops` (the orchestrator writes those); still return valid JSON with just your
-  keys.
+  `ops` (the orchestrator writes those); still write valid JSON with just your
+  keys to `OUT:`.
 
-Return ONLY a JSON object (no prose, no code fences) with these keys:
+## Where your answer goes
 
-- `intent`: one paragraph — what the change does, why, and the main risks.
-  Inline `<b>`/`<code>` allowed.
+The task prompt gives you `OUT: <absolute path>` inside the run's `.whydiff/`
+directory. **Write your JSON there with the Write tool** — one object, no prose and
+no code fences around it — and then reply with a single line:
+
+```
+wrote <path>: <n> files, <n> groups, <n> edges
+```
+
+Do NOT put the JSON in your reply. The orchestrator reads your file; repeating the
+answer in the reply means generating the whole thing twice, and generation is the
+slowest part of the pipeline.
+
+## What the JSON contains
+
+These keys:
+
+- `intent`: one sentence — the tl;dr of *what* the change does, so a reviewer
+  gets the gist without opening a tab. Do NOT restate the mechanics (that is the
+  `story`) or the risks (those live in `ops`). Inline `<b>`/`<code>` allowed.
 - `attentionFiles`: integer — how many files genuinely require careful reading.
 - `story`: array alternating step objects and link objects.
   Step: `{ "label", "group", "text", "branches": [[tag, text], ...]?, "files": [paths] }`.
   Link: `{ "link": "WHY the next block exists" }` — causal, not decorative.
   5–8 steps: goal first, consequences in causal order, confirmation last.
-- `groups`: array of `{ "id", "name", "role", "tag", "why", "collapsed"?, "files" }`.
+- `groups`: array of `{ "id", "name", "role", "tag", "why", "collapsed"?, "files" }`
+  — or just `{ "id", "files" }` when `GROUPS:` already defined the group.
   Roles are REVIEWER ROLES, not file types:
   `read` (careful reading), `verify-pattern` (one pattern repeated — check the
   pattern once and the list completeness), `context` (read first), `ops`
@@ -41,16 +64,30 @@ Return ONLY a JSON object (no prose, no code fences) with these keys:
   (mechanical pass-through). 3–8 groups. EVERY manifest file belongs to exactly
   one group.
 - `files`: object keyed by repo-relative path, each
-  `{ "service", "role", "add", "del", "isNew"?, "why", "frag": [[cls, text]...], "preview": [[cls, text]...] }`.
+  `{ "service", "role", "why", "fragAnchor"? }`.
+  Do NOT emit `add`, `del`, `isNew`, `frag` or `preview`. `merge.mjs` fills them —
+  the counts from git, the code lines from the patch — and overwrites anything you
+  put there. Copying source lines into JSON is the single most wasteful thing this
+  pass can do: those bytes are already on disk, and generating them is what makes
+  a run slow.
+  `fragAnchor` is optional and cheap: a short **distinctive** string from the
+  changed line you would have quoted (`prepare.shutdownAfter.default`,
+  `PREPARE_SHUTDOWN_AFTER_MIN`). The merge shows the hunk containing it. A dozen
+  characters instead of a dozen lines.
+  Without an anchor the merge picks the hunk with the most changed code, which is
+  right for a focused edit and wrong when a file has one big unrelated block and
+  one small important line — a config key added to a file that also gained
+  boilerplate, a flag flipped inside a large refactor. **Set an anchor whenever
+  your `why` names a specific symbol.** Make it unique: `DB::getOne` matches the
+  first of five calls, `SELECT PrepareShutdownAfter` matches the one you meant.
   `service` is REQUIRED for every file: the logical scope tag the viewer surfaces
   in its scope bar — `frontend`, `backend`, `api`, `mcp`, `devops`, `infra`,
   `docs`, `test`, … Lowercase, short, and consistent: the same part of the
   project must get the same tag on every file (derive from the repo's real
   top-level structure, not ad hoc).
-  `add`/`del` copied from the manifest. `why`: what happened and why, flag review
-  focus points with `<b>Review focus:</b>` (translated to REPORT_LANGUAGE).
-  `frag`: 4–12 real lines from the diff, cls one of `add`/`del`/`ctx`. `preview`:
-  the 1–2 most telling lines for the file card.
+  `why`: what happened and why, flag review focus points with
+  `<b>Review focus:</b>` (translated to REPORT_LANGUAGE). This is where your output
+  budget belongs — it is the only part of a file entry no script can produce.
 - `edges`: array of `[fromPath, toPath, whyThisLinkExists]` triples. Direction:
   "a change in FROM required a change in TO". Include cross-service edges. Only
   edges whose label teaches the reviewer something; 0 is fine for trivial diffs.
