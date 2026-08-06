@@ -4,9 +4,9 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
-## [0.9.1] — 2026-08-07
+## [0.9.2] — 2026-08-07
 
-Fixes to the chrome around the map, and to how a run is handed over.
+More fixes to the chrome, and to how a run is handed over.
 
 ### Fixed
 - **The page no longer jumps when you switch tabs.** The right column collapsed on
@@ -24,6 +24,19 @@ Fixes to the chrome around the map, and to how a run is handed over.
 - **The Tests tab stops wasting half its width.** When no tests are fixed (or no
   gaps), the empty side no longer holds an idle half-column — the populated list
   takes the full width and the empty one stays as its count line.
+
+### Changed
+- **A run serves the live report by default; the static file is now opt-in.** With
+  the report gone interactive — ask, instruct, options, and Generate for the lazy
+  sections — a static HTML can do none of that (its buttons are inert), so handing
+  one over left the reviewer with a dead page. `SKILL.md` now serves unless the
+  user explicitly wants a file to keep or an artifact to publish.
+
+## [0.9.1] — 2026-08-07
+
+Two small fixes to the chrome around the map.
+
+### Fixed
 - **Thread bookmarks no longer pile over the header.** A question's marker belongs
   beside its own content or, when that content is on another tab, as a count on
   that tab — and a thread whose anchor is gone (the map was regenerated) has
@@ -32,13 +45,6 @@ Fixes to the chrome around the map, and to how a run is handed over.
   threads live in the Review view (their `questions` group), and the rail — with
   the left margin reserved for it — appears only when a bookmark can actually sit
   beside content on the current tab.
-
-### Changed
-- **A run serves the live report by default; the static file is now opt-in.** With
-  the report gone interactive — ask, instruct, options, and Generate for the lazy
-  sections — a static HTML can do none of that (its buttons are inert), so handing
-  one over left the reviewer with a dead page. `SKILL.md` now serves unless the
-  user explicitly wants a file to keep or an artifact to publish.
 
 ### Added
 - **The footer names the version that produced the map** — `whydiff <version>`,
