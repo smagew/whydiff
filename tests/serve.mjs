@@ -244,8 +244,8 @@ await page.waitForTimeout(500)
 if (!(await page.locator('body.can-ask').count())) fail('served page did not enable the ask UI')
 
 // A stored thread leaves a numbered marker on its anchor, Notion-comment style,
-// and a bookmark in the left rail — both without hovering anything. Two notes are
-// on story:0 by now: the answered question and the planned instruction above.
+// without hovering anything. Two notes are on story:0 by now: the answered
+// question and the planned instruction above.
 await page.locator('#tabs .tab[data-pane="stories"]').click()
 await page.waitForTimeout(300)
 const mark = await page.locator('.ustory[data-anchor="story:0"] .askmark').textContent()
@@ -253,7 +253,6 @@ if (mark !== '1·2') fail(`expected marker "1·2" on the story with two notes, g
 if (await page.locator('.ustory[data-anchor="story:0"] .askbtn').count()) {
   fail('the hover "ask" button is still there next to a marker — they would overlap')
 }
-if (!(await page.locator('.rail.on .bm').count())) fail('no bookmark appeared in the left rail')
 
 // Asking from the UI: the trace shows the CLI's steps while it works …
 await page.locator('.ustory[data-anchor="story:0"] .askmark').click()
@@ -478,43 +477,25 @@ if ((await blocks.count()) >= 2) {
   if (!/^blocks /.test(anchorLine || '')) fail(`multi-select produced the wrong anchor: "${anchorLine}"`)
 }
 
-// A bookmark belongs to its content: it must scroll with the page, not ride the
-// window. Floating them in a corner was the bug this replaced. Checked on Logic
-// because it is the one pane tall enough to actually scroll.
-await page.locator('#tabs .tab[data-pane="story"]').click()
-await page.waitForTimeout(300)
-const probe = () => page.evaluate(() => ({
-  top: document.querySelector('.rail .bm')?.getBoundingClientRect().top ?? null, y: scrollY,
-}))
-const beforeScroll = await probe()
-if (beforeScroll.top === null) fail('no bookmark to check scrolling with')
-await page.evaluate(() => scrollBy(0, 300))
-await page.waitForTimeout(250)
-const afterScroll = await probe()
-// Compare against how far the page ACTUALLY scrolled: a short pane may not have
-// 300px to give, and then this would prove nothing either way.
-const moved = afterScroll.y - beforeScroll.y
-if (moved < 20) fail(`could not scroll enough to test with (page moved ${moved}px)`)
-if (Math.abs((beforeScroll.top - afterScroll.top) - moved) > 4) {
-  fail(`bookmark did not scroll with the content (moved ${Math.round(beforeScroll.top - afterScroll.top)}px while the page moved ${moved}px)`)
+// Switching tabs must not move the content sideways. Questions are a stable count
+// on each tab — no floating rail, no reserved left gutter that appears on some tabs
+// and not others — so the reading column keeps the same left edge on every tab.
+const leftOn = async (pane) => {
+  await page.locator(`#tabs .tab[data-pane="${pane}"]`).click()
+  await page.waitForTimeout(250)
+  return page.evaluate(() => Math.round(document.querySelector('.main-panel').getBoundingClientRect().left))
 }
-// It must also stay clear of the text rather than sitting on top of it.
-const clear = await page.evaluate(() => {
-  const r = document.querySelector('.rail .bm').getBoundingClientRect()
-  const w = document.querySelector('.wrap')
-  const textLeft = w.getBoundingClientRect().left + parseFloat(getComputedStyle(w).paddingLeft)
-  return r.right <= textLeft + 1
-})
-if (!clear) fail('the bookmark rail overlaps the text column')
-await page.evaluate(() => scrollTo(0, 0))
+const lStory = await leftOn('story')
+const lStories = await leftOn('stories')
+const lStandards = await leftOn('standards')
+if (lStory !== lStories || lStory !== lStandards) {
+  fail(`content shifted between tabs (main-panel left: story ${lStory}, stories ${lStories}, standards ${lStandards})`)
+}
+if (await page.locator('.rail .bm').count()) fail('the floating rail is gone; no bookmarks should render')
 
-// Questions on other tabs are counted on that tab's button, not floated in a
-// corner of the window.
-await page.locator('#tabs .tab[data-pane="ops"]').click()
-await page.waitForTimeout(300)
+// Questions are counted on their tab's button, wherever you are.
 const storyBadge = await page.locator('#tabs .tab[data-pane="stories"] .qcnt').textContent()
 if (!/\d/.test(storyBadge || '')) fail(`the stories tab did not count its questions (got "${storyBadge}")`)
-if (await page.locator('.rail .bm').count()) fail('Ops has no anchored questions, yet the rail still showed bookmarks')
 
 // The chat panel is a full-height column that stays put while the report scrolls.
 await page.locator('#tabs .tab[data-pane="stories"]').click()
@@ -552,4 +533,4 @@ if (errors.length) fail('served page errors:\n' + errors.join('\n'))
 
 await browser.close()
 stop()
-console.log(`OK: serve.mjs contract (403 without token, streamed ${kinds.length} events with steps+deltas, Q+A journalled and projected, marker+rail rendered, trace folded, markdown rendered, quote pinned, answer turned into a task, instruct planned+agreed+declined, options normalised+chosen, tasks tab gated+grouped+handed off, multi-select anchored, cross-tab bookmark switched, standalone file has no ask UI)`)
+console.log(`OK: serve.mjs contract (403 without token, streamed ${kinds.length} events with steps+deltas, Q+A journalled and projected, marker rendered, trace folded, markdown rendered, quote pinned, answer turned into a task, instruct planned+agreed+declined, options normalised+chosen, tasks tab gated+grouped+handed off, multi-select anchored, content stays put across tabs, standalone file has no ask UI)`)

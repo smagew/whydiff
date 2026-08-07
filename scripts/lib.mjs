@@ -39,7 +39,9 @@ export function validateStructure(rm) {
     for (const p of g.files) if (!filePaths.has(p)) errors.push(`group ${g.id}: unknown file ${p}`)
   }
   for (const e of rm.edges) {
-    if (!Array.isArray(e) || e.length !== 3) { errors.push(`edge is not a [from, to, why] triple: ${JSON.stringify(e)}`); continue }
+    if (!Array.isArray(e) || e.length < 3 || e.length > 4 || typeof e[2] !== 'string') {
+      errors.push(`edge is not a [from, to, title, description?] tuple: ${JSON.stringify(e)}`); continue
+    }
     if (!filePaths.has(e[0])) errors.push(`edge: unknown source ${e[0]}`)
     if (!filePaths.has(e[1])) errors.push(`edge: unknown target ${e[1]}`)
   }

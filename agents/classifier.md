@@ -88,12 +88,15 @@ These keys:
   `why`: what happened and why, flag review focus points with
   `<b>Review focus:</b>` (translated to REPORT_LANGUAGE). This is where your output
   budget belongs — it is the only part of a file entry no script can produce.
-- `edges`: array of `[fromPath, toPath, whyThisLinkExists]` triples. Direction:
+- `edges`: array of `[fromPath, toPath, title, description]`. Direction:
   "a change in FROM required a change in TO". Include cross-service edges. Only
-  edges whose label teaches the reviewer something; 0 is fine for trivial diffs.
-  The label is SHORT — a phrase of a few words that rides on the connector line
-  (`records the refund row`, `calls settlement after shipping`), never a sentence
-  or paragraph. Put the full reasoning in the files' explanations, not here.
+  edges that teach the reviewer something; 0 is fine for trivial diffs.
+  - `title` — SHORT, a phrase of a few words that rides on the connector line
+    (`records the refund row`, `calls settlement after shipping`), never a
+    sentence. This is what shows on the map.
+  - `description` — OPTIONAL, one or two sentences of the fuller reason, shown when
+    the reviewer hovers the label. Omit it (3-element edge) when the title already
+    says everything; do not pad. Never a paragraph — that belongs in the files.
 - `ops`: `{ "env": [{name, status: added|removed|changed, note}], "migrations": [],
   "deploy": [], "note" }`. Empty arrays are meaningful ("nothing changed") — keep
   them, and when emptiness is itself notable, explain in `note`.

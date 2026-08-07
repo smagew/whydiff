@@ -101,8 +101,8 @@
 
     "edges": {
       "type": "array",
-      "description": "Triples [fromPath, toPath, why] (principle 3). `why` is a SHORT label — a phrase of a few words that fits on the connector line (e.g. \"records the refund row\", \"calls settlement after shipping\"), NOT a sentence or paragraph. The full reasoning belongs in the files' explanations, not the edge label.",
-      "items": { "type": "array", "prefixItems": [{ "type": "string" }, { "type": "string" }, { "type": "string" }], "minItems": 3, "maxItems": 3 }
+      "description": "[fromPath, toPath, title, description?] (principle 3). `title` is a SHORT label that rides on the connector line — a phrase of a few words (\"records the refund row\", \"calls settlement after shipping\"), never a sentence. `description` is optional: one or two sentences of the fuller reasoning, shown on hover; omit it when the title already says everything.",
+      "items": { "type": "array", "prefixItems": [{ "type": "string" }, { "type": "string" }, { "type": "string" }, { "type": "string" }], "minItems": 3, "maxItems": 4 }
     },
 
     "diagrams": {

@@ -127,12 +127,12 @@ if (order.join(',') !== 'regressed,partial,delivered') fail(`stories not sorted 
 const uncovered = await page2.locator('#stories .ucov.no').count()
 if (uncovered !== 1) fail(`expected 1 "no test" marker, got ${uncovered}`)
 
-// The inspector is collapsed on this prose tab, and a story's file chip must
-// bring it back — otherwise the chips would look broken.
-if (!(await page2.locator('.layout.solo').count())) fail('inspector did not collapse on the stories tab')
+// The aside now stays on every report tab, so the reading column never changes
+// width between tabs; on a prose tab it holds the Overview, and a story's file
+// chip swaps that for the file it points to.
+if (await page2.locator('.layout.solo').count()) fail('the aside should stay open on the stories tab, not collapse')
 await page2.locator('#stories .ustory .fchip').first().click()
 await page2.waitForTimeout(250)
-if (await page2.locator('.layout.solo').count()) fail('story chip click did not reveal the inspector')
 const insp2 = (await page2.locator('#inspector h3').textContent()) || ''
 if (!insp2.includes('/')) fail(`story chip did not open a file (got: "${insp2}")`)
 
@@ -142,4 +142,4 @@ if (errors.length) fail('page errors:\n' + errors.join('\n'))
 
 await browser.close()
 console.log(`OK: 7 tabs (stories placeholder), ${clickable} clickable diagram nodes, node click opened ${insp.trim()}, ${scopeChips} scope chips (filter dims ${dimmed}), diagram pop-out works, no page errors`)
-console.log(`OK: user stories — 7 tabs, badge ${badge}, ${cards} cards sorted ${order.join('/')}, chip revealed inspector and opened ${insp2.trim()}`)
+console.log(`OK: user stories — 7 tabs, badge ${badge}, ${cards} cards sorted ${order.join('/')}, aside stays open, chip opened ${insp2.trim()}`)
