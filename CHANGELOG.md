@@ -4,6 +4,34 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.10.0] — 2026-08-07
+
+The overview panel becomes a per-group index, and the Files map stops fighting the
+reader.
+
+### Added
+- **The overview panel now maps every cause group to its files.** The right-hand
+  panel used to be a bare legend (group names and roles). It now walks each group in
+  turn — its tag and name, the one-line reason in a note box, then its files as rows
+  (type label, path, `+/-` counts). Every row opens that file's diff, so the overview
+  doubles as an index. The file map on the left is unchanged.
+
+### Changed
+- **A connection label carries a title and a description.** A short title rides the
+  line; hovering it opens the full description, with a "more" toggle when the text is
+  long — instead of one label stretched across the map.
+- **"Show all links" is on by default** on the Files map, so every connection is
+  visible when the tab opens rather than only on hover or select.
+- **The user-stories tab drops its intro paragraph.** The verdict is already clear
+  from the traffic-light badges and the problems-first ordering, so the summary and
+  explainer above the cards only took space.
+
+### Fixed
+- **The content no longer shifts sideways between tabs.** The floating bookmark rail
+  reserved a left gutter only on the tabs that had anchored questions, so the reading
+  column jumped whenever you switched. Questions are now counted on each tab's own
+  button; the rail is gone and the column keeps the same width on every tab.
+
 ## [0.9.2] — 2026-08-07
 
 More fixes to the chrome, and to how a run is handed over.

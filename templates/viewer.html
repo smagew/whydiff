@@ -19,6 +19,7 @@
        constraint, and the two staying distinct is what makes weight read. */
     --ink:#282D31;    --ink-2:#4A5054;  --ink-3:#5C6368;
     --mark:#15181B;   --flag:#8A2B3D;   --flag-soft:#EFE3E5;
+    --pass:#2F6E4E;   --caution:#8A5E1E;
     --add-bg:#E1E7EE; --add-edge:#3B5F87; --add-ink:#17324D;
     --del-bg:#EFE3E5; --del-edge:#8A2B3D; --del-ink:#4A1620;
     --mark-ink:#F8F9FA;
@@ -28,6 +29,7 @@
     --line:#31363D;   --line-strong:#454B53;
     --ink:#DDE1E6;    --ink-2:#C3C9D0;  --ink-3:#8E969E;
     --mark:#C9A227;   --flag:#D2635A;   --flag-soft:#2B1F1C;
+    --pass:#6DB98C;   --caution:#CBA23E;
     --add-bg:#182530; --add-edge:#4F7EA8; --add-ink:#C3D7E8;
     --del-bg:#2B1F1C; --del-edge:#A5634E; --del-ink:#E4C8BC;
     --mark-ink:#14161A;
@@ -38,6 +40,7 @@
     /* #191919 measures 17.0:1 on canvas; #2F2F2E lands at 12.9 / 13.4. */
     --ink:#2F2F2E;    --ink-2:#3D3D3B;  --ink-3:#62625F;
     --mark:#5B2B4A;   --flag:#8F2A2A;   --flag-soft:#F5EAEA;
+    --pass:#2F6E4E;   --caution:#8A5E1E;
     --add-bg:#EAEFF4; --add-edge:#3E6389; --add-ink:#17324D;
     --del-bg:#F5EAEA; --del-edge:#8F2A2A; --del-ink:#4A1616;
     --mark-ink:#FFFFFF;
@@ -241,6 +244,17 @@
   .gleg-row:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .gleg-row .dot { flex: none; width: 8px; height: 8px; border-radius: 3px; position: relative; top: -1px; }
   .gleg-row .gleg-role { color: var(--muted); font-size: 13px; }
+  /* overview: one section per group — tag, name, note box, then its files as rows */
+  .ovg { margin: 0 0 16px; }
+  .ovg + .ovg { border-top: 1px solid var(--line); padding-top: 14px; }
+  .ovg-name { font-weight: 500; font-size: 15px; margin: 0 0 8px; }
+  .ovg-files { list-style: none; margin: 8px 0 0; padding: 0; }
+  .ovg-file { display: flex; align-items: baseline; gap: 8px; width: 100%; background: none; border: none; padding: 3px 4px; margin: 0 -4px; border-radius: 3px; cursor: pointer; font: inherit; color: inherit; text-align: left; }
+  .ovg-file:hover { background: var(--surface-2); }
+  .ovg-file:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .ovg-ext { flex: none; min-width: 3.5ch; font-family: var(--mono); font-size: 13px; color: var(--muted); }
+  .ovg-path { flex: 1; min-width: 0; font-family: var(--mono); font-size: 13px; overflow-wrap: anywhere; }
+  .ovg-stat { flex: none; font-family: var(--mono); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
   .linklike { background: none; border: none; padding: 0; font: inherit; font-size: inherit; color: var(--accent); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
   .linklike:hover { filter: brightness(1.15); }
   #helpBody { padding: 14px 18px 18px; font-size: 13.5px; }
@@ -274,13 +288,17 @@
   .dg-btn { width: 28px; height: 28px; border-radius: 3px; border: 1px solid var(--line); background: var(--surface-2); color: var(--muted); font-size: 14px; line-height: 1; cursor: pointer; transition: border-color var(--t), color var(--t); }
   .dg-btn:hover { border-color: var(--accent); color: var(--accent); }
   .dg-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-  .mermaid-box:fullscreen { background: var(--bg); display: grid; place-items: center; overflow: auto; padding: 24px; }
-  .mermaid-box:fullscreen svg { max-width: 96vw !important; width: 96vw; height: auto; }
   .diagram .cap { margin: 0 0 10px; font-size: 13px; color: var(--muted); }
-  .diagram .mermaid-box { overflow-x: auto; background: var(--surface-2); border-radius: 3px; padding: 10px; }
+  .diagram .mermaid-box { overflow-x: auto; background: var(--surface-2); border-radius: 3px; padding: 10px; position: relative; }
+  /* Drag-select rectangle for asking about a region of a diagram. */
+  .dg-select { position: absolute; z-index: 5; pointer-events: none; border: 1.5px dashed var(--accent);
+    background: color-mix(in srgb, var(--accent) 12%, transparent); border-radius: 2px; }
   pre.mermaid { margin: 0; text-align: center; }
   .mermaid-box .clickable { cursor: pointer; }
-  .mermaid-box .clickable:hover { opacity: .75; }
+  /* No :hover restyle on diagram nodes. On an SVG <g>, ANY hover repaint (opacity,
+     stroke, …) rides on a :hover state that drops and regains itself every frame,
+     so the node visibly flickers/shifts. The pointer cursor is the affordance;
+     the hover state carries no rendering, so there is nothing to flicker. */
   .diagram .step-files { margin-top: 10px; }
 
   /* map (files tab) */
@@ -292,16 +310,25 @@
   #edges .arrow { fill: var(--ec, var(--muted)); opacity: 0; transition: opacity var(--t); }
   #edges.all .arrow { opacity: .4; }
   #edges .arrow.on { opacity: 1; }
-  /* the relationship, spelled out on the line — a solid pill behind the text keeps
-     it readable where the curve crosses a card. Shown with its own (on) edge, and
-     whenever "show all links" is on. */
-  #edges .elabel-bg { fill: var(--surface); stroke: var(--line-strong); stroke-width: 1px;
-    opacity: 0; transition: opacity var(--t); }
-  #edges .elabel { opacity: 0; font-family: var(--mono); font-size: 13px; font-weight: 500;
-    fill: var(--ink); text-anchor: middle; dominant-baseline: middle;
-    pointer-events: none; transition: opacity var(--t); }
-  #edges .elabel.on, #edges .elabel-bg.on { opacity: 1; }
-  #edges.all .elabel, #edges.all .elabel-bg { opacity: 1; }
+  /* Edge labels are HTML over the map, not SVG text: the TITLE rides the line as a
+     one-line pill capped by CSS (no JS truncation), and hovering it opens a popover
+     with the full DESCRIPTION (with a "more" toggle when it is long). Shown with the
+     edge (on hover/select) or when "show all links" is on. */
+  .elabels { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
+  .elabel { position: absolute; transform: translate(-50%, -50%); opacity: 0; transition: opacity var(--t); }
+  .elabel.on, .elabels.all .elabel { opacity: 1; pointer-events: auto; }
+  .elabel-t { display: block; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-family: var(--mono); font-size: 13px; font-weight: 500; color: var(--ink);
+    background: var(--surface); border: 1px solid var(--line-strong); border-radius: 5px; padding: 2px 8px; }
+  .elabel:hover .elabel-t { border-color: var(--accent); }
+  .elabel-pop { display: none; position: absolute; top: calc(100% + 6px); left: 50%; transform: translateX(-50%);
+    width: max-content; max-width: 300px; background: var(--surface); border: 1px solid var(--line-strong);
+    border-radius: 5px; padding: 8px 10px; z-index: 6; }
+  .elabel:hover .elabel-pop, .elabel-pop:hover { display: block; }
+  .elabel-desc { font-size: 13px; line-height: 1.5; color: var(--ink-2); }
+  .elabel-pop:not(.expanded) .elabel-desc { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+  .elabel-more { display: block; margin-top: 6px; font: inherit; font-size: 13px; cursor: pointer;
+    background: none; border: none; padding: 0; color: var(--accent); }
   .groups { display: flex; flex-direction: column; gap: 20px; position: relative; z-index: 1; }
   .group { border: 1.5px solid var(--gc, var(--line)); border-radius: 3px; background: color-mix(in srgb, var(--gbg, var(--surface-2)) 55%, var(--surface)); padding: 12px 14px 14px; }
   .group.collapsed { padding-bottom: 12px; }
@@ -318,9 +345,16 @@
   .group-tag { font-family: var(--mono); font-size: 13px;  color: var(--gc); font-weight: 500; }
   .group-name { font-weight: 500; font-size: 14.5px; }
   .group-hint { color: var(--muted); font-size: 13px; margin-left: auto; }
+  .toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); cursor: pointer; user-select: none; }
+  .toggle input { accent-color: var(--accent); cursor: pointer; }
+  .files-hint { display: flex; gap: 14px; align-items: baseline; flex-wrap: wrap; margin: 0 0 12px; }
   .nodes { display: flex; flex-wrap: wrap; gap: 10px; }
   .node { display: flex; flex-direction: column; gap: 3px; align-items: stretch; background: var(--surface); border: 1px solid var(--line); border-radius: 3px; padding: 9px 12px 10px; cursor: pointer; font: inherit; color: inherit; text-align: left; max-width: 320px; transition: border-color var(--t), transform var(--t); }
-  .node:hover { border-color: var(--gc); transform: translateY(-1px); }
+  /* Scoped to .groups: a mermaid diagram node is ALSO `.node`, and a CSS transform
+     on an SVG <g> overrides its positioning `transform` attribute — the node jumps
+     (to origin, or by 1px) on hover and flickers. File cards live in .groups; the
+     diagram's do not, so the lift only reaches the cards it was meant for. */
+  .groups .node:hover { border-color: var(--gc); transform: translateY(-1px); }
   .node:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .node.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
   .node-top { display: flex; align-items: baseline; gap: 8px; }
@@ -332,9 +366,6 @@
   .node .frole { font-size: 13px; color: var(--muted); }
   .fprev { margin-top: 5px; border-radius: 3px; background: var(--code-bg); border: 1px solid var(--line); padding: 4px 0; overflow: hidden; }
   .fprev .cl { font-size: 13px; line-height: 1.5; padding: 0 8px; overflow: hidden; text-overflow: ellipsis; max-width: 292px; }
-  .toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); cursor: pointer; user-select: none; }
-  .toggle input { accent-color: var(--accent); cursor: pointer; }
-  .files-hint { display: flex; gap: 14px; align-items: baseline; flex-wrap: wrap; margin: 0 0 12px; }
 
   .manifest { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 10px; }
   .manifest summary { cursor: pointer; font-size: 13px; font-weight: 500; color: var(--muted); }
@@ -477,18 +508,20 @@
   /* ── Tasks tab ──────────────────────────────────────────────────────────────
      A queue in the reading column: the state leads each card, the left rule
      carries whether it blocks, and nothing is boxed inside anything. */
-  /* ── the review destination ─────────────────────────────────────────────────
-     Two jobs, two modes: the report (what the change means) and the review (what
-     is still unsettled). They are peers, not tabs of one page, so they sit ABOVE
-     the report's sub-tabs as a segmented switch — the shape naturally asks for it. */
-  .modebar { display: inline-flex; gap: 2px; margin: 0 0 14px; padding: 3px;
-    background: var(--sunken); border-radius: 4px; }
-  .modetab { font: inherit; font-size: 14px; font-weight: 500; cursor: pointer;
-    border: none; background: none; color: var(--ink-3); border-radius: 3px; padding: 6px 15px;
-    display: inline-flex; align-items: center; gap: 7px;
-    transition: background var(--t), color var(--t); }
+  /* ── the report / review tabs ────────────────────────────────────────────────
+     Report and Review are the two top-level TABS. They are real folder tabs that
+     sit on the content card: the active one is outlined and JOINED to the card —
+     its bottom edge breaks the card's top border (margin -1px + a matching-surface
+     fill, lifted above the card with z-index) — so it is visible which view you are
+     in and that the panel below is its content. The inactive tab is a plain label. */
+  .modebar { display: inline-flex; gap: 4px; margin: 0 0 -1px; padding: 0 8px; align-items: stretch;
+    position: relative; z-index: 1; }
+  .modetab { font: inherit; font-size: 15px; font-weight: 500; cursor: pointer;
+    border: 1px solid transparent; border-bottom: none; border-radius: 5px 5px 0 0; margin-bottom: -1px;
+    background: none; color: var(--ink-3); padding: 8px 16px;
+    display: inline-flex; align-items: center; gap: 7px; transition: color var(--t); }
   .modetab:hover { color: var(--ink); }
-  .modetab.active { background: var(--surface); color: var(--ink); }
+  .modetab.active { background: var(--surface); border-color: var(--line-strong); color: var(--ink); }
   .modetab:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .modetab .cnt { font-family: var(--mono); font-size: 13px; font-weight: 500; color: var(--flag);
     background: var(--flag-soft); border-radius: 3px; padding: 1px 7px; min-width: 8px; text-align: center; }
@@ -588,16 +621,26 @@
   /* user stories: the status badge is the point, so it leads the card */
   .ustory { border: 1px solid var(--line); border-left-width: 2px; border-radius: 0; padding: 11px 14px; margin: 0 0 10px; background: var(--surface); }
   .ustory .uhead { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; margin: 0 0 5px; }
-  .ust { flex: none; font-family: var(--mono); font-size: 13px; font-weight: 500;  border-radius: 3px; padding: 2px 10px; }
+  .ust { flex: none; font-family: var(--mono); font-size: 13px; font-weight: 500;  border-radius: 3px; padding: 2px 10px; position: relative; cursor: help; }
+  /* Instant custom tooltip — native title lags too long to be useful. */
+  .utip { display: none; position: absolute; top: calc(100% + 6px); left: 0; z-index: 20; width: max-content; max-width: 280px;
+    background: var(--surface); border: 1px solid var(--line-strong); border-radius: 5px;
+    padding: 7px 10px; font-family: var(--sans); font-weight: 400; font-size: 13px; line-height: 1.5; color: var(--ink-2);
+    text-decoration: none; white-space: normal; }
+  .ust:hover .utip, .ust:focus-visible .utip { display: block; }
   .uactor { font-size: 13px; font-weight: 500; color: var(--muted); }
   .ucov { font-family: var(--mono); font-size: 13px; border-radius: 3px; padding: 1.5px 8px; border: 1px dashed var(--line); color: var(--muted); }
   .ucov.no { border-style: solid; border-color: color-mix(in srgb, var(--warn) 55%, var(--line)); color: var(--warn); }
   .ustory .utext { font-size: 14px; font-weight: 500; }
   .ustory .uwhy { font-size: 13px; color: var(--muted); margin-top: 4px; }
-  .ustory.delivered { border-left-color: var(--accent); } .ust.delivered { background: var(--accent-bg); color: var(--accent); }
-  .ustory.partial   { border-left-color: var(--flag); } .ust.partial { background: var(--flag-bg); color: var(--flag); }
-  .ustory.broken    { border-left-color: var(--flag); } .ust.broken { background: var(--flag-bg); color: var(--flag); font-weight: 500; }
-  .ustory.regressed { border-left-color: var(--flag); } .ust.regressed { background: var(--flag); color: var(--accent-ink); }
+  /* Traffic-light: delivered is good (green), partial is a caution (amber), broken
+     is a problem (red), regressed is the worst — red and filled, so it reads as more
+     than "broken". The left rule of the card carries the same colour. */
+  .ustory.delivered { border-left-color: var(--pass); } .ust.delivered { color: var(--pass); }
+  .ustory.partial   { border-left-color: var(--caution); } .ust.partial { color: var(--caution); }
+  .ustory.broken    { border-left-color: var(--flag); } .ust.broken { color: var(--flag); }
+  .ustory.regressed { border-left-color: var(--flag); }
+  .ust.regressed { color: var(--flag); text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 2px; }
 
   .listcard { border: 1px solid var(--line); border-radius: 3px; padding: 12px 14px; background: var(--surface); }
   .listcard h3 { margin: 0 0 8px; font-size: 14px; font-weight: 500; }
@@ -641,6 +684,7 @@
   .rels-title { font-size: 13px; font-weight: 500; color: var(--ink); margin: 0 0 4px; }
   .rel-file { font: inherit; font-family: var(--mono); font-size: 13px; font-weight: 500; background: none; border: none; padding: 0; cursor: pointer; color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
   .rel-file:hover { filter: brightness(1.15); }
+  .rel-desc { color: var(--ink-3); }
   .codebox { background: var(--code-bg); border: 1px solid var(--line); border-radius: 3px; overflow-x: auto; margin: 0 0 14px; }
   .codebox-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 6px 12px; border-bottom: 1px solid var(--line); font-family: var(--mono); font-size: 13px; color: var(--muted); position: sticky; left: 0; }
   .codebox pre { margin: 0; padding: 10px 0; font-family: var(--mono); font-size: 13px; line-height: 1.6; min-width: max-content; }
@@ -727,14 +771,20 @@
   .mermaid g.node.changed .nodeLabel, .mermaid g.node.changed span,
   .mermaid g.node.changed tspan { color: var(--ink) !important; fill: var(--ink) !important; }
   .node { border: 1px solid var(--line); border-radius: var(--r-input); }
-  .node:hover { border-color: var(--line-strong); transform: none; }
+  .groups .node:hover { border-color: var(--line-strong); transform: none; }
   /* §9: a status is a mono word, not a plate. In a monochrome palette the word
      plus --flag carries it, and the reading column stays on the canvas. */
+  /* Every badge is a bare coloured word, no plate. Traffic-light: delivered green,
+     partial amber, broken red, regressed red + underlined (the worst, called out by
+     weight not a fill). */
   .sev, .ust, .ucov { background: none !important; border: none !important; border-radius: 0;
     padding: 0; color: var(--ink-3); }
   .uwhy, .utext, .dk-a, .listcard li { max-width: var(--measure); }
-  .sev.warn, .ust.regressed, .ust.broken, .ust.partial, .ucov.no { color: var(--flag); }
-  .sev.ok, .ust.delivered { color: var(--ink-2); }
+  .sev.warn, .ucov.no { color: var(--flag); }
+  .sev.ok { color: var(--ink-2); }
+  .ust.delivered { color: var(--pass); }
+  .ust.partial { color: var(--caution); }
+  .ust.broken, .ust.regressed { color: var(--flag); }
   .ust, .sev { margin-right: 8px; }
   .link-row .la { background: none; color: var(--ink-3); }
   .dg-btn { background: none; color: var(--ink-3); }
@@ -752,9 +802,9 @@
   .svc { border: none; padding: 0; color: var(--ink-3); }
   .fprev { background: none; border: none; border-left: 2px solid var(--line); border-radius: 0; padding: 2px 0 2px 8px; }
   .fprev .cl { padding: 0; }
-  /* The tab strip is the top bar; the tabs themselves are text. Interaction is
-     signalled by weight and an underline, not by a box or a hue. */
-  .tabs { border-bottom: 1px solid var(--line); padding: 0; margin: 0 0 18px; gap: 0; align-items: stretch; }
+  /* Sub-tabs are the secondary level (the primary tabs are Report/Review): a light
+     underline switch, not a folder tab, so the two levels do not compete. */
+  .tabs { border-bottom: 1px solid var(--line); padding: 0; margin: 0; gap: 0; align-items: stretch; }
   .tab { border: none; background: none; border-radius: 0; padding: 8px 13px 7px; color: var(--ink-2);
     font-size: 15px; border-bottom: 2px solid transparent; margin-bottom: -1px; }
   .tab:hover { color: var(--ink); background: var(--sunken); }
@@ -789,8 +839,6 @@
       </div>
 
       <div id="pane-stories" class="pane" hidden>
-        <div class="section-note" id="storiesSummary"></div>
-        <p class="pane-hint" id="storiesHint"></p>
         <div id="stories"></div>
       </div>
 
@@ -821,7 +869,7 @@
 
       <div id="pane-files" class="pane" hidden>
         <div class="files-hint">
-          <label class="toggle"><input type="checkbox" id="allEdges"> <span id="edgesToggleLabel"></span></label>
+          <label class="toggle"><input type="checkbox" id="allEdges" checked> <span id="edgesToggleLabel"></span></label>
           <small style="color:var(--muted)" id="filesHintText"></small>
         </div>
         <div id="map">
@@ -901,8 +949,13 @@ const I18N = {
     tasksShowPatch: 'show the patch', tasksHidePatch: 'hide the patch',
     tasksCopy: 'Copy the queue as a prompt', tasksCopied: 'copied — paste it into your Claude Code session',
     tasksCopyNothing: 'nothing agreed to copy yet',
-    storiesHint: 'What changed on the outside, in the actor’s words — reconstructed from the diff. The badge is a verdict on whether the code actually delivers the story, so problems come first.',
     storyStatus: { delivered: 'delivered', partial: 'partial', broken: 'broken', regressed: 'regressed' },
+    storyStatusHint: {
+      delivered: 'The change delivers this story — the behaviour works as described.',
+      partial: 'Partly delivered: some of this story works, some of it does not yet.',
+      broken: 'Not delivered: the code does not do what the story describes.',
+      regressed: 'A regression — this used to work, and this change breaks it. The worst case.',
+    },
     storyCovered: 'test pins this down', storyUncovered: 'no test',
     storiesNone: 'No outside-visible behavior changed by this diff',
     generate: 'Generate', generating: 'Generating…', generateFailed: 'Generation failed',
@@ -926,6 +979,7 @@ const I18N = {
     manifestSummary: (n) => `All diff files: ${n} of ${n} on the map`,
     newMark: '· new',
     relsTitle: 'Links', back: '← overview', openFull: 'Open full file', fragment: 'fragment', close: 'Close',
+    edgeMore: 'more', edgeLess: 'less',
     fold: (name) => `Collapse/expand: ${name}`,
     overviewTag: 'Overview', overviewTitle: 'How to read this map',
     overviewBody: 'The <b>Logic</b> tab reads top to bottom: each block exists <i>because of</i> the previous one. Click any file on any tab — details and code appear in the inspector. Groups are reviewer roles:',
@@ -1021,8 +1075,13 @@ const I18N = {
     tasksShowPatch: 'показать патч', tasksHidePatch: 'скрыть патч',
     tasksCopy: 'Скопировать очередь как промпт', tasksCopied: 'скопировано — вставьте в свою сессию Claude Code',
     tasksCopyNothing: 'пока нечего копировать',
-    storiesHint: 'Что изменилось снаружи, языком актора — восстановлено из диффа. Бейдж — вердикт о том, даёт ли код эту историю на самом деле, поэтому проблемные идут первыми.',
     storyStatus: { delivered: 'работает', partial: 'частично', broken: 'не работает', regressed: 'регресс' },
+    storyStatusHint: {
+      delivered: 'Изменение реализует эту историю — поведение работает как описано.',
+      partial: 'Частично: что-то из истории работает, что-то ещё нет.',
+      broken: 'Не реализовано: код не делает того, что описывает история.',
+      regressed: 'Регресс — раньше работало, а это изменение ломает. Худший случай.',
+    },
     storyCovered: 'зафиксировано тестом', storyUncovered: 'теста нет',
     storiesNone: 'Снаружи поведение этим диффом не изменилось',
     generate: 'Сгенерировать', generating: 'Генерирую…', generateFailed: 'Не удалось сгенерировать',
@@ -1046,6 +1105,7 @@ const I18N = {
     manifestSummary: (n) => `Все файлы диффа: ${n} из ${n} на карте`,
     newMark: '· новый',
     relsTitle: 'Связи', back: '← к обзору', openFull: 'Открыть файл целиком', fragment: 'фрагмент', close: 'Закрыть',
+    edgeMore: 'подробнее', edgeLess: 'свернуть',
     fold: (name) => `Свернуть/развернуть: ${name}`,
     overviewTag: 'Обзор', overviewTitle: 'Как читать эту карту',
     overviewBody: 'Вкладка <b>«Логика»</b> читается сверху вниз: каждый блок существует <i>из-за</i> предыдущего. Клик по файлу в любой вкладке — детали и код в инспекторе. Группы — это роли:',
@@ -1257,7 +1317,10 @@ tabsEl.appendChild(helpBtn)
 // [data-goto] links into it, so collapsing must be reversible: a file click from
 // any tab reveals the panel again (see revealAside), otherwise those links would
 // look broken. Ops has no such links at all.
-const ASIDE_TABS = new Set(['story', 'diagrams', 'files'])
+// Every report tab keeps the aside, so the reading column never changes width
+// between tabs (an empty right half read as the whole block "shrinking"). The
+// aside carries the Overview by default and the drill-down when a file is opened.
+const ASIDE_TABS = new Set(['story', 'stories', 'diagrams', 'standards', 'tests', 'ops', 'files'])
 const layoutEl = document.querySelector('.layout')
 let currentTab = 'story'
 const applyAside = (id) => layoutEl.classList.toggle('solo', !ASIDE_TABS.has(id))
@@ -1438,8 +1501,6 @@ document.getElementById('standards').innerHTML = isGen('standards')
 // ── user stories ─────────────────────────────────────────────────────────────
 if (hasStories) {
   const us = RM.userStories
-  document.getElementById('storiesSummary').innerHTML = prose(us.summary)
-  document.getElementById('storiesHint').textContent = L.storiesHint
   // Sorted here as well as in the pass: bad news must lead regardless of the
   // order the model happened to emit.
   const RANK = { regressed: 0, broken: 1, partial: 2, delivered: 3 }
@@ -1451,7 +1512,7 @@ if (hasStories) {
     ? stories.map(s => `
       <div class="ustory askable ${esc(s.status)}${s.status === 'delivered' ? '' : ' fixable'}" data-anchor="story:${s.__i}" data-anchor-label="${esc(s.actor)}: ${esc(s.story)}">
         <div class="uhead">
-          <span class="ust ${esc(s.status)}">${esc(L.storyStatus[s.status] || s.status)}</span>
+          <span class="ust ${esc(s.status)}" tabindex="0">${esc(L.storyStatus[s.status] || s.status)}${L.storyStatusHint?.[s.status] ? `<span class="utip">${esc(L.storyStatusHint[s.status])}</span>` : ''}</span>
           <span class="uactor">${esc(s.actor)}</span>
           ${s.covered === undefined ? '' : `<span class="ucov${s.covered ? '' : ' no'}">${s.covered ? L.storyCovered : L.storyUncovered}</span>`}
         </div>
@@ -1461,8 +1522,6 @@ if (hasStories) {
       </div>`).join('')
     : `<div class="empty-good">${L.storiesNone}</div>`
 } else {
-  document.getElementById('storiesSummary').innerHTML = ''
-  document.getElementById('storiesHint').textContent = ''
   document.getElementById('stories').innerHTML = lazyPane('stories')
 }
 
@@ -1565,9 +1624,14 @@ function anchorEl(path) {
   return groupEls[gid]?.classList.contains('collapsed') ? headEls[gid] : nodeEls[path]
 }
 function drawEdges() {
-  const mapBox = document.getElementById('map').getBoundingClientRect()
+  const map = document.getElementById('map')
+  const mapBox = map.getBoundingClientRect()
   svg.innerHTML = ''
-  for (const [from, to, label] of RM.edges) {
+  let labels = document.getElementById('elabels')
+  if (!labels) { labels = document.createElement('div'); labels.id = 'elabels'; labels.className = 'elabels'; map.appendChild(labels) }
+  labels.innerHTML = ''
+  labels.classList.toggle('all', svg.classList.contains('all'))
+  for (const [from, to, title, description] of RM.edges) {
     const fromEl = anchorEl(from), toEl = anchorEl(to)
     if (!fromEl || !toEl || fromEl === toEl) continue
     const a = fromEl.getBoundingClientRect(), b = toEl.getBoundingClientRect()
@@ -1588,39 +1652,47 @@ function drawEdges() {
     ar.setAttribute('class', 'arrow')
     ar.style.setProperty('--ec', color); ar.dataset.from = from; ar.dataset.to = to
     svg.appendChild(ar)
-    // What the relationship IS, on a solid pill so it stays readable where the
-    // curve crosses a card. Shown with its own edge (on hover/select) or with "show
-    // all links". The label can be a whole sentence — on the line it is capped and
-    // ellipsised so it never stretches across the map; the full text is on hover
-    // (title) and in the inspector's Links. Width is estimated from length (mono).
-    if (label) {
-      const MAX = 46
-      const shown = label.length > MAX ? label.slice(0, MAX - 1).trimEnd() + '…' : label
-      const mx = (x1 + x2) / 2
-      const w = shown.length * 7.4 + 16, h = 20
-      const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
-      bg.setAttribute('x', mx - w / 2); bg.setAttribute('y', my - h / 2)
-      bg.setAttribute('width', w); bg.setAttribute('height', h); bg.setAttribute('rx', 5)
-      bg.setAttribute('class', 'elabel-bg'); bg.dataset.from = from; bg.dataset.to = to
-      svg.appendChild(bg)
-      const t = document.createElementNS('http://www.w3.org/2000/svg', 'text')
-      t.setAttribute('x', mx); t.setAttribute('y', my)
-      t.setAttribute('class', 'elabel'); t.textContent = shown
-      t.dataset.from = from; t.dataset.to = to
-      if (shown !== label) { const ttl = document.createElementNS('http://www.w3.org/2000/svg', 'title'); ttl.textContent = label; t.appendChild(ttl) }
-      svg.appendChild(t)
+    // The title rides the line as a one-line pill, capped by CSS (no truncation in
+    // JS); hovering it opens a popover with the full description. Both live in an
+    // HTML layer over the map so width-limit, ellipsis and the popover are plain CSS.
+    if (title) {
+      const lab = document.createElement('div')
+      lab.className = 'elabel'; lab.dataset.from = from; lab.dataset.to = to
+      lab.style.left = ((x1 + x2) / 2) + 'px'; lab.style.top = my + 'px'
+      const long = !!description && description.length > 150
+      lab.innerHTML = `<span class="elabel-t">${esc(title)}</span>`
+        + (description ? `<span class="elabel-pop"><span class="elabel-desc">${esc(description)}</span>${long ? `<button type="button" class="elabel-more">${esc(L.edgeMore)}</button>` : ''}</span>` : '')
+      labels.appendChild(lab)
     }
   }
   refreshEdges()
 }
 // An edge is visible when its file is hovered or selected; the checkbox shows all.
 function refreshEdges() {
-  for (const p of svg.children) {
-    const touches = (id) => id && (p.dataset.from === id || p.dataset.to === id)
-    p.classList.toggle('on', touches(hoverId) || touches(activeId))
+  const mark = (el) => {
+    const touches = (id) => id && (el.dataset.from === id || el.dataset.to === id)
+    el.classList.toggle('on', touches(hoverId) || touches(activeId))
   }
+  for (const p of svg.children) mark(p)
+  const labels = document.getElementById('elabels')
+  if (labels) for (const l of labels.children) mark(l)
 }
-document.getElementById('allEdges').addEventListener('change', (e) => svg.classList.toggle('all', e.target.checked))
+// The "more" toggle inside a label popover expands the clamped description.
+document.addEventListener('click', (e) => {
+  const m = e.target.closest('.elabel-more')
+  if (!m) return
+  const pop = m.closest('.elabel-pop'); const on = pop.classList.toggle('expanded')
+  m.textContent = on ? L.edgeLess : L.edgeMore
+})
+const allEdges = document.getElementById('allEdges')
+const syncAllEdges = () => {
+  svg.classList.toggle('all', allEdges.checked)
+  document.getElementById('elabels')?.classList.toggle('all', allEdges.checked)
+}
+allEdges.addEventListener('change', syncAllEdges)
+// Default is "show all links": apply it now so the map opens with every connection
+// visible, before the Files tab first draws the edges.
+syncAllEdges()
 
 const manifestRows = document.getElementById('manifestRows')
 document.getElementById('manifestSummary').textContent = L.manifestSummary(RM.manifest.length)
@@ -1645,9 +1717,9 @@ function relsHTML(path) {
   const out = RM.edges.filter(([f]) => f === path)
   const inc = RM.edges.filter(([, t]) => t === path)
   if (!out.length && !inc.length) return ''
-  const row = ([f, t, label], dir) => {
+  const row = ([f, t, title, desc], dir) => {
     const other = dir === 'out' ? t : f
-    return `<li>${dir === 'out' ? '→' : '←'} <button class="rel-file" data-goto="${esc(other)}">${esc(shortName(other))}</button> — ${esc(label)}</li>`
+    return `<li>${dir === 'out' ? '→' : '←'} <button class="rel-file" data-goto="${esc(other)}">${esc(shortName(other))}</button> — ${esc(title)}${desc ? ` <span class="rel-desc">${esc(desc)}</span>` : ''}</li>`
   }
   return `<p class="rels-title">${L.relsTitle}</p><ul class="rels">${out.map(e => row(e, 'out')).join('')}${inc.map(e => row(e, 'in')).join('')}</ul>`
 }
@@ -1682,10 +1754,24 @@ function showGroup(g) {
     <div class="actions"><button class="btn" id="backBtn">${L.back}</button></div>`
   document.getElementById('backBtn').addEventListener('click', showOverview)
 }
-// The default inspector is a compact group legend — the long "how to read"
-// prose lives in the help dialog (the "?" button), not on screen by default.
+// Compact group legend — used in the help dialog ("?"), where a short list is right.
 const legendHTML = () => `<ul class="glegend">${RM.groups.map(g => `
   <li><button class="gleg-row" data-group="${esc(g.id)}"><span class="dot" style="background:${gcolor(g.id)}"></span><b>${esc(g.name)}</b><span class="gleg-role">${esc(L.roles[g.role] || g.role)}</span></button></li>`).join('')}</ul>`
+// The default inspector walks every group: its tag + name, the one-line reason in a
+// note box, then its files as rows (type label · path · +/- counts). Each row is a
+// [data-goto] into the file, so the overview doubles as an index.
+const overviewGroupsHTML = () => RM.groups.map(g => `
+  <section class="ovg">
+    <p class="insp-tag" style="color:${gcolor(g.id)}">${esc(g.tag || g.role)}</p>
+    <h4 class="ovg-name">${esc(g.name)}</h4>
+    ${g.why ? `<div class="section-note">${prose(g.why)}</div>` : ''}
+    <ul class="ovg-files">${g.files.map(p => {
+      const f = RM.files[p]
+      if (!f) return ''
+      const ext = langOf(p)
+      return `<li><button class="ovg-file" data-goto="${esc(p)}"><span class="ovg-ext">${ext ? esc(ext) : ''}</span><span class="ovg-path">${esc(p)}</span><span class="ovg-stat"><span class="a">+${f.add}</span> <span class="d">−${f.del}</span></span></button></li>`
+    }).join('')}</ul>
+  </section>`).join('')
 function showOverview() {
   setActive(null)
   // On a prose tab the idle legend is exactly what the panel was collapsed to
@@ -1695,7 +1781,7 @@ function showOverview() {
   inspector.innerHTML = `
     <p class="insp-tag" style="color:var(--accent)">${L.overviewTag}</p>
     <h3 class="prose">${esc(RM.meta.title || RM.meta.project)}</h3>
-    ${legendHTML()}
+    ${overviewGroupsHTML()}
     <p class="note">${L.completeness(RM.manifest.length)} · <button class="linklike" data-help>${L.helpLink}</button></p>`
 }
 function setActive(id) {
@@ -1737,8 +1823,6 @@ document.addEventListener('click', (e) => {
     return
   }
   if (e.target.closest('[data-help]')) return helpModal.showModal()
-  const fs = e.target.closest('[data-fs]')
-  if (fs) return fs.closest('.diagram')?.querySelector('.mermaid-box')?.requestFullscreen?.()
   const pop = e.target.closest('[data-pop]')
   if (pop) openDiagramWindow(pop.closest('.diagram'))
 })
@@ -1760,7 +1844,6 @@ function openDiagramWindow(diagEl) {
   </style>${svg.outerHTML}`)
   w.document.close()
 }
-for (const b of document.querySelectorAll('[data-fs]')) b.title = L.dgFullscreen
 for (const b of document.querySelectorAll('[data-pop]')) b.title = L.dgNewWindow
 // Mermaid binds `click <id> call whydiffOpen("<path>")` to this global.
 window.whydiffOpen = gotoFile
@@ -2259,23 +2342,15 @@ if (SERVE?.token) (() => {
   function layoutRail() {
     cancelAnimationFrame(railRaf)
     railRaf = requestAnimationFrame(() => {
-      const keys = [...numbers.keys()]
-      rail.innerHTML = ''
-      // A bookmark is a marker that sits BESIDE its own content. Questions whose
-      // content is on another tab are counted on that tab instead; and a thread
-      // whose anchor is gone (the report was regenerated) has nothing to sit
-      // beside, so it does NOT float in a corner over the header — it stays in the
-      // Review view, which is the tab for detached threads.
+      // Every question is a stable count on its own tab — the single, non-shifting
+      // representation. It stays whether or not the tab is active, so the tab width
+      // never changes; and there is NO floating rail and NO reserved left gutter, so
+      // switching tabs never moves the content sideways. Threads open from the
+      // in-content markers and the Review view; anchor-less ones live in Review.
       const perTab = new Map()
-      const here = []
-      let lost = 0
-      for (const key of keys) {
-        const el = elFor(key)
-        const tab = tabOfEl(el) || tabFromKey(key)
-        const entry = { key, el, tab, n: numbers.get(key), count: forKey(key).length }
-        if (el && (!tab || tab === currentTab)) here.push(entry)
-        else if (tab) perTab.set(tab, (perTab.get(tab) || 0) + 1)
-        else lost++
+      for (const key of numbers.keys()) {
+        const tab = tabOfEl(elFor(key)) || tabFromKey(key)
+        if (tab) perTab.set(tab, (perTab.get(tab) || 0) + 1)
       }
       for (const b of tabsEl.querySelectorAll('.tab')) {
         const n = perTab.get(b.dataset.pane) || 0
@@ -2285,37 +2360,9 @@ if (SERVE?.token) (() => {
         q.textContent = n
         q.title = L.askOnThisTab(n)
       }
-      // Detached threads (anchor gone) are not floated; they remain in the Review
-      // view, which lists every thread from the journal.
-      void lost
-      // The rail (and the margin reserved for it) exist only when a bookmark can
-      // actually sit beside content on the current tab.
-      rail.classList.toggle('on', here.length > 0)
-      document.body.classList.toggle('has-marks', here.length > 0)
-      if (!here.length) return
-
-      // Document coordinates, so a bookmark sits beside its own content and
-      // scrolls with it instead of sliding along the window. Placed just left of
-      // the text column, inside the margin reserved by body.has-marks.
-      const wrapEl = document.querySelector('.wrap')
-      const wrapBox = wrapEl.getBoundingClientRect()
-      const padLeft = parseFloat(getComputedStyle(wrapEl).paddingLeft) || 0
-      rail.style.left = `${Math.max(0, wrapBox.left + scrollX + padLeft - 32)}px`
-      let floor = -Infinity
-      const sorted = here
-        .map(e => ({ ...e, y: e.lost ? 0 : e.el.getBoundingClientRect().top + scrollY }))
-        .sort((a, b) => a.y - b.y)
-      for (const e of sorted) {
-        const top = Math.max(e.y + 2, floor)
-        const b = document.createElement('button')
-        b.className = 'bm' + (current?.key === e.key ? ' here' : '')
-        b.style.top = `${top}px`
-        b.textContent = e.count > 1 ? `${e.n}·${e.count}` : e.n
-        b.title = `${e.lost ? L.askLostAnchor : (e.el.dataset.anchorLabel || e.key)} · ${L.askOpenThread(e.count)}`
-        b.addEventListener('click', () => jumpTo(e))
-        rail.appendChild(b)
-        floor = top + 24
-      }
+      rail.innerHTML = ''
+      rail.classList.remove('on')
+      document.body.classList.remove('has-marks')
     })
   }
   const jumpTo = (e, tries = 0) => {
@@ -2444,6 +2491,48 @@ if (SERVE?.token) (() => {
           })
         })
       })
+      // Drag a rectangle over the diagram to ask about a REGION, not one node: on
+      // release, the nodes the box covers become the anchor's context. A plain
+      // click (no movement) is left alone, so node drill-down still works.
+      const box = dg.querySelector('.mermaid-box')
+      if (box && !box.dataset.selWired) {
+        box.dataset.selWired = '1'
+        box.addEventListener('mousedown', (e) => {
+          if (e.button !== 0) return
+          const r = box.getBoundingClientRect()
+          const sx = e.clientX, sy = e.clientY
+          let sel = null, dragging = false
+          const move = (ev) => {
+            if (!dragging && Math.hypot(ev.clientX - sx, ev.clientY - sy) < 6) return
+            if (!dragging) { dragging = true; sel = document.createElement('div'); sel.className = 'dg-select'; box.appendChild(sel) }
+            ev.preventDefault()
+            sel.style.left = (Math.min(ev.clientX, sx) - r.left + box.scrollLeft) + 'px'
+            sel.style.top = (Math.min(ev.clientY, sy) - r.top + box.scrollTop) + 'px'
+            sel.style.width = Math.abs(ev.clientX - sx) + 'px'
+            sel.style.height = Math.abs(ev.clientY - sy) + 'px'
+          }
+          const up = (ev) => {
+            document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up)
+            if (sel) sel.remove()
+            if (!dragging) return // it was a click — leave node drill-down to its own handler
+            const box2 = { left: Math.min(ev.clientX, sx), top: Math.min(ev.clientY, sy), right: Math.max(ev.clientX, sx), bottom: Math.max(ev.clientY, sy) }
+            const covered = [...dg.querySelectorAll('svg .node')].filter((n) => {
+              const b = n.getBoundingClientRect()
+              return b.left < box2.right && b.right > box2.left && b.top < box2.bottom && b.bottom > box2.top
+            }).map((n) => (n.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 60)).filter(Boolean)
+            if (!covered.length) return
+            openFor({
+              kind: 'diagram-region',
+              key: `diagram:${i}:region:${covered.length}:${covered.join('|').length}`,
+              label: `${dg.querySelector('h3')?.textContent || ''} → ${covered.slice(0, 3).join(', ')}${covered.length > 3 ? '…' : ''}`,
+              files: filesOf(dg),
+              context: `A selected region of this diagram covers these nodes: ${covered.join('; ')}.\nFull diagram:\n${(RM.diagrams?.[i]?.mermaid || '').slice(0, 2500)}`,
+              lang: RM.meta.lang,
+            })
+          }
+          document.addEventListener('mousemove', move); document.addEventListener('mouseup', up)
+        })
+      }
     })
     if (fresh) refreshMarks() // diagrams anchor late; their markers are drawn now
   }

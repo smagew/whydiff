@@ -63,7 +63,7 @@ const diagramsHtml = diagrams.map(d => `
   <div class="diagram">
     <div class="dg-head">
       <h3>${esc(d.title)}</h3>
-      <span class="dg-actions"><button class="dg-btn" data-fs>⛶</button><button class="dg-btn" data-pop>⧉</button></span>
+      <span class="dg-actions"><button class="dg-btn" data-pop>⧉</button></span>
     </div>
     ${d.caption ? `<p class="cap">${prose(d.caption)}</p>` : ''}
     <div class="mermaid-box"><pre class="mermaid">${esc(stripDiagramColour(d.mermaid))}</pre></div>
