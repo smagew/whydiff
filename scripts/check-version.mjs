@@ -46,7 +46,7 @@ if (baseSha && baseSha !== head) {
     const baseVer = verOf(git('show', `${base}:.claude-plugin/plugin.json`) || '')
     if (baseVer && baseVer === version) {
       fail(`shipped files changed but version is still ${version} (same as ${base}).\n`
-        + `    Bump it: make release BUMP=<patch|minor|major>\n`
+        + `    Bump it: make bump BUMP=<patch|minor|major>\n`
         + '    changed:\n' + shipped.map(f => `      ${f}`).join('\n'))
     }
   }
