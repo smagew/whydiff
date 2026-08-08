@@ -343,6 +343,8 @@
   .elabels { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
   .elabel { position: absolute; transform: translate(-50%, -50%); opacity: 0; transition: opacity var(--t); }
   .elabel.on, .elabels.all .elabel { opacity: 1; pointer-events: auto; }
+  /* thinned by declutter: hidden while "show all" is on, until its edge is hovered */
+  .elabels.all .elabel.crowded:not(.on) { opacity: 0; pointer-events: none; }
   .elabel-t { display: block; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     font-family: var(--mono); font-size: 13px; font-weight: 500; color: var(--ink);
     background: var(--surface); border: 1px solid var(--line-strong); border-radius: 5px; padding: 2px 8px; }
@@ -375,7 +377,24 @@
   .group-head:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .group-tag { font-family: var(--mono); font-size: 13px;  color: var(--gc); font-weight: 500; }
   .group-name { font-weight: 500; font-size: 14.5px; }
-  .group-hint { color: var(--muted); font-size: 13px; margin-left: auto; }
+  .group-hint { color: var(--muted); font-size: 13px; margin-left: auto; font-variant-numeric: tabular-nums; }
+  /* per-group "mark all read" — a quiet ✓ that fills in when the whole group is read */
+  .gseen-btn { flex: none; width: 24px; height: 24px; border-radius: 4px; border: 1px solid var(--line);
+    background: none; color: var(--muted); font-size: 12px; line-height: 1; cursor: pointer; opacity: 0;
+    transition: opacity var(--t), border-color var(--t), color var(--t), background var(--t); }
+  .group:hover .gseen-btn, .gseen-btn.on, .gseen-btn:focus-visible { opacity: 1; }
+  .gseen-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .gseen-btn.on { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
+  .group.gdone .group-name, .group.gdone .group-tag { color: var(--ink-3); }
+  .group.gdone { opacity: .72; }
+  /* focus: read one group alone; the ⤢ button also exits */
+  .gfocus-btn { flex: none; width: 24px; height: 24px; border-radius: 4px; border: 1px solid var(--line);
+    background: none; color: var(--muted); font-size: 13px; line-height: 1; cursor: pointer; opacity: 0;
+    transition: opacity var(--t), border-color var(--t), color var(--t), background var(--t); }
+  .group:hover .gfocus-btn, .gfocus-btn.on, .gfocus-btn:focus-visible { opacity: 1; }
+  .gfocus-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .gfocus-btn.on { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
+  .groups.focusing .group:not(.focused) { display: none; }
   .toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); cursor: pointer; user-select: none; }
   .toggle input { accent-color: var(--accent); cursor: pointer; }
   .files-hint { display: flex; gap: 14px; align-items: baseline; flex-wrap: wrap; margin: 0 0 12px; }
@@ -390,11 +409,20 @@
   .node.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
   .node-top { display: flex; align-items: baseline; gap: 8px; }
   .node .fname { font-family: var(--mono); font-size: 13px; font-weight: 500; overflow-wrap: anywhere; }
+  .node .fname .fdir { color: var(--muted); font-weight: 400; }
   .node .fstat { font-family: var(--mono); font-size: 13px; font-variant-numeric: tabular-nums; margin-left: auto; white-space: nowrap; }
   .a { color: var(--add); } .d { color: var(--del); }
   .node-meta { display: flex; align-items: center; gap: 8px; }
   .svc { font-family: var(--mono); font-size: 13px; font-weight: 500;  color: var(--muted); border: 1px solid var(--line); border-radius: 3px; padding: 0 7px; }
-  .node .frole { font-size: 13px; color: var(--muted); }
+  .node .frole { font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  /* cross-group links as chips on the node — click jumps to the linked file */
+  .node-links { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px; }
+  .nlink { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; font-family: var(--mono);
+    font-size: 11px; color: var(--muted); background: var(--surface-2); border: 1px solid var(--line);
+    border-radius: 999px; padding: 1px 8px 1px 6px; cursor: pointer; white-space: nowrap; overflow: hidden;
+    text-overflow: ellipsis; transition: border-color var(--t), color var(--t); }
+  .nlink:hover { border-color: var(--sc); color: var(--ink-2); }
+  .nlink .dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--sc); }
   .fprev { margin-top: 5px; border-radius: 3px; background: var(--code-bg); border: 1px solid var(--line); padding: 4px 0; overflow: hidden; }
   .fprev .cl { font-size: 13px; line-height: 1.5; padding: 0 8px; overflow: hidden; text-overflow: ellipsis; max-width: 292px; }
 
@@ -1079,6 +1107,9 @@ const I18N = {
     keyTab: 'Switch tab', keyPalette: 'Next palette', keyApprove: 'Mark every file read', keySheet: 'This sheet', keyClose: 'Close',
     seenYes: 'read', seenNo: 'mark read', seenTitle: 'Mark this file read; it survives a reload',
     readProgress: (n, t) => `${n} of ${t} files read`,
+    groupProgress: (r, t) => `${r}/${t} read`,
+    groupMarkRead: 'Mark all files in this group read', groupMarkUnread: 'Mark all files in this group unread',
+    groupFocus: 'Focus this group — hide the rest (Esc to exit)',
     setPalette: 'Palette', setDiff: 'Diff colours',
     diffPal: { quiet: 'one hue', safe: 'colourblind-safe', classic: 'classic' },
   },
@@ -1207,6 +1238,9 @@ const I18N = {
     keyTab: 'Переключить вкладку', keyPalette: 'Следующая палитра', keyApprove: 'Отметить все файлы прочитанными', keySheet: 'Эта шпаргалка', keyClose: 'Закрыть',
     seenYes: 'прочитан', seenNo: 'отметить', seenTitle: 'Пометить файл прочитанным; переживает перезагрузку',
     readProgress: (n, t) => `Прочитано файлов: ${n} из ${t}`,
+    groupProgress: (r, t) => `${r}/${t} прочитано`,
+    groupMarkRead: 'Пометить все файлы группы прочитанными', groupMarkUnread: 'Снять отметку со всех файлов группы',
+    groupFocus: 'Фокус на группе — скрыть остальные (Esc — выход)',
     setPalette: 'Палитра', setDiff: 'Цвета диффа',
     diffPal: { quiet: 'один тон', safe: 'безопасные', classic: 'классические' },
   },
@@ -1220,6 +1254,26 @@ const gcolor = (gid) => `var(--p${groupIndex[gid] || 7})`
 const gbg = (gid) => `var(--p${groupIndex[gid] || 7}b)`
 const fileGroup = {}
 for (const g of RM.groups) for (const p of g.files) fileGroup[p] = g.id
+// A large map behaves differently: all links shown at once would bury the cards, so
+// links default to hover-only, groups open collapsed, and crowded labels are thinned.
+const FILE_COUNT = Object.keys(RM.files).length
+const BIG_MAP = FILE_COUNT > 24 || RM.groups.length > 6 || (RM.edges || []).length > 18
+// On a big map, a link that leaves the group is a chip on the node (click = jump),
+// not a line across the whole canvas — only same-group links stay drawn as lines.
+const crossLinks = {}
+if (BIG_MAP) {
+  const seenKey = {}
+  const add = (path, dir, other, title) => {
+    const k = path + dir + other
+    if (seenKey[k]) return; seenKey[k] = 1
+    ;(crossLinks[path] ||= []).push({ dir, other, title })
+  }
+  for (const [from, to, title] of (RM.edges || [])) {
+    if (fileGroup[from] === fileGroup[to]) continue
+    add(from, '→', to, title); add(to, '←', from, title)
+  }
+}
+const baseName = (p) => p.split('/').pop()
 
 // §12: inline code passes through exactly ONE escape path. Everything is
 // escaped, then the small inline set the generator is allowed to emit is put
@@ -1233,6 +1287,13 @@ const prose = (v) => esc(v == null ? '' : v)
   .replace(/`([^`\n]+)`/g, '<code>$1</code>')
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 const shortName = (p) => { const parts = p.split('/'); return parts.length > 2 ? '…/' + parts.slice(-2).join('/') : p }
+// Basename carries the identity, so show it in full weight and grey the directory —
+// two nodes named …/Module.ts stop looking identical at a glance.
+const fnameHTML = (p) => {
+  const parts = p.split('/'); const base = parts.pop(); const parent = parts.pop()
+  const dir = parent ? (parts.length ? '…/' : '') + parent + '/' : ''
+  return `<span class="fdir">${esc(dir)}</span><span class="fbase">${esc(base)}</span>`
+}
 const chip = (path) => `<button class="fchip" data-goto="${esc(path)}" style="--sc:${gcolor(fileGroup[path])}"><span class="dot"></span>${esc(shortName(path))}</button>`
 
 // ── header ───────────────────────────────────────────────────────────────────
@@ -1625,7 +1686,7 @@ function previewHTML(f) {
 
 for (const g of RM.groups) {
   const sec = document.createElement('div')
-  sec.className = 'group' + (g.collapsed ? ' collapsed' : '')
+  sec.className = 'group' + ((g.collapsed ?? BIG_MAP) ? ' collapsed' : '')
   sec.style.setProperty('--gc', gcolor(g.id))
   sec.style.setProperty('--gbg', gbg(g.id))
   groupEls[g.id] = sec
@@ -1642,6 +1703,32 @@ for (const g of RM.groups) {
   head.addEventListener('click', () => showGroup(g))
   headEls[g.id] = head
   row.appendChild(head)
+  // Mark every file in the group read/unread at once — a big map is read group by
+  // group, so per-file toggling 78 times is the wrong unit.
+  const gseen = document.createElement('button')
+  gseen.className = 'gseen-btn'; gseen.textContent = '✓'; gseen.title = L.groupMarkRead
+  gseen.addEventListener('click', (e) => {
+    e.stopPropagation()
+    const allRead = g.files.every(p => seen.has(p))
+    for (const p of g.files) allRead ? seen.delete(p) : seen.add(p)
+    SESSION.set('seen', [...seen]); refreshSeen()
+  })
+  row.appendChild(gseen)
+  // Focus: read one group without the others (and without cross-group lines through
+  // them). Toggles off from the same button; the whole map returns.
+  const gfocus = document.createElement('button')
+  gfocus.className = 'gfocus-btn'; gfocus.textContent = '⤢'; gfocus.title = L.groupFocus
+  gfocus.addEventListener('click', (e) => {
+    e.stopPropagation()
+    const on = !sec.classList.contains('focused')
+    for (const s of groupsEl.children) s.classList.remove('focused')
+    groupsEl.classList.toggle('focusing', on)
+    if (on) { sec.classList.add('focused'); sec.classList.remove('collapsed') }
+    for (const b of groupsEl.querySelectorAll('.gfocus-btn')) b.classList.remove('on')
+    if (on) gfocus.classList.add('on')
+    requestAnimationFrame(drawEdges)
+  })
+  row.appendChild(gfocus)
   sec.appendChild(row)
   const box = document.createElement('div')
   box.className = 'nodes'
@@ -1651,11 +1738,16 @@ for (const g of RM.groups) {
     const el = document.createElement('button')
     el.className = 'node'
     const lang = langOf(path)
-    el.innerHTML = `<span class="node-top">${lang ? `<span class="ldot" style="background:${lang[1]}" title="${esc(lang[0])}"></span>` : ''}<span class="fname">${esc(shortName(path))}</span>
+    const links = crossLinks[path]
+    const linksHTML = links?.length ? `<span class="node-links">${links.map(l =>
+      `<span class="nlink" data-gofile="${esc(l.other)}" style="--sc:${gcolor(fileGroup[l.other])}" title="${esc((l.dir === '→' ? 'to ' : 'from ') + l.other + (l.title ? ' — ' + l.title : ''))}"><span class="dot"></span>${l.dir} ${esc(baseName(l.other))}</span>`).join('')}</span>` : ''
+    el.innerHTML = `<span class="node-top">${lang ? `<span class="ldot" style="background:${lang[1]}" title="${esc(lang[0])}"></span>` : ''}<span class="fname">${fnameHTML(path)}</span>
       <span class="fstat"><span class="a">+${f.add}</span> <span class="d">−${f.del}</span></span></span>
       <span class="node-meta">${f.service ? `<span class="svc">${esc(f.service)}</span>` : ''}<span class="frole">${esc(f.role || '')}</span></span>
-      ${previewHTML(f)}`
-    el.addEventListener('click', () => showFile(path))
+      ${previewHTML(f)}${linksHTML}`
+    // A chip click jumps to the linked file; let that (delegated) handler run instead
+    // of opening this node.
+    el.addEventListener('click', (e) => { if (e.target.closest('.nlink')) return; showFile(path) })
     el.addEventListener('mouseenter', () => { hoverId = path; refreshEdges() })
     el.addEventListener('mouseleave', () => { hoverId = null; refreshEdges() })
     nodeEls[path] = el
@@ -1678,7 +1770,14 @@ function drawEdges() {
   if (!labels) { labels = document.createElement('div'); labels.id = 'elabels'; labels.className = 'elabels'; map.appendChild(labels) }
   labels.innerHTML = ''
   labels.classList.toggle('all', svg.classList.contains('all'))
+  const collapsed = (p) => groupEls[fileGroup[p]]?.classList.contains('collapsed')
   for (const [from, to, title, description] of RM.edges) {
+    // On a big map, cross-group links are chips on the node, not lines — drawing them
+    // here is exactly the cross-canvas spaghetti we removed.
+    if (BIG_MAP && fileGroup[from] !== fileGroup[to]) continue
+    // Both ends folded away: the label would land on a group header and mean nothing
+    // until you open the group. Skip it — the edge returns when either side expands.
+    if (collapsed(from) && collapsed(to)) continue
     const fromEl = anchorEl(from), toEl = anchorEl(to)
     if (!fromEl || !toEl || fromEl === toEl) continue
     const a = fromEl.getBoundingClientRect(), b = toEl.getBoundingClientRect()
@@ -1713,6 +1812,7 @@ function drawEdges() {
     }
   }
   refreshEdges()
+  if (allEdges.checked) requestAnimationFrame(declutterLabels)
 }
 // An edge is visible when its file is hovered or selected; the checkbox shows all.
 function refreshEdges() {
@@ -1723,6 +1823,21 @@ function refreshEdges() {
   for (const p of svg.children) mark(p)
   const labels = document.getElementById('elabels')
   if (labels) for (const l of labels.children) mark(l)
+}
+// With every label shown, dense maps stack pills on top of each other. Greedily keep
+// the first label in each spot and mark the rest "crowded" — CSS hides those until
+// their edge is hovered/selected (.on wins), so nothing is lost, just thinned.
+function declutterLabels() {
+  const labels = document.getElementById('elabels')
+  if (!labels || !allEdges.checked) return
+  const kept = []
+  for (const el of labels.children) {
+    el.classList.remove('crowded')
+    const r = el.getBoundingClientRect()
+    if (!r.width) continue
+    const hit = kept.some(k => r.left < k.right && r.right > k.left && r.top < k.bottom && r.bottom > k.top)
+    if (hit) el.classList.add('crowded'); else kept.push(r)
+  }
 }
 // The "more" toggle inside a label popover expands the clamped description.
 document.addEventListener('click', (e) => {
@@ -1743,10 +1858,13 @@ const allEdges = document.getElementById('allEdges')
 const syncAllEdges = () => {
   svg.classList.toggle('all', allEdges.checked)
   document.getElementById('elabels')?.classList.toggle('all', allEdges.checked)
+  if (allEdges.checked) requestAnimationFrame(declutterLabels)
 }
-allEdges.addEventListener('change', syncAllEdges)
-// Default is "show all links": apply it now so the map opens with every connection
-// visible, before the Files tab first draws the edges.
+allEdges.addEventListener('change', () => { SESSION.set('allEdges', allEdges.checked); syncAllEdges() })
+// Small map opens with every link visible; a big one would drown in overlapping
+// labels and cross-canvas lines, so there links default to hover-only. Persisted
+// choice (set after SESSION exists) wins over this default.
+allEdges.checked = !BIG_MAP
 syncAllEdges()
 
 const manifestRows = document.getElementById('manifestRows')
@@ -1949,6 +2067,12 @@ const SESSION = (() => {
 })()
 document.body.classList.add('can-read')
 
+// A remembered "show all links" choice overrides the size-based default above.
+{
+  const saved = SESSION.get('allEdges', null)
+  if (saved !== null && saved !== allEdges.checked) { allEdges.checked = saved; syncAllEdges() }
+}
+
 // Collapse the right column to hand its width to the reading column. The toggle
 // lives in the panel; a slim edge tab brings it back once collapsed. State is
 // remembered per map, like focus mode.
@@ -2050,6 +2174,18 @@ function refreshSeen() {
   const n = allPaths.filter(p => seen.has(p)).length
   fsCount.textContent = L.readProgress(n, allPaths.length)
   fsBar.style.width = `${allPaths.length ? (n / allPaths.length) * 100 : 0}%`
+  // Per-group progress: the count in the header, a "done" tint, and the ✓ button
+  // state. On a collapsed big map this is the only read signal a group shows.
+  for (const g of RM.groups) {
+    const sec = groupEls[g.id]; if (!sec) continue
+    const total = g.files.length, read = g.files.filter(p => seen.has(p)).length
+    const done = total > 0 && read === total
+    const hint = sec.querySelector('.group-hint')
+    if (hint) hint.textContent = read ? L.groupProgress(read, total) : L.groupHint(total)
+    sec.classList.toggle('gdone', done)
+    const gb = sec.querySelector('.gseen-btn')
+    if (gb) { gb.classList.toggle('on', done); gb.title = done ? L.groupMarkUnread : L.groupMarkRead }
+  }
 }
 const toggleSeen = (path) => {
   if (!path) return
@@ -2129,7 +2265,15 @@ addEventListener('keydown', (e) => {
   const k = e.key
   const go = (fn) => { e.preventDefault(); fn() }
   if (k === '?') return go(() => helpModal.open ? helpModal.close() : helpModal.showModal())
-  if (k === 'Escape') return go(() => { helpModal.close(); modal.close(); document.body.classList.remove('focus') })
+  if (k === 'Escape') return go(() => {
+    helpModal.close(); modal.close(); document.body.classList.remove('focus')
+    if (groupsEl.classList.contains('focusing')) {
+      groupsEl.classList.remove('focusing')
+      for (const s of groupsEl.children) s.classList.remove('focused')
+      for (const b of groupsEl.querySelectorAll('.gfocus-btn')) b.classList.remove('on')
+      requestAnimationFrame(drawEdges)
+    }
+  })
   if (k === 'j') return go(() => moveCursor(1))
   if (k === 'k') return go(() => moveCursor(-1))
   if (k === ']') return go(() => moveFile(1))
