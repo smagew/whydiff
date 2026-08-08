@@ -1,179 +1,179 @@
-# whydiff — карта изменений для ревью LLM-кода
+# whydiff — a change map for reviewing LLM code
 
-**Проблема.** LLM пишет код в 5–7 раз быстрее, чем человек способен его осмысленно
-прочитать. На проектах со средним+ размером и длительным участием приходится ревьюить
-всё — и выигрыш в скорости исчезает («comprehension debt»). Линейный git diff — худший
-формат для понимания: он отвечает на «что поменялось построчно», но не на «почему»,
-«как это теперь работает» и «что могло сломаться».
+**Problem.** An LLM writes code 5–7× faster than a human can meaningfully read it.
+On medium-plus projects with long-term involvement you have to review everything —
+and the speed gain evaporates ("comprehension debt"). A linear git diff is the worst
+format for understanding: it answers "what changed line by line", but not "why",
+"how it works now", and "what might have broken".
 
-**Решение.** Инструмент, который после LLM-сессии (или для любого диффа/PR) генерирует
-интерактивную карту изменений: причинная цепочка «что из-за чего», diff-диаграммы
-логики, архитектурные потоки, отчёт по стандартам и тестам — с drill-down до фрагмента
-кода и файла из любой точки.
+**Solution.** A tool that, after an LLM session (or for any diff/PR), generates an
+interactive change map: a causal chain of "what because of what", diff diagrams of
+the logic, architectural flows, a standards and tests report — with drill-down to a
+code fragment and to the whole file from any point.
 
 ---
 
-## Принципы (выученные на прототипах, 2026-07-30)
+## Principles (learned on prototypes, 2026-07-30)
 
-1. **Текст объясняет, но время экономит структура.** Объяснения — лениво, по клику;
-   в основном потоке — только структура. Дифф + вставленный текст = медленнее диффа.
-2. **Группы — это роли в ревью, а не типы файлов.** «Причина» = читать внимательно,
-   «волна» = проверить полноту списка, «конфиг» = чеклист перед деплоем,
-   «тесты» = спецификация по запросу.
-3. **Связь без подписи не несёт информации.** Каждое ребро — триплет
-   `(из, в, почему)`. Немаркированные стрелки — шум.
-4. **Причинная цепочка читается легче причинного графа.** Story сверху вниз
-   («↓ поэтому…») — вид по умолчанию; граф связей — по требованию.
-5. **Полнота гарантируется скриптом, не LLM.** Манифест «N из N файлов на карте»
-   проверяется детерминированно; LLM не может молча выронить hunk.
-6. **Бюджет визуализации.** Диаграмма оправдана только там, где меняется поток
-   управления/данных. Точечной правке хватает текста + фрагмента. Диаграмма ради
-   диаграммы — «сухая визуализация», от неё отказались.
-7. **«Как было / как стало» — один граф с diff-маркировкой** (зелёный добавлено,
-   красный удалено, жёлтый изменено), а не две схемы рядом: сравнение двух схем —
-   та же работа, что чтение диффа.
-8. **Язык.** Исходный код инструмента (комментарии, идентификаторы, строки логов) —
-   только английский. Язык отчёта (`meta.lang`) = язык общения в чате; если
-   определить не удалось — английский. `meta.lang` управляет и контентом карты,
-   и интерфейсом вьюера (i18n-словарь в шаблоне).
-9. **Автономность вьюера.** Никаких внешних зависимостей на этапе просмотра:
-   mermaid.js вшивается в HTML при сборке — карта работает из file://, с хостинга
-   артефактов и из CI одинаково.
+1. **Text explains, but structure saves time.** Explanations — lazily, on click;
+   the main flow carries structure only. Diff + inlined text = slower than the diff.
+2. **Groups are review roles, not file types.** "Cause" = read carefully,
+   "wave" = check the completeness of a list, "config" = pre-deploy checklist,
+   "tests" = specification on request.
+3. **A link without a label carries no information.** Every edge is a triplet
+   `(from, to, why)`. Unlabeled arrows are noise.
+4. **A causal chain reads easier than a causal graph.** Story top to bottom
+   ("↓ therefore…") is the default view; the link graph is on demand.
+5. **Completeness is guaranteed by a script, not by the LLM.** The manifest "N of N
+   files on the map" is checked deterministically; the LLM cannot silently drop a hunk.
+6. **Visualization budget.** A diagram is justified only where a control/data flow
+   changes. A pinpoint edit is served by text + fragment. A diagram for the diagram's
+   sake — "dry visualization" — was dropped.
+7. **"Before / after" is one graph with diff marking** (green added,
+   red removed, yellow changed), not two schematics side by side: comparing two
+   schematics is the same work as reading the diff.
+8. **Language.** The tool's source code (comments, identifiers, log strings) is
+   English only. The report language (`meta.lang`) = the chat conversation language;
+   if it cannot be determined — English. `meta.lang` controls both the map content
+   and the viewer interface (the i18n dictionary in the template).
+9. **Viewer autonomy.** No external dependencies at view time:
+   mermaid.js is embedded into the HTML at build — the map works from file://, from
+   artifact hosting, and from CI identically.
 
-## Что нам важно при ревью (модель потребностей)
+## What matters to us in a review (needs model)
 
-| # | Потребность | Формат на карте |
+| # | Need | Format on the map |
 |---|------------|-----------------|
-| 1 | Что конкретно меняет этот код (+ почему, + что могло сломаться) | Текст: intent-абзац + story-цепочка причин |
-| 1.1 | …но вчитываться долго → графически | Mermaid flowchart с diff-маркировкой узлов (было/стало в одном графе) |
-| 2 | Архитектура: как теперь работает, как ходят данные, где что хранится | Sequence-диаграмма (потоки между сервисами) + компонентная схема (хранилища). Два вопроса — две диаграммы |
-| 3 | Стандарты, паттерны, лучшие практики | Агрегация (линтеры, /code-review, свои ревьюеры) в один экран + LLM-сверка с конвенциями проекта («повторяет паттерн X из Y / отклоняется») |
-| 4 | Тесты: написаны ли, какое покрытие | Не % покрытия, а: (а) какие утверждения зафиксированы — человеческим языком; (б) gap-анализ: какие ветки/сценарии НЕ покрыты |
-| 5 | Blast radius | Обратные зависимости: что зависит от изменённого, но в дифф не попало |
-| 6 | Операционный чеклист | env-переменные (±), миграции, конфиг, шаги деплоя |
-| 7 | Гарантия полноты | Манифест N/N + детерминированная проверка |
+| 1 | What exactly this code changes (+ why, + what might have broken) | Text: intent paragraph + story causal chain |
+| 1.1 | …but reading it takes time → graphically | Mermaid flowchart with diff-marked nodes (before/after in one graph) |
+| 2 | Architecture: how it works now, how data flows, where things are stored | Sequence diagram (flows between services) + component schematic (stores). Two questions — two diagrams |
+| 3 | Standards, patterns, best practices | Aggregation (linters, /code-review, own reviewers) on one screen + LLM check against project conventions ("repeats pattern X from Y / deviates") |
+| 4 | Tests: written or not, what coverage | Not % coverage, but: (a) which assertions are pinned down — in plain language; (b) gap analysis: which branches/scenarios are NOT covered |
+| 5 | Blast radius | Reverse dependencies: what depends on the changed code but is not in the diff |
+| 6 | Operational checklist | env variables (±), migrations, config, deploy steps |
+| 7 | Completeness guarantee | Manifest N/N + deterministic check |
 
-**Сквозное требование:** из каждого пункта — мгновенный переход к фрагменту кода
-и к файлу целиком.
+**Cross-cutting requirement:** from every item — an instant jump to the code fragment
+and to the whole file.
 
 ---
 
-## Реализация: Claude Code plugin
+## Implementation: a Claude Code plugin
 
-Решение: **плагин** (а не одиночный скилл в `~/.claude/skills` и не standalone-утилита).
+Decision: a **plugin** (not a single skill in `~/.claude/skills`, not a standalone utility).
 
-Почему:
-- Работа идёт в нескольких проектах — плагин ставится один раз и
-  доступен везде; скилл в проекте пришлось бы копировать.
-- Плагин бандлит всё нужное: скиллы + субагентов + скрипты + шаблон вьюера + (позже)
-  hooks — единым версионируемым артефактом.
-- Распространение команде — через plugin marketplace (git-репозиторий с
-  `marketplace.json`), обновления централизованно.
-- Прецеденты в нашем же окружении: `understand-anything`, `plannotator` устроены
-  ровно так.
+Why:
+- Work happens across several projects — a plugin is installed once and
+  available everywhere; a skill inside a project would have to be copied.
+- A plugin bundles everything needed: skills + subagents + scripts + the viewer template + (later)
+  hooks — as one versioned artifact.
+- Distribution to a team — via a plugin marketplace (a git repo with
+  `marketplace.json`), updates centralized.
+- Precedents in our own environment: `understand-anything`, `plannotator` are built
+  exactly this way.
 
-### Состав плагина
+### Plugin contents
 
 ```
 whydiff/
-├── .claude-plugin/plugin.json      # манифест (name, version, description)
+├── .claude-plugin/plugin.json      # manifest (name, version, description)
 ├── skills/
-│   ├── whydiff/SKILL.md         # /whydiff — основной генератор
-│   └── whydiff-view/SKILL.md    # /whydiff-view — открыть готовую карту
+│   ├── whydiff/SKILL.md         # /whydiff — the main generator
+│   └── whydiff-view/SKILL.md    # /whydiff-view — open a ready map
 ├── agents/
-│   ├── classifier.md               # группировка hunks по причинам + story
-│   ├── diagrammer.md               # mermaid-диаграммы (flowchart diff, sequence)
-│   ├── standards-reviewer.md       # паттерны/конвенции проекта
-│   └── tests-analyst.md            # утверждения тестов + gap-анализ
+│   ├── classifier.md               # group hunks by cause + story
+│   ├── diagrammer.md               # mermaid diagrams (flowchart diff, sequence)
+│   ├── standards-reviewer.md       # project patterns/conventions
+│   └── tests-analyst.md            # test assertions + gap analysis
 ├── scripts/
-│   ├── manifest.sh                 # git diff --numstat → манифест (детерминизм)
-│   ├── validate.mjs                # полнота: каждый файл/hunk отнесён; mermaid парсится
+│   ├── manifest.sh                 # git diff --numstat → manifest (determinism)
+│   ├── validate.mjs                # completeness: every file/hunk assigned; mermaid parses
 │   └── assemble.mjs                # review-map.json + template → self-contained HTML
-└── templates/viewer.html           # обобщённый вьюер (из прототипа)
+└── templates/viewer.html           # the generic viewer (from the prototype)
 ```
 
-### Пайплайн `/whydiff [ref|PR|worktree]`
+### Pipeline `/whydiff [ref|PR|worktree]`
 
-1. **Детерминированно:** diff, numstat, манифест, затронутые сервисы.
-2. **LLM-проходы** (агенты, параллельно где можно): классификация → story →
-   диаграммы (только там, где меняется поток — принцип 6) → стандарты → тесты →
-   blast radius (grep обратных зависимостей + LLM-оценка).
-3. **Валидация скриптом:** полнота манифеста, синтаксис mermaid, ссылки
-   фрагмент↔файл.
-4. **Рендер:** `review-map.json` → self-contained HTML → файл в
-   `.whydiff/<date>-<slug>.html` + публикация артефактом (по желанию).
+1. **Deterministically:** diff, numstat, manifest, affected services.
+2. **LLM passes** (agents, in parallel where possible): classification → story →
+   diagrams (only where a flow changes — principle 6) → standards → tests →
+   blast radius (grep of reverse dependencies + LLM assessment).
+3. **Validation by script:** manifest completeness, mermaid syntax, fragment↔file
+   links.
+4. **Render:** `review-map.json` → self-contained HTML → a file in
+   `.whydiff/<date>-<slug>.html` + published as an artifact (optional).
 
-### Модель данных `review-map.json` (контракт генератор↔вьюер)
+### Data model `review-map.json` (the generator↔viewer contract)
 
 ```jsonc
 {
   "meta": { "project": "", "ref": "", "generatedAt": "", "stats": {} },
-  "intent": "суть одним абзацем",
-  "story": [ { "step": "…", "files": [], "branches": [] }, { "link": "почему ↓" } ],
+  "intent": "the gist in one paragraph",
+  "story": [ { "step": "…", "files": [], "branches": [] }, { "link": "why ↓" } ],
   "groups": [ { "id": "", "role": "read|verify-list|ops|spec", "why": "", "files": [] } ],
   "files": { "<path>": { "add": 0, "del": 0, "why": "", "frag": [], "preview": [], "full": false } },
-  "edges": [ ["from", "to", "почему связь существует"] ],
+  "edges": [ ["from", "to", "why the link exists"] ],
   "diagrams": [ { "kind": "flow-diff|sequence|components", "title": "", "mermaid": "", "anchors": {"nodeId": "path"} } ],
   "standards": [ { "severity": "", "finding": "", "file": "", "line": 0, "pattern": "" } ],
-  "tests": { "fixed": ["утверждения человеческим языком"], "gaps": ["что не покрыто"], "files": [] },
+  "tests": { "fixed": ["assertions in plain language"], "gaps": ["what is not covered"], "files": [] },
   "ops": { "env": [], "migrations": [], "deploy": [] },
   "blastRadius": [ { "path": "", "why": "" } ],
   "manifest": [ ["path", add, del, "groupId", isNew] ]
 }
 ```
 
-### Вкладки вьюера ↔ потребности
+### Viewer tabs ↔ needs
 
-Логика (story, default) · Диаграммы (1.1) · Архитектура (2) · Стандарты (3) ·
-Тесты (4) · Операции (6) · Файлы по группам + манифест (7) · Blast radius (5).
+Logic (story, default) · Diagrams (1.1) · Architecture (2) · Standards (3) ·
+Tests (4) · Ops (6) · Files by group + manifest (7) · Blast radius (5).
 
 ---
 
-## Этапы
+## Stages
 
-**Этап 1 — контракт.** ✅ (2026-08-01) JSON-схема + образец `review-map.json`,
-заполненный вручную по реальному диффу закрытого проекта-полигона; формат утверждён на реальном кейсе. В репо лежит синтетический пример (examples/rate-limit).
+**Stage 1 — contract.** ✅ (2026-08-01) JSON schema + a sample `review-map.json`,
+filled in by hand from a real diff of a private test-bed project; the format was validated on a real case. The repo carries a synthetic example (examples/rate-limit).
 
-**Этап 2 — вьюер.** ✅ (2026-08-01) `templates/viewer.html` рендерит произвольный
-`review-map.json`: 6 вкладок, i18n (en/ru), mermaid вшит при сборке, drill-down.
-Образец этапа 1 отображается полностью без правок вьюера.
+**Stage 2 — viewer.** ✅ (2026-08-01) `templates/viewer.html` renders an arbitrary
+`review-map.json`: 6 tabs, i18n (en/ru), mermaid embedded at build, drill-down.
+The stage-1 sample displays in full with no viewer edits.
 
-**Этап 3 — генератор.** Скелет готов (2026-08-01): плагин `whydiff`
-(`plugin.json` валиден), скилл `/whydiff`, 4 агента-прохода (classifier,
-diagrammer, standards-reviewer, tests-analyst), скрипты `manifest.mjs` /
-`validate.mjs` / `assemble.mjs` — детерминированный слой проверен на закрытом проекте-полигоне
-(рабочее дерево и ref-режим, кросс-проверка ловит расхождения в обе стороны).
-*Готово, когда:* живой прогон `/whydiff` на реальном диффе (например,
-крупный реальный фичевый дифф на ~50 файлов в проекте-полигоне) без ручных
-правок выдаёт карту, сопоставимую с ручным образцом, и проходит валидацию.
-Запуск: `claude --plugin-dir /Users/ag/www/spy` в целевом репо.
+**Stage 3 — generator.** Skeleton ready (2026-08-01): the `whydiff` plugin
+(`plugin.json` valid), the `/whydiff` skill, 4 pass agents (classifier,
+diagrammer, standards-reviewer, tests-analyst), scripts `manifest.mjs` /
+`validate.mjs` / `assemble.mjs` — the deterministic layer verified on a private test-bed project
+(working tree and ref mode, the cross-check catches divergence in both directions).
+*Done when:* a live `/whydiff` run on a real diff (for example,
+a large real feature diff of ~50 files in the test-bed project) without manual
+edits produces a map comparable to the hand-made sample and passes validation.
+Run: `claude --plugin-dir /Users/ag/www/spy` in the target repo.
 
-**Этап 4 — обкатка.** 2–3 свежих реальных диффа; цикл фидбек → правка схемы/промптов.
-*Готово, когда:* карта стабильно быстрее чтения диффа (субъективная оценка на реальном ревью).
+**Stage 4 — shakedown.** 2–3 fresh real diffs; a feedback → schema/prompt edit loop.
+*Done when:* the map is consistently faster than reading the diff (a subjective judgment on a real review).
 
-*Оптимизации скорости (2026-08-01, без потери функциональности):*
-- модельный тиринг: diagrammer и tests-analyst на `model: sonnet` (frontmatter),
-  classifier и standards-reviewer наследуют модель сессии;
-- BRIEFING: оркестратор передаёт агентам по-файловые однострочники из своего
-  чтения диффа — агенты верифицируют, а не пере-открывают;
-- SKIP: сгенерированные/vendored файлы не читаются агентами (остаются в манифесте
-  как plumbing-группа);
-- SCOPE-шардинг classifier'а на диффах >30 файлов (2–3 инстанса по сервисам,
-  слияние оркестратором; intent/story/ops пишет оркестратор);
-- GRAPH: опциональная интеграция с prebuilt-графом (graphify-out/,
-  understand-anything) — агенты читают граф до grep'ов; граф отстаёт от диффа,
-  дифф всегда прав.
-Ожидание: минус 30–50% wall time на большом диффе; замерить на `42d050f`.
+*Speed optimizations (2026-08-01, without loss of functionality):*
+- model tiering: diagrammer and tests-analyst on `model: sonnet` (frontmatter),
+  classifier and standards-reviewer inherit the session model;
+- BRIEFING: the orchestrator passes agents per-file one-liners from its own
+  reading of the diff — agents verify rather than re-open;
+- SKIP: generated/vendored files are not read by agents (they stay in the manifest
+  as a plumbing group);
+- SCOPE sharding of the classifier on diffs >30 files (2–3 instances by service,
+  merged by the orchestrator; intent/story/ops written by the orchestrator);
+- GRAPH: optional integration with a prebuilt graph (graphify-out/,
+  understand-anything) — agents read the graph before greps; the graph lags the diff,
+  the diff is always right.
+Expectation: minus 30–50% wall time on a large diff; measure on `42d050f`.
 
-**Этап 5 — интеграция (опционально).** Hook «карта после каждой LLM-сессии»,
-marketplace-репозиторий для команды, режим PR (`gh pr diff`).
+**Stage 5 — integration (optional).** A "map after every LLM session" hook,
+a marketplace repo for the team, PR mode (`gh pr diff`).
 
-## Открытые вопросы
+## Open questions
 
-- ~~Имя плагина~~ — решено (2026-08-04): `whydiff` (было рабочее `change-map`).
-- Blast radius: только grep-эвристика или + знание графа из `understand-anything`,
-  если он установлен в проекте?
-- Стандарты: какие внешние источники агрегировать в первой версии (только LLM-проход
-  или + eslint/tsc вывод)?
-- Хранить ли `review-map.json` в репо проекта (история карт) или только HTML в
-  `.whydiff/` под gitignore?
+- ~~Plugin name~~ — decided (2026-08-04): `whydiff` (working name was `change-map`).
+- Blast radius: grep heuristic only, or + graph knowledge from `understand-anything`
+  if it is installed in the project?
+- Standards: which external sources to aggregate in the first version (LLM pass only
+  or + eslint/tsc output)?
+- Store `review-map.json` in the project repo (a history of maps) or only the HTML in
+  `.whydiff/` under gitignore?
