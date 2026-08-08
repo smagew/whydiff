@@ -15,7 +15,7 @@ PLUGIN_DIR := $(shell pwd)
 FIXDIR     := $(PLUGIN_DIR)/.fixtures
 EXAMPLE    := examples/rate-limit/review-map.json
 
-.PHONY: help check preview fixtures clean-fixtures release hooks
+.PHONY: help check preview fixtures clean-fixtures bump hooks
 .DEFAULT_GOAL := help
 
 help: ## show this help
@@ -31,9 +31,9 @@ check: ## contract + viewer + manifest + version checks (no LLM)
 	npm test
 	claude plugin validate . --strict
 
-release: ## cut a release PR: make release BUMP=minor [HEADLINE="…"]
-	@test -n "$(BUMP)" || { echo 'usage: make release BUMP=<patch|minor|major> [HEADLINE="…"]'; exit 1; }
-	node scripts/release.mjs $(BUMP) $(if $(HEADLINE),--headline,) $(if $(HEADLINE),"$(HEADLINE)",)
+bump: ## bump version + open a CHANGELOG entry: make bump BUMP=minor [NOTE="…"]
+	@test -n "$(BUMP)" || { echo 'usage: make bump BUMP=<patch|minor|major> [NOTE="…"]'; exit 1; }
+	node scripts/version.mjs $(BUMP) $(if $(NOTE),--note,) $(if $(NOTE),"$(NOTE)",)
 
 hooks: ## install the repo git hooks (version guard on push)
 	git config core.hooksPath .githooks
