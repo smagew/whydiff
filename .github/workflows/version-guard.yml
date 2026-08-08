@@ -1,0 +1,21 @@
+name: version-guard
+
+# The gate that makes "forgot to bump the version" impossible to merge: a shipped
+# change (templates/agents/skills/schema/hooks/scripts) must move plugin.json, or
+# installed users never see it. Runs on every PR into main.
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  version-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0            # need origin/main to diff against
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: version guard
+        run: node scripts/check-version.mjs --base origin/${{ github.base_ref }}

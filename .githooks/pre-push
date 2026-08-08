@@ -1,0 +1,9 @@
+#!/bin/sh
+# Version guard — refuses to push shipped changes that forgot a version bump.
+# Install once: make hooks   (sets core.hooksPath to this dir)
+# Bypass in a pinch: git push --no-verify
+node scripts/check-version.mjs || {
+  echo ""
+  echo "  push blocked: bump the version (make release BUMP=…) or --no-verify to override."
+  exit 1
+}
