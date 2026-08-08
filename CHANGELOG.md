@@ -4,6 +4,31 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.11.0] — 2026-08-09
+
+### Added
+- **A big change map stays readable.** On a large map (>24 files, >6 groups, or
+  >18 links) the Files tab adapts: links default to hover-only (small maps still
+  open with every link shown), groups open collapsed so the map reads as a
+  scannable table of contents, and cross-group links render as chips on the node
+  (click to jump to the file) instead of lines across the canvas — only same-group
+  links stay drawn as lines. When "show all links" is on, overlapping edge labels
+  are thinned so no two pile up.
+- **Per-group reading progress** in each group header (`x/N read`), a ✓ button to
+  mark the whole group read at once, and a done-tint when a group is complete.
+- **Focus a single group** (⤢ in the header) to read it without the rest — Esc
+  exits.
+- **The overview panel navigates.** A group title jumps the reading column to that
+  group's block; a file's path jumps to its node; each file row has a `view`
+  button that opens the change with its explanation. The panel can collapse to
+  hand its width to the reading column, and its group note collapses to one line.
+
+### Changed
+- File nodes show the basename in full weight with the directory greyed, so
+  lookalike paths stop blurring together; the role tag is a quieter micro-label.
+- The file drill-down shows a **Back** button at the top and bottom (renamed from
+  "← overview").
+
 ## [0.10.2] — 2026-08-08
 
 ### Fixed
