@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft-07/schema#",
   "$id": "review-map.schema.json",
   "title": "review-map",
-  "description": "Контракт между генератором (/whydiff) и вьюером (templates/viewer.html). Файлы адресуются repo-относительным путём — синтетических id нет.",
+  "description": "The contract between the generator (/whydiff) and the viewer (templates/viewer.html). Files are addressed by repo-relative path — there are no synthetic ids.",
   "type": "object",
   "required": ["meta", "intent", "story", "groups", "files", "edges", "manifest"],
   "properties": {
@@ -11,10 +11,10 @@
       "required": ["project", "ref", "generatedAt"],
       "properties": {
         "project": { "type": "string" },
-        "lang": { "type": "string", "default": "en", "description": "Язык отчёта (BCP-47: 'en', 'ru'…). Генератор берёт язык общения в чате; если определить не удалось — 'en'. Управляет и языком контента (why/story/…), и языком интерфейса вьюера. Исходный код инструмента и идентификаторы — всегда английский." },
-        "ref": { "type": "string", "description": "Что сравнивалось: 'working tree', 'HEAD~3..HEAD', 'PR #14'…" },
+        "lang": { "type": "string", "default": "en", "description": "Report language (BCP-47: 'en', 'ru'…). The generator takes the chat conversation language; if it cannot be determined, 'en'. Controls both the content language (why/story/…) and the viewer interface language. The tool's source code and identifiers are always English." },
+        "ref": { "type": "string", "description": "What was compared: 'working tree', 'HEAD~3..HEAD', 'PR #14'…" },
         "generatedAt": { "type": "string" },
-        "title": { "type": "string", "description": "Человеческое имя изменения" },
+        "title": { "type": "string", "description": "Human-readable name of the change" },
         "stats": {
           "type": "object",
           "properties": {
@@ -22,7 +22,7 @@
             "filesNew": { "type": "integer" },
             "added": { "type": "integer" },
             "deleted": { "type": "integer" },
-            "attentionFiles": { "type": "integer", "description": "Сколько файлов требуют внимательного чтения" }
+            "attentionFiles": { "type": "integer", "description": "How many files need careful reading" }
           }
         }
       }
@@ -32,25 +32,25 @@
 
     "story": {
       "type": "array",
-      "description": "Причинная цепочка, вид по умолчанию. Шаги перемежаются связками-«почему» (принцип 4).",
+      "description": "The causal chain, the default view. Steps are interleaved with \"why\" links (principle 4).",
       "items": {
         "oneOf": [
           {
             "type": "object", "required": ["label", "text"],
             "properties": {
-              "label": { "type": "string", "description": "Цель / Шаг N / Следствие / Подтверждение" },
-              "group": { "type": "string", "description": "id группы — задаёт цвет шага" },
+              "label": { "type": "string", "description": "Goal / Step N / Consequence / Confirmation" },
+              "group": { "type": "string", "description": "group id — sets the step color" },
               "text": { "type": "string" },
               "branches": {
-                "type": "array", "description": "Ветки исхода: [тег, текст]",
+                "type": "array", "description": "Outcome branches: [tag, text]",
                 "items": { "type": "array", "prefixItems": [{ "type": "string" }, { "type": "string" }], "minItems": 2, "maxItems": 2 }
               },
-              "files": { "type": "array", "items": { "type": "string" }, "description": "Пути файлов-участников шага" }
+              "files": { "type": "array", "items": { "type": "string" }, "description": "Paths of the files involved in the step" }
             }
           },
           {
             "type": "object", "required": ["link"],
-            "properties": { "link": { "type": "string", "description": "Связка между шагами: ПОЧЕМУ следующий блок существует" } }
+            "properties": { "link": { "type": "string", "description": "A link between steps: WHY the next block exists" } }
           }
         ]
       }
@@ -58,7 +58,7 @@
 
     "groups": {
       "type": "array",
-      "description": "Группы = роли в ревью, не типы файлов (принцип 2).",
+      "description": "Groups = review roles, not file types (principle 2).",
       "items": {
         "type": "object", "required": ["id", "name", "role", "why", "files"],
         "properties": {
@@ -66,10 +66,10 @@
           "name": { "type": "string" },
           "role": {
             "type": "string",
-            "description": "Что ревьюеру делать: read (читать внимательно) | verify-pattern (проверить один паттерн и полноту списка) | context (контекст, читать первым) | ops (чеклист деплоя) | spec (спецификация по запросу, можно свернуть) | plumbing (механика)",
+            "description": "What the reviewer should do: read (read carefully) | verify-pattern (check one pattern and the completeness of the list) | context (context, read first) | ops (deploy checklist) | spec (specification on request, may be collapsed) | plumbing (mechanics)",
             "examples": ["read", "verify-pattern", "context", "ops", "spec", "plumbing"]
           },
-          "tag": { "type": "string", "description": "Короткая шапка группы: «Причина · читать внимательно»" },
+          "tag": { "type": "string", "description": "Short group header: \"Cause · read carefully\"" },
           "why": { "type": "string" },
           "collapsed": { "type": "boolean", "default": false },
           "files": { "type": "array", "items": { "type": "string" } }
@@ -79,22 +79,22 @@
 
     "files": {
       "type": "object",
-      "description": "Ключ — repo-относительный путь.",
+      "description": "The key is a repo-relative path.",
       "additionalProperties": {
         "type": "object", "required": ["add", "del", "why"],
         "properties": {
-          "service": { "type": "string", "description": "Логический scope файла — вьюер строит по ним панель тегов: frontend / backend / api / mcp / devops / infra / docs / test… Обязателен для каждого файла; lowercase, консистентно по всему диффу." },
-          "role": { "type": "string", "description": "Роль файла в изменении, коротко" },
+          "service": { "type": "string", "description": "The file's logical scope — the viewer builds the tag panel from these: frontend / backend / api / mcp / devops / infra / docs / test… Required for every file; lowercase, consistent across the whole diff." },
+          "role": { "type": "string", "description": "The file's role in the change, briefly" },
           "add": { "type": "integer" },
           "del": { "type": "integer" },
           "isNew": { "type": "boolean" },
-          "why": { "type": "string", "description": "Что произошло и почему; допустим <b>/<code>" },
+          "why": { "type": "string", "description": "What happened and why; <b>/<code> allowed" },
           "frag": {
-            "type": "array", "description": "Фрагмент для инспектора: [класс, текст], класс: add|del|ctx",
+            "type": "array", "description": "Fragment for the inspector: [class, text], class: add|del|ctx",
             "items": { "type": "array", "prefixItems": [{ "enum": ["add", "del", "ctx"] }, { "type": "string" }] }
           },
-          "preview": { "type": "array", "description": "1–2 строки на карточку (принцип 1: превью сразу, текст лениво)", "items": { "type": "array" } },
-          "embedFull": { "type": "boolean", "description": "assemble.mjs встроит полный текст файла из --repo" }
+          "preview": { "type": "array", "description": "1–2 lines per card (principle 1: preview up front, text lazily)", "items": { "type": "array" } },
+          "embedFull": { "type": "boolean", "description": "assemble.mjs will embed the file's full text from --repo" }
         }
       }
     },
@@ -107,15 +107,15 @@
 
     "diagrams": {
       "type": "array",
-      "description": "Только там, где меняется поток управления/данных (принцип 6). Diff-маркировка в одном графе (принцип 7): классы added/removed/changed БЕЗ classDef — цвет даёт вьюер из своих токенов.",
+      "description": "Only where a control/data flow changes (principle 6). Diff-marked in a single graph (principle 7): added/removed/changed classes WITHOUT classDef — the color comes from the viewer's own tokens.",
       "items": {
         "type": "object", "required": ["kind", "title", "mermaid"],
         "properties": {
-          "kind": { "enum": ["flow-diff", "sequence", "components", "er-diff"], "description": "er-diff — mermaid erDiagram изменений схемы данных; обязателен, когда дифф содержит миграции, меняющие структуру таблиц" },
+          "kind": { "enum": ["flow-diff", "sequence", "components", "er-diff"], "description": "er-diff — a mermaid erDiagram of data-schema changes; required when the diff contains migrations that change table structure" },
           "title": { "type": "string" },
-          "caption": { "type": "string", "description": "Одно предложение: что здесь видно" },
-          "mermaid": { "type": "string", "description": "Во flowchart-диаграммах ноды-файлы делаются кликабельными строкой `click <id> call whydiffOpen(\"<repo-relative path>\")`; путь обязан существовать в files (проверяется validate.mjs)." },
-          "files": { "type": "array", "items": { "type": "string" }, "description": "К каким файлам ведёт drill-down" }
+          "caption": { "type": "string", "description": "One sentence: what is visible here" },
+          "mermaid": { "type": "string", "description": "In flowchart diagrams, file nodes are made clickable with the line `click <id> call whydiffOpen(\"<repo-relative path>\")`; the path must exist in files (checked by validate.mjs)." },
+          "files": { "type": "array", "items": { "type": "string" }, "description": "Which files the drill-down leads to" }
         }
       }
     },
@@ -129,7 +129,7 @@
           "finding": { "type": "string" },
           "file": { "type": "string" },
           "line": { "type": "integer" },
-          "pattern": { "type": "string", "description": "Ссылка на конвенцию проекта: «в проекте принято X, см. Y»" }
+          "pattern": { "type": "string", "description": "Reference to a project convention: \"the project does X, see Y\"" }
         }
       }
     },
@@ -138,31 +138,31 @@
       "type": "object",
       "properties": {
         "summary": { "type": "string" },
-        "fixed": { "type": "array", "items": { "type": "string" }, "description": "Какие утверждения зафиксированы — человеческим языком" },
-        "gaps": { "type": "array", "items": { "type": "string" }, "description": "Что НЕ покрыто — ценнее процента покрытия" },
+        "fixed": { "type": "array", "items": { "type": "string" }, "description": "Which assertions are now pinned down — in plain language" },
+        "gaps": { "type": "array", "items": { "type": "string" }, "description": "What is NOT covered — more valuable than a coverage percentage" },
         "files": { "type": "array", "items": { "type": "string" } }
       }
     },
 
     "userStories": {
       "type": "object",
-      "description": "Что изменилось СНАРУЖИ, языком актора: истории, восстановленные из диффа. Остальные секции инженерные — эта отвечает на вопрос «что человек теперь может и что для него сломалось». Пустой массив значим: «поведение снаружи не изменилось» — тоже информация (принцип 5).",
+      "description": "What changed on the OUTSIDE, in the actor's language: stories reconstructed from the diff. The other sections are engineering — this one answers \"what can a person now do, and what broke for them\". An empty array is meaningful: \"external behavior did not change\" is information too (principle 5).",
       "properties": {
-        "summary": { "type": "string", "description": "1–2 предложения: изменилось ли поведение снаружи вообще. Для чисто внутреннего изменения обязано сказать это прямо." },
+        "summary": { "type": "string", "description": "1–2 sentences: whether external behavior changed at all. For a purely internal change it must say so outright." },
         "stories": {
           "type": "array",
           "items": {
             "type": "object", "required": ["actor", "story", "status", "why"],
             "properties": {
-              "actor": { "type": "string", "description": "Кто действует: роль пользователя, оператор, внешняя система. Только те, кого видно в диффе — не выдумывать." },
-              "story": { "type": "string", "description": "«Я могу …, чтобы …» с точки зрения актора. Без имён классов, таблиц и функций — они идут в files." },
+              "actor": { "type": "string", "description": "Who acts: a user role, an operator, an external system. Only those visible in the diff — do not invent them." },
+              "story": { "type": "string", "description": "\"I can …, so that …\" from the actor's point of view. No class, table or function names — those go in files." },
               "status": {
                 "enum": ["delivered", "partial", "broken", "regressed"],
-                "description": "Даёт ли дифф эту историю на самом деле: delivered — да; partial — работает, но с дефектом; broken — код есть, но путь не срабатывает; regressed — снаружи стало ХУЖЕ, чем было. Это и превращает вкладку из документации в инструмент ревью."
+                "description": "Whether the diff actually delivers this story: delivered — yes; partial — works, but with a defect; broken — the code exists, but the path does not fire; regressed — it got WORSE on the outside than before. This is what turns the tab from documentation into a review tool."
               },
-              "why": { "type": "string", "description": "Чем в диффе подтверждается и что именно мешает. Для всего, кроме delivered, обязательно назвать причину и место." },
-              "files": { "type": "array", "items": { "type": "string" }, "description": "Файлы диффа, дающие эту историю — drill-down. Проверяется validate.mjs." },
-              "covered": { "type": "boolean", "description": "Есть ли тест, фиксирующий именно эту историю. false — заметный сигнал для истории про деньги или доступ." }
+              "why": { "type": "string", "description": "What in the diff confirms it and what exactly gets in the way. For anything other than delivered, the cause and location must be named." },
+              "files": { "type": "array", "items": { "type": "string" }, "description": "Diff files that deliver this story — drill-down. Checked by validate.mjs." },
+              "covered": { "type": "boolean", "description": "Whether a test pins down this exact story. false is a notable signal for a money- or access-related story." }
             }
           }
         }
@@ -171,7 +171,7 @@
 
     "ops": {
       "type": "object",
-      "description": "Операционный чеклист. Пустые списки значимы: «env не менялись» — тоже информация.",
+      "description": "Operational checklist. Empty lists are meaningful: \"env did not change\" is information too.",
       "properties": {
         "env": { "type": "array", "items": { "type": "object", "properties": { "name": { "type": "string" }, "status": { "enum": ["added", "removed", "changed"] }, "note": { "type": "string" } } } },
         "migrations": { "type": "array", "items": { "type": "string" } },
@@ -182,7 +182,7 @@
 
     "blastRadius": {
       "type": "array",
-      "description": "Зависит от изменённого, но в дифф не попало.",
+      "description": "Depends on what changed, but is not in the diff.",
       "items": {
         "type": "object", "required": ["path", "why"],
         "properties": { "path": { "type": "string" }, "why": { "type": "string" } }
@@ -197,13 +197,13 @@
 
     "manifest": {
       "type": "array",
-      "description": "Каждый файл диффа: [путь, +, −, groupId, isNew]. Полнота проверяется скриптом против git diff --numstat (принцип 5).",
+      "description": "Every file in the diff: [path, +, −, groupId, isNew]. Completeness is checked by a script against git diff --numstat (principle 5).",
       "items": { "type": "array", "minItems": 4 }
     },
 
     "fullFiles": {
       "type": "object",
-      "description": "Заполняется assemble.mjs из embedFull-флагов; вручную не пишется.",
+      "description": "Populated by assemble.mjs from embedFull flags; not written by hand.",
       "additionalProperties": { "type": "string" }
     }
   }

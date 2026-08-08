@@ -1,58 +1,58 @@
-# Конкурентный анализ whydiff (август 2026)
+# whydiff competitive analysis (August 2026)
 
-Источник: исследование рынка AI-code-review и diff-comprehension инструментов.
-Детали `/understand-diff` проверены по исходникам установленного плагина, не по маркетингу.
+Source: market research on AI-code-review and diff-comprehension tools.
+`/understand-diff` details were verified against the installed plugin's sources, not its marketing.
 
-## Сводная таблица
+## Summary table
 
-| Инструмент | Что даёт ревьюеру | Группировка | Diff-маркированные диаграммы (было+стало в одном графе) | Тесты | Ops/env | Blast radius | Гарантия полноты | Приватность |
+| Tool | What it gives the reviewer | Grouping | Diff-marked diagrams (before+after in one graph) | Tests | Ops/env | Blast radius | Completeness guarantee | Privacy |
 |---|---|---|---|---|---|---|---|---|
-| **whydiff (мы)** | Автономная интерактивная HTML-карта | **По причинам** + роли ревьюера + причинная цепочка | **Да** | Гарантии поведения + gap-анализ | Да | Да | **Да (скрипт против git)** | Полностью локально |
-| [CodeRabbit](https://docs.coderabbit.ai/pr-reviews/walkthroughs) | PR-walkthrough, inline-баги, 1-click fix, **Change Stack** | Cohorts + ordered layers (май 2026) | Нет (только новый flow) | Частично | Нет | Частично | Нет | Облако, код хранится 7 дней |
-| [Greptile](https://www.greptile.com/docs/code-review/first-pr-review) | Summary + inline-баги на семантическом графе репо | По файлам | Нет | Нет | Нет | Частично (граф как контекст) | Нет | Облако, SOC2 |
-| [Qodo Merge / PR-Agent](https://qodo-merge-docs.qodo.ai/tools/) | Описание PR, file-walkthrough, /improve | По файлам | Нет — [пользователи явно просили (issue #1919)](https://github.com/qodo-ai/pr-agent/issues/1919) | Coverage-gap флаги | Нет | Нет | Нет | OSS-ядро, self-host |
-| [CodeViz](https://www.codeviz.ai/use-cases/code-review) | C4-карты архитектуры, затронутые компоненты PR | По компонентам | Частично (подсветка компонентов) | Нет | Нет | Да (deps) | Нет | Анализ локально, AI в облаке |
-| [BuilderIO visual-recap](https://github.com/BuilderIO/skills/blob/main/skills/visual-recap/README.md) | Интерактивный MDX-recap: диффы, схемы, API-диффы, UI-стейты | По форме изменений | Нет | Нет | Частично (API/schema) | Нет | Нет («substantial enough») | Локально или hosted links |
-| [What The Diff](https://groupify.ai/ai-tool/whatthediff) | PR-описания для нетехнических стейкхолдеров | Проза | Нет | Нет | Нет | Нет | Нет | Облако |
-| [Copilot code review](https://dev.to/rahulxsingh/github-copilot-code-review-complete-guide-2026-255h) | Prose summary + inline-комментарии (60M ревью, ~1/5 ревью GitHub) | По файлам | Нет | Нет | Нет | Нет | Нет | Облако |
-| [CodeSee Review Maps](https://docs.codesee.io/docs/review-map-guide) († 02.2024) | Интерактивная карта файлов PR, viewed-чекбоксы | По структуре папок | Цвета статусов файлов, не семантика | Нет | Нет | Частично | Ручная (чекбоксы) | † закрыт — «структура без семантики» не окупилась |
-| [Graphite Agent](https://graphite.com/blog/introducing-graphite-agent-and-pricing) | Inline-ревью + fixes в stacked-PR флоу | По файлам/стекам | Нет | Нет | Нет | Нет | Нет | Облако |
-| understand-anything `/understand-diff` | Текстовый анализ + подсветка на knowledge-graph дашборде | По компонентам/слоям | Частично (changed/affected узлы) | Нет | Частично | **Да (1-hop)** | Нет | Локально, OSS |
-| [ChangePrism](https://arxiv.org/abs/2508.12649) (академ.) | Визуализация «сути» изменений из git-истории | По типам изменений | По духу да, без AI-нарратива | Нет | Нет | Нет | Нет | Локально |
+| **whydiff (us)** | Self-contained interactive HTML map | **By cause** + reviewer roles + causal chain | **Yes** | Behavior guarantees + gap analysis | Yes | Yes | **Yes (script against git)** | Fully local |
+| [CodeRabbit](https://docs.coderabbit.ai/pr-reviews/walkthroughs) | PR walkthrough, inline bugs, 1-click fix, **Change Stack** | Cohorts + ordered layers (May 2026) | No (only the new flow) | Partial | No | Partial | No | Cloud, code stored 7 days |
+| [Greptile](https://www.greptile.com/docs/code-review/first-pr-review) | Summary + inline bugs on a semantic repo graph | By file | No | No | No | Partial (graph as context) | No | Cloud, SOC2 |
+| [Qodo Merge / PR-Agent](https://qodo-merge-docs.qodo.ai/tools/) | PR description, file walkthrough, /improve | By file | No — [users explicitly asked (issue #1919)](https://github.com/qodo-ai/pr-agent/issues/1919) | Coverage-gap flags | No | No | No | OSS core, self-host |
+| [CodeViz](https://www.codeviz.ai/use-cases/code-review) | C4 architecture maps, PR-affected components | By component | Partial (component highlighting) | No | No | Yes (deps) | No | Analysis local, AI in cloud |
+| [BuilderIO visual-recap](https://github.com/BuilderIO/skills/blob/main/skills/visual-recap/README.md) | Interactive MDX recap: diffs, schemas, API diffs, UI states | By shape of change | No | No | Partial (API/schema) | No | No ("substantial enough") | Local or hosted links |
+| [What The Diff](https://groupify.ai/ai-tool/whatthediff) | PR descriptions for non-technical stakeholders | Prose | No | No | No | No | No | Cloud |
+| [Copilot code review](https://dev.to/rahulxsingh/github-copilot-code-review-complete-guide-2026-255h) | Prose summary + inline comments (60M reviews, ~1/5 of GitHub reviews) | By file | No | No | No | No | No | Cloud |
+| [CodeSee Review Maps](https://docs.codesee.io/docs/review-map-guide) († 02.2024) | Interactive PR file map, viewed checkboxes | By folder structure | File status colors, not semantics | No | No | Partial | Manual (checkboxes) | † shut down — "structure without semantics" didn't pay off |
+| [Graphite Agent](https://graphite.com/blog/introducing-graphite-agent-and-pricing) | Inline review + fixes in a stacked-PR flow | By file/stack | No | No | No | No | No | Cloud |
+| understand-anything `/understand-diff` | Text analysis + highlighting on a knowledge-graph dashboard | By component/layer | Partial (changed/affected nodes) | No | Partial | **Yes (1-hop)** | No | Local, OSS |
+| [ChangePrism](https://arxiv.org/abs/2508.12649) (academic) | Visualizes the "essence" of changes from git history | By change type | In spirit yes, without an AI narrative | No | No | No | No | Local |
 
-Новички 2025–26: cubic (repo-wide context, low false-positive), mrge (**intelligent file
-ordering** — слабая форма нарративного порядка), Baz (Walkthrough-режим), Iago
-(mermaid-диаграммы как скилл — жанр коммодитизируется), SonarQube AI Code Assurance
-(«AI-код ревьюится иначе» уходит в мейнстрим).
+Newcomers 2025–26: cubic (repo-wide context, low false-positive), mrge (**intelligent file
+ordering** — a weak form of narrative order), Baz (Walkthrough mode), Iago
+(mermaid diagrams as a skill — the genre is being commoditized), SonarQube AI Code Assurance
+("AI code is reviewed differently" goes mainstream).
 
-## Чего у нас НЕТ (честно)
+## What we do NOT have (honestly)
 
-1. **Поиск багов.** Все коммерческие игроки *находят дефекты* и меряются catch rate; мы организуем понимание, но не охотимся на баги.
-2. **PR-нативность.** Конкуренты живут в PR: авто-запуск, comment/approve из их UI. Нам нужна сессия Claude Code, HTML живёт вне PR.
-3. **Интерактивность.** Ответить на вопрос по карте = вернуться в Claude; у Greptile/Graphite/Baz — чат прямо в ревью.
-4. **Постоянный индекс кодовой базы.** Наш blast radius считается на каждый прогон (частично закрыто GRAPH-интеграцией с graphify/understand-anything).
-5. **Память между ревью.** Greptile/cubic/Baz учатся на реакциях команды; мы каждый раз выводим конвенции заново.
-6. **Коллаборация.** Наш HTML — одиночный артефакт; у visual-recap hosted-ссылки с комментариями, у Change Stack — общий стейт ревью.
-7. **Предсказуемость цены/скорости.** GitHub-аппы отвечают за 2–3 минуты по фиксированной цене за seat; мы тратим токены и время сессии пользователя.
-8. **Change Stack (CodeRabbit, май 2026)** — ближайшая угроза концепции: cohorts + ordered layers + полированный web-UI с записью обратно в GitHub. Но: без причинных «because»-связей, без ролей ревьюера, без гарантии полноты, диаграммы только «как стало».
-9. **Богатые компоненты артефакта** у visual-recap: OpenAPI-диффы, схемы, UI-скриншоты.
+1. **Bug finding.** Every commercial player *finds defects* and competes on catch rate; we organize understanding, but we don't hunt for bugs.
+2. **PR-native.** Competitors live in the PR: auto-run, comment/approve from their UI. We need a Claude Code session, and the HTML lives outside the PR.
+3. **Interactivity.** Answering a question about the map means going back to Claude; Greptile/Graphite/Baz have chat right inside the review.
+4. **A persistent codebase index.** Our blast radius is computed on every run (partially covered by the GRAPH integration with graphify/understand-anything).
+5. **Memory between reviews.** Greptile/cubic/Baz learn from the team's reactions; we re-derive conventions every time.
+6. **Collaboration.** Our HTML is a single-player artifact; visual-recap has hosted links with comments, Change Stack has shared review state.
+7. **Predictable price/speed.** GitHub apps respond in 2–3 minutes at a fixed per-seat price; we spend tokens and the user's session time.
+8. **Change Stack (CodeRabbit, May 2026)** — the nearest threat to the concept: cohorts + ordered layers + a polished web UI that writes back to GitHub. But: no causal "because" links, no reviewer roles, no completeness guarantee, and diagrams are "after" only.
+9. **Rich artifact components** like visual-recap: OpenAPI diffs, schemas, UI screenshots.
 
-## Наши защитимые преимущества
+## Our defensible advantages
 
-1. **Diff-маркированные диаграммы (было+стало в одном графе) — уникальны на рынке.** Пользователи Qodo прямо просили это в issue #1919 — никто не выпустил.
-2. **Детерминированная гарантия полноты** («N из N файлов», скрипт против `git diff --numstat`) — свойство доверия, которое LLM-only инструменты структурно не могут заявить. Единственный прецедент — *ручные* чекбоксы покойного CodeSee.
-3. **Причинная семантика**, а не только порядок чтения: «блок существует ИЗ-ЗА предыдущего», рёбра (из, в, почему), роли групп (читать / проверить паттерн / контекст / ops / spec). Change Stack даёт порядок, но не «почему» и не «насколько внимательно».
-4. **Тесты как поведенческие гарантии + gap-анализ** вместо процентов покрытия.
-5. **Ops-чеклист с «пусто = информация»** — никто из ревью-конкурентов вообще не репортит env/миграции/деплой.
-6. **Стандарты против конвенций САМОГО проекта** с контрпримерами из репо.
-7. **Приватность:** полностью локально, без вендорского сервера и прав GitHub-аппа; дифф покидает машину только через собственную сессию Claude пользователя.
-8. **Pre-PR воркфлоу:** работаем по любому локальному диффу — незакоммиченный вывод агента ДО того, как он стал PR. GitHub-аппы в этот момент бессильны — а это и есть момент ревью LLM-кода.
-9. **i18n отчётов** — нет ни у кого.
-10. **Попутный ветер рынка:** «AI пишет — людям нужны инструменты понимания» становится категорией (SonarQube, mrge, Change Stack). CodeSee умер от «структуры без семантики»; LLM-эра инвертирует его провал.
+1. **Diff-marked diagrams (before+after in one graph) — unique on the market.** Qodo users explicitly asked for this in issue #1919 — nobody shipped it.
+2. **Deterministic completeness guarantee** ("N of N files", a script against `git diff --numstat`) — a trust property that LLM-only tools structurally cannot claim. The only precedent is the *manual* checkboxes of the late CodeSee.
+3. **Causal semantics**, not just reading order: "a block exists BECAUSE of the previous one", edges (from, to, why), group roles (read / verify-pattern / context / ops / spec). Change Stack gives order, but not "why" and not "how carefully".
+4. **Tests as behavior guarantees + gap analysis** instead of coverage percentages.
+5. **Ops checklist with "empty = information"** — none of the review competitors report env/migrations/deploy at all.
+6. **Standards against the project's OWN conventions** with counter-examples from the repo.
+7. **Privacy:** fully local, no vendor server and no GitHub-app permissions; the diff leaves the machine only through the user's own Claude session.
+8. **Pre-PR workflow:** we work on any local diff — an agent's uncommitted output BEFORE it becomes a PR. GitHub apps are powerless at that moment — and that is exactly the moment of reviewing LLM code.
+9. **Report i18n** — nobody has it.
+10. **Market tailwind:** "AI writes — people need comprehension tools" is becoming a category (SonarQube, mrge, Change Stack). CodeSee died of "structure without semantics"; the LLM era inverts its failure.
 
-## Выводы для роадмапа
+## Roadmap takeaways
 
-- **Не конкурировать в поиске багов** — интегрироваться: опциональный проход/связка с `/code-review`-класс инструментами, их находки — во вкладку «Стандарты».
-- **Позиционирование: pre-PR ревью LLM-кода, локально.** Это ниша, где PR-аппы не работают по определению.
-- Дешёвые ходы из списка «нет»: артефакт-ссылки уже дают шаринг; GRAPH-интеграция уже частично закрывает индекс; GitHub Action, постящий ссылку на карту в PR, — кандидат этапа 5.
-- Память конвенций проекта между прогонами — кандидат в бэклог (файл `.whydiff/conventions.md`, пополняемый standards-reviewer'ом).
+- **Don't compete on bug finding** — integrate: an optional pass/bridge with `/code-review`-class tools, their findings into the "Standards" tab.
+- **Positioning: pre-PR review of LLM code, locally.** This is the niche where PR apps don't work by definition.
+- Cheap moves from the "don't have" list: artifact links already provide sharing; the GRAPH integration already partially covers the index; a GitHub Action that posts a link to the map in the PR is a stage-5 candidate.
+- Project-convention memory between runs is a backlog candidate (a `.whydiff/conventions.md` file, appended to by the standards-reviewer).

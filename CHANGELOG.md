@@ -4,6 +4,14 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.11.1] — 2026-08-09
+
+### Changed
+- **English-only source.** The shipped `review-map` JSON schema descriptions,
+  `PLAN.md`, and `docs/competitive-analysis.md` are now in English, per the
+  source-language policy for this public project. The viewer keeps its `en`/`ru`
+  interface locale (report language follows `meta.lang`, default `en`).
+
 ## [0.11.0] — 2026-08-09
 
 ### Added
