@@ -4,6 +4,15 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.12.0] — 2026-08-09
+
+### Added
+- **The inspector is resizable, and opens wide for a file.** A file drill-down
+  (the `view` button) now opens the right panel at half the width instead of the
+  narrow overview column, since it carries more prose. Drag the pill on its left
+  edge to set any width; the choice is remembered per map and wins over the
+  per-view default. Files-tab connectors redraw as it resizes.
+
 ## [0.11.3] — 2026-08-09
 
 ### Fixed
