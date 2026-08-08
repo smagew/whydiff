@@ -237,9 +237,9 @@
   .aside-toggle:hover { border-color: var(--accent); color: var(--accent); }
   .rightcol > #inspector { margin-top: -28px; }
   .aside-reopen { position: fixed; right: 0; top: 42vh; z-index: 20; writing-mode: vertical-rl;
-    font: inherit; font-size: 12px; letter-spacing: .04em; cursor: pointer; color: var(--muted);
+    font: inherit; font-size: 13px; letter-spacing: .04em; cursor: pointer; color: var(--muted);
     background: var(--surface); border: 1px solid var(--line-strong); border-right: none;
-    border-radius: 6px 0 0 6px; padding: 12px 6px; }
+    border-radius: 5px 0 0 5px; padding: 12px 6px; }
   .aside-reopen:hover { color: var(--accent); border-color: var(--accent); }
   .aside-reopen[hidden] { display: none; }
 
@@ -272,7 +272,7 @@
   .ovg-fpath { display: flex; align-items: baseline; gap: 8px; flex: 1; min-width: 0; background: none; border: none; padding: 3px 4px; border-radius: 3px; cursor: pointer; font: inherit; color: inherit; text-align: left; }
   .ovg-fpath:hover { background: var(--surface-2); }
   .ovg-fpath:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-  .ovg-view { flex: none; align-self: center; font: inherit; font-size: 12px; line-height: 1;
+  .ovg-view { flex: none; align-self: center; font: inherit; font-size: 13px; line-height: 1;
     cursor: pointer; background: none; border: 1px solid var(--line); border-radius: 4px;
     padding: 2px 7px; color: var(--muted); opacity: 0; transition: opacity var(--t); }
   .ovg-file:hover .ovg-view, .ovg-view:focus-visible { opacity: 1; }
@@ -380,7 +380,7 @@
   .group-hint { color: var(--muted); font-size: 13px; margin-left: auto; font-variant-numeric: tabular-nums; }
   /* per-group "mark all read" — a quiet ✓ that fills in when the whole group is read */
   .gseen-btn { flex: none; width: 24px; height: 24px; border-radius: 4px; border: 1px solid var(--line);
-    background: none; color: var(--muted); font-size: 12px; line-height: 1; cursor: pointer; opacity: 0;
+    background: none; color: var(--muted); font-size: 13px; line-height: 1; cursor: pointer; opacity: 0;
     transition: opacity var(--t), border-color var(--t), color var(--t), background var(--t); }
   .group:hover .gseen-btn, .gseen-btn.on, .gseen-btn:focus-visible { opacity: 1; }
   .gseen-btn:hover { border-color: var(--accent); color: var(--accent); }
@@ -414,12 +414,12 @@
   .a { color: var(--add); } .d { color: var(--del); }
   .node-meta { display: flex; align-items: center; gap: 8px; }
   .svc { font-family: var(--mono); font-size: 13px; font-weight: 500;  color: var(--muted); border: 1px solid var(--line); border-radius: 3px; padding: 0 7px; }
-  .node .frole { font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  .node .frole { font-size: 13px; color: var(--muted); }
   /* cross-group links as chips on the node — click jumps to the linked file */
   .node-links { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px; }
   .nlink { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; font-family: var(--mono);
-    font-size: 11px; color: var(--muted); background: var(--surface-2); border: 1px solid var(--line);
-    border-radius: 999px; padding: 1px 8px 1px 6px; cursor: pointer; white-space: nowrap; overflow: hidden;
+    font-size: 13px; color: var(--muted); background: var(--surface-2); border: 1px solid var(--line);
+    border-radius: 5px; padding: 1px 8px 1px 6px; cursor: pointer; white-space: nowrap; overflow: hidden;
     text-overflow: ellipsis; transition: border-color var(--t), color var(--t); }
   .nlink:hover { border-color: var(--sc); color: var(--ink-2); }
   .nlink .dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--sc); }

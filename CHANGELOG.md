@@ -4,6 +4,15 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.11.2] — 2026-08-09
+
+### Fixed
+- **Viewer honors the design system again.** The 0.11.0 big-map work slipped in
+  three violations the design test catches: border-radius above 5px (the Overview
+  edge tab and the cross-group link chips), type below the 13px floor (chips,
+  buttons, the role label), and an ALL-CAPS role label. Radii pulled to ≤5px, all
+  type raised to ≥13px, and the role tag is a plain muted label again.
+
 ## [0.11.1] — 2026-08-09
 
 ### Changed
