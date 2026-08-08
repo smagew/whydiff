@@ -67,3 +67,8 @@ ls ~/.claude/plugins/cache/whydiff/whydiff/   # a fresh X.Y.Z/ dir appears
 It runs in `make check`, in the `.githooks/pre-push` hook (`make hooks` to
 install; `git push --no-verify` to bypass in a pinch), and as the required CI
 check on PRs into `main`.
+
+Alongside it, the `test` CI workflow runs `npm test` (unit + design-system +
+smoke + serve, via Playwright) on every PR into `main`. Make it a required check
+too — the 0.11.0 design-system regressions merged only because these tests were
+never a gate. Run them locally before pushing with `make check`.
