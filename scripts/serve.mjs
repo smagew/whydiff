@@ -39,6 +39,10 @@ const repo = resolve(opt('--repo') || '.')
 const port = Number(opt('--port', '7777'))
 const claudeCmd = opt('--claude-cmd', 'claude')
 const timeoutMs = Number(opt('--timeout', '180000'))
+// A lazy section (user stories, standards, tests) runs a FULL analysis pass, not a
+// quick Q&A — it reads the whole diff and repo, so it gets a much longer budget than
+// an ask. Raise it with --gen-timeout on a large diff.
+const genTimeoutMs = Number(opt('--gen-timeout', '600000'))
 const workTimeoutMs = Number(opt('--work-timeout', '900000'))
 // Opt-in: without it this server only reads. With it, an agreed task can be worked
 // by an agent — in a throwaway git worktree, never in the tree under review, and
@@ -661,7 +665,7 @@ const generateSection = async (res, payload) => {
   inFlight++
   process.stdout.write(`  + generate ${section}\n`)
   try {
-    const reply = await run(buildSectionPrompt(section, lang), (ev) => { if (ev.kind === 'step') emit(ev) })
+    const reply = await run(buildSectionPrompt(section, lang), (ev) => { if (ev.kind === 'step') emit(ev) }, { timeout: genTimeoutMs })
     const { raw } = tailJSON(reply)
     if (!raw || typeof raw !== 'object') throw new Error('the pass returned no JSON block')
     const { keys } = SECTIONS[section]
@@ -676,8 +680,11 @@ const generateSection = async (res, payload) => {
     process.stdout.write(`  ✓ generated ${section} (${Object.keys(patch).join(', ')})\n`)
     emit({ kind: 'done', section })
   } catch (e) {
+    const msg = /timed out/.test(e.message)
+      ? `${e.message} — this pass reads the whole diff; restart the server with --gen-timeout <ms> to allow more time`
+      : e.message
     process.stdout.write(`  ✗ generate ${section}: ${e.message}\n`)
-    emit({ kind: 'error', error: e.message })
+    emit({ kind: 'error', error: msg })
   } finally { inFlight--; res.end() }
 }
 

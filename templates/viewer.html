@@ -227,6 +227,21 @@
   /* .layout sets align-items:start, which would size this column to its content
      and leave a sticky child no room to travel — the panel would scroll away. */
   .rightcol { align-self: stretch; min-width: 0; }
+  /* collapse the right column back into the reading width; a slim tab brings it back */
+  .layout.aside-collapsed { grid-template-columns: minmax(0, 1fr); }
+  .layout.aside-collapsed > .rightcol { display: none !important; }
+  .aside-toggle { position: sticky; top: 20px; z-index: 6; display: block; width: fit-content;
+    margin: 0 0 0 auto; font: inherit; font-size: 13px; line-height: 1; cursor: pointer;
+    background: var(--surface-2); border: 1px solid var(--line); border-radius: 4px;
+    padding: 3px 7px; color: var(--muted); }
+  .aside-toggle:hover { border-color: var(--accent); color: var(--accent); }
+  .rightcol > #inspector { margin-top: -28px; }
+  .aside-reopen { position: fixed; right: 0; top: 42vh; z-index: 20; writing-mode: vertical-rl;
+    font: inherit; font-size: 12px; letter-spacing: .04em; cursor: pointer; color: var(--muted);
+    background: var(--surface); border: 1px solid var(--line-strong); border-right: none;
+    border-radius: 6px 0 0 6px; padding: 12px 6px; }
+  .aside-reopen:hover { color: var(--accent); border-color: var(--accent); }
+  .aside-reopen[hidden] { display: none; }
 
   .main-panel { background: var(--surface); border: 1px solid var(--line); border-radius: 3px; padding: 18px; position: relative; }
   .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 16px; }
@@ -247,11 +262,22 @@
   /* overview: one section per group — tag, name, note box, then its files as rows */
   .ovg { margin: 0 0 16px; }
   .ovg + .ovg { border-top: 1px solid var(--line); padding-top: 14px; }
-  .ovg-name { font-weight: 500; font-size: 15px; margin: 0 0 8px; }
+  .ovg-name { display: block; width: 100%; text-align: left; background: none; border: none;
+    padding: 2px 4px; margin: 0 -4px 8px; border-radius: 3px; font: inherit; font-weight: 500;
+    font-size: 15px; color: inherit; cursor: pointer; }
+  .ovg-name:hover { background: var(--surface-2); color: var(--accent); }
+  .ovg-name:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .ovg-files { list-style: none; margin: 8px 0 0; padding: 0; }
-  .ovg-file { display: flex; align-items: baseline; gap: 8px; width: 100%; background: none; border: none; padding: 3px 4px; margin: 0 -4px; border-radius: 3px; cursor: pointer; font: inherit; color: inherit; text-align: left; }
-  .ovg-file:hover { background: var(--surface-2); }
-  .ovg-file:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .ovg-file { display: flex; align-items: baseline; gap: 4px; margin: 0 -4px; }
+  .ovg-fpath { display: flex; align-items: baseline; gap: 8px; flex: 1; min-width: 0; background: none; border: none; padding: 3px 4px; border-radius: 3px; cursor: pointer; font: inherit; color: inherit; text-align: left; }
+  .ovg-fpath:hover { background: var(--surface-2); }
+  .ovg-fpath:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .ovg-view { flex: none; align-self: center; font: inherit; font-size: 12px; line-height: 1;
+    cursor: pointer; background: none; border: 1px solid var(--line); border-radius: 4px;
+    padding: 2px 7px; color: var(--muted); opacity: 0; transition: opacity var(--t); }
+  .ovg-file:hover .ovg-view, .ovg-view:focus-visible { opacity: 1; }
+  .ovg-view:hover { border-color: var(--accent); color: var(--accent); }
+  .ovg-view:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .ovg-ext { flex: none; min-width: 3.5ch; font-family: var(--mono); font-size: 13px; color: var(--muted); }
   .ovg-path { flex: 1; min-width: 0; font-family: var(--mono); font-size: 13px; overflow-wrap: anywhere; }
   .ovg-stat { flex: none; font-family: var(--mono); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -332,6 +358,11 @@
   .groups { display: flex; flex-direction: column; gap: 20px; position: relative; z-index: 1; }
   .group { border: 1.5px solid var(--gc, var(--line)); border-radius: 3px; background: color-mix(in srgb, var(--gbg, var(--surface-2)) 55%, var(--surface)); padding: 12px 14px 14px; }
   .group.collapsed { padding-bottom: 12px; }
+  /* brief ring when the overview jumps the reading column to this group */
+  .group.flash, .node.flash { animation: groupflash 1.2s ease-out; }
+  @keyframes groupflash {
+    0% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--gc) 60%, transparent); }
+    100% { box-shadow: 0 0 0 3px transparent; } }
   .group.collapsed .nodes { display: none; }
   .group-row { display: flex; align-items: center; gap: 6px; margin: 0 0 10px; }
   .group.collapsed .group-row { margin-bottom: 0; }
@@ -668,6 +699,11 @@
   .brow .bpath { font-family: var(--mono); font-size: 13px; font-weight: 500; overflow-wrap: anywhere; }
   .brow .bwhy { margin-top: 3px; color: var(--muted); }
   .section-note { background: var(--surface-2); border-left: 3px solid var(--accent); border-radius: 0 8px 8px 0; padding: 10px 14px; margin: 0 0 14px; font-size: 13.5px; }
+  /* overview note collapses to a single line; the toggle appears only when it clips */
+  .ovg-note.clamped { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+  .ovg-note-more { display: none; margin: -10px 0 14px; font: inherit; font-size: 13px; cursor: pointer;
+    background: none; border: none; padding: 0; color: var(--accent); }
+  .ovg-note-more.show { display: block; }
   #blastTitle { font-size: 15px; margin: 18px 0 4px; }
 
   /* inspector */
@@ -693,6 +729,7 @@
   .cl.del { background: var(--del-bg); color: var(--del); text-decoration: line-through; text-decoration-thickness: 1px; }
   .cl.ctx { color: var(--muted); }
   .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .actions-top { margin: 0 0 12px; }
   .btn { font: inherit; font-size: 13px; font-weight: 500; cursor: pointer; border-radius: 3px; padding: 7px 14px; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); transition: background var(--t), border-color var(--t); }
   .btn:hover { border-color: var(--accent); }
   .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
@@ -884,9 +921,11 @@
     </section>
 
     <div class="rightcol" id="rightcol">
+      <button type="button" class="aside-toggle" id="asideToggle">»</button>
       <aside class="inspector" id="inspector" aria-live="polite"></aside>
     </div>
   </div>
+  <button type="button" class="aside-reopen" id="asideReopen" hidden></button>
   </div>
 </div>
 
@@ -978,8 +1017,12 @@ const I18N = {
     groupHint: (n) => `${n} file${n === 1 ? '' : 's'}`,
     manifestSummary: (n) => `All diff files: ${n} of ${n} on the map`,
     newMark: '· new',
-    relsTitle: 'Links', back: '← overview', openFull: 'Open full file', fragment: 'fragment', close: 'Close',
+    relsTitle: 'Links', back: 'Back', openFull: 'Open full file', fragment: 'fragment', close: 'Close',
     edgeMore: 'more', edgeLess: 'less',
+    asideHide: 'Collapse panel — free up reading width', asideShow: 'Overview',
+    jumpToGroup: 'Jump to this group on the Files tab',
+    jumpToFile: 'Jump to this file on the Files tab',
+    viewChange: 'view', viewChangeTitle: 'Show the change with its explanation',
     fold: (name) => `Collapse/expand: ${name}`,
     overviewTag: 'Overview', overviewTitle: 'How to read this map',
     overviewBody: 'The <b>Logic</b> tab reads top to bottom: each block exists <i>because of</i> the previous one. Click any file on any tab — details and code appear in the inspector. Groups are reviewer roles:',
@@ -1104,8 +1147,12 @@ const I18N = {
     groupHint: (n) => `${n} ф.`,
     manifestSummary: (n) => `Все файлы диффа: ${n} из ${n} на карте`,
     newMark: '· новый',
-    relsTitle: 'Связи', back: '← к обзору', openFull: 'Открыть файл целиком', fragment: 'фрагмент', close: 'Закрыть',
+    relsTitle: 'Связи', back: 'Назад', openFull: 'Открыть файл целиком', fragment: 'фрагмент', close: 'Закрыть',
     edgeMore: 'подробнее', edgeLess: 'свернуть',
+    asideHide: 'Свернуть панель — освободить место для чтения', asideShow: 'Обзор',
+    jumpToGroup: 'Перейти к этой группе на вкладке «Файлы»',
+    jumpToFile: 'Перейти к этому файлу на вкладке «Файлы»',
+    viewChange: 'разбор', viewChangeTitle: 'Показать изменение с описанием',
     fold: (name) => `Свернуть/развернуть: ${name}`,
     overviewTag: 'Обзор', overviewTitle: 'Как читать эту карту',
     overviewBody: 'Вкладка <b>«Логика»</b> читается сверху вниз: каждый блок существует <i>из-за</i> предыдущего. Клик по файлу в любой вкладке — детали и код в инспекторе. Группы — это роли:',
@@ -1684,6 +1731,14 @@ document.addEventListener('click', (e) => {
   const pop = m.closest('.elabel-pop'); const on = pop.classList.toggle('expanded')
   m.textContent = on ? L.edgeLess : L.edgeMore
 })
+// The overview note toggle expands/collapses its single-line callout.
+document.addEventListener('click', (e) => {
+  const m = e.target.closest('.ovg-note-more')
+  if (!m) return
+  const note = m.previousElementSibling
+  const collapsed = note.classList.toggle('clamped')
+  m.textContent = collapsed ? L.edgeMore : L.edgeLess
+})
 const allEdges = document.getElementById('allEdges')
 const syncAllEdges = () => {
   svg.classList.toggle('all', allEdges.checked)
@@ -1731,6 +1786,7 @@ function showFile(path) {
   setActive(path)
   const hasFull = !!RM.fullFiles?.[path]
   inspector.innerHTML = `
+    <div class="actions actions-top"><button class="btn btn-back">${L.back}</button></div>
     <p class="insp-tag" style="color:${gcolor(g?.id)}">${esc(g?.tag || '')}</p>
     <h3>${esc(path)}</h3>
     <div class="why">${prose(f.why)}</div>
@@ -1738,10 +1794,10 @@ function showFile(path) {
     ${relsHTML(path)}
     <div class="actions">
       ${hasFull ? `<button class="btn primary" id="openFull">${L.openFull}</button>` : ''}
-      <button class="btn" id="backBtn">${L.back}</button>
+      <button class="btn btn-back">${L.back}</button>
     </div>`
   if (hasFull) document.getElementById('openFull').addEventListener('click', () => openFull(path))
-  document.getElementById('backBtn').addEventListener('click', showOverview)
+  inspector.querySelectorAll('.btn-back').forEach(b => b.addEventListener('click', showOverview))
 }
 function showGroup(g) {
   revealAside()
@@ -1763,13 +1819,13 @@ const legendHTML = () => `<ul class="glegend">${RM.groups.map(g => `
 const overviewGroupsHTML = () => RM.groups.map(g => `
   <section class="ovg">
     <p class="insp-tag" style="color:${gcolor(g.id)}">${esc(g.tag || g.role)}</p>
-    <h4 class="ovg-name">${esc(g.name)}</h4>
-    ${g.why ? `<div class="section-note">${prose(g.why)}</div>` : ''}
+    <button type="button" class="ovg-name" data-gogroup="${esc(g.id)}" title="${esc(L.jumpToGroup)}">${esc(g.name)}</button>
+    ${g.why ? `<div class="section-note ovg-note clamped">${prose(g.why)}</div><button type="button" class="ovg-note-more">${esc(L.edgeMore)}</button>` : ''}
     <ul class="ovg-files">${g.files.map(p => {
       const f = RM.files[p]
       if (!f) return ''
       const ext = langOf(p)
-      return `<li><button class="ovg-file" data-goto="${esc(p)}"><span class="ovg-ext">${ext ? esc(ext) : ''}</span><span class="ovg-path">${esc(p)}</span><span class="ovg-stat"><span class="a">+${f.add}</span> <span class="d">−${f.del}</span></span></button></li>`
+      return `<li class="ovg-file"><button class="ovg-fpath" data-gofile="${esc(p)}" title="${esc(L.jumpToFile)}"><span class="ovg-ext">${ext ? esc(ext) : ''}</span><span class="ovg-path">${esc(p)}</span><span class="ovg-stat"><span class="a">+${f.add}</span> <span class="d">−${f.del}</span></span></button><button class="ovg-view" data-goto="${esc(p)}" title="${esc(L.viewChangeTitle)}">${esc(L.viewChange)}</button></li>`
     }).join('')}</ul>
   </section>`).join('')
 function showOverview() {
@@ -1783,6 +1839,12 @@ function showOverview() {
     <h3 class="prose">${esc(RM.meta.title || RM.meta.project)}</h3>
     ${overviewGroupsHTML()}
     <p class="note">${L.completeness(RM.manifest.length)} · <button class="linklike" data-help>${L.helpLink}</button></p>`
+  // reveal the more/less toggle only where the one-line note actually clips
+  inspector.querySelectorAll('.ovg-note').forEach(note => {
+    const btn = note.nextElementSibling
+    if (!btn || !btn.classList.contains('ovg-note-more')) return
+    if (note.scrollHeight - note.clientHeight > 1) btn.classList.add('show')
+  })
 }
 function setActive(id) {
   activeId = id
@@ -1813,7 +1875,34 @@ function gotoFile(path) {
   if (gid) groupEls[gid]?.classList.remove('collapsed')
   showFile(path)
 }
+// Jump the reading column to a group block (overview title → its section on Files).
+function jumpToGroup(gid) {
+  const sec = groupEls[gid]
+  if (!sec) return
+  if (currentTab !== 'files') setTab('files')
+  sec.classList.remove('collapsed')
+  requestAnimationFrame(() => {
+    sec.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    sec.classList.remove('flash'); void sec.offsetWidth; sec.classList.add('flash')
+  })
+}
+// Scroll the reading column to a file's node block (overview path → its card on Files).
+function jumpToFile(path) {
+  const gid = fileGroup[path]
+  if (currentTab !== 'files') setTab('files')
+  if (gid) groupEls[gid]?.classList.remove('collapsed')
+  const el = nodeEls[path]
+  if (!el) return
+  requestAnimationFrame(() => {
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash')
+  })
+}
 document.addEventListener('click', (e) => {
+  const jg = e.target.closest('[data-gogroup]')
+  if (jg) return jumpToGroup(jg.dataset.gogroup)
+  const jf = e.target.closest('[data-gofile]')
+  if (jf) return jumpToFile(jf.dataset.gofile)
   const el = e.target.closest('[data-goto]')
   if (el) return gotoFile(el.dataset.goto)
   const gl = e.target.closest('[data-group]')
@@ -1859,6 +1948,27 @@ const SESSION = (() => {
   return { get: (k, d) => (st[k] === undefined ? d : st[k]), set: (k, v) => { st[k] = v; save() } }
 })()
 document.body.classList.add('can-read')
+
+// Collapse the right column to hand its width to the reading column. The toggle
+// lives in the panel; a slim edge tab brings it back once collapsed. State is
+// remembered per map, like focus mode.
+const asideToggle = document.getElementById('asideToggle')
+const asideReopen = document.getElementById('asideReopen')
+asideToggle.title = L.asideHide
+asideToggle.setAttribute('aria-label', L.asideHide)
+asideReopen.textContent = '« ' + L.asideShow
+const setAsideCollapsed = (on) => {
+  layoutEl.classList.toggle('aside-collapsed', on)
+  asideReopen.hidden = !on
+  SESSION.set('asideCollapsed', on)
+  // The Files-tab connectors are absolutely placed from node rects; collapsing the
+  // column reflows the nodes, so the edges must be redrawn or they point at where
+  // the nodes used to be — overlapping the panel on re-expand.
+  if (!document.getElementById('pane-files').hidden) requestAnimationFrame(drawEdges)
+}
+asideToggle.addEventListener('click', () => setAsideCollapsed(true))
+asideReopen.addEventListener('click', () => setAsideCollapsed(false))
+if (SESSION.get('asideCollapsed', false)) setAsideCollapsed(true)
 
 // Settings that change how the diff reads, never what it says.
 // One palette ships at a time; the others exist so the choice stays reviewable.

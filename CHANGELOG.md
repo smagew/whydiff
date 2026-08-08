@@ -4,6 +4,16 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.10.2] — 2026-08-08
+
+### Fixed
+- **Generating a lazy section no longer times out at 180s on a large diff.** The
+  Generate button (user stories, standards, tests) runs a FULL analysis pass — it
+  reads the whole diff and repo — but it was sharing the 180-second budget meant for
+  a quick ask, so on a big diff it failed with "timed out after 180s". Section
+  generation now has its own budget: `--gen-timeout`, default 600s. A timeout message
+  points at the flag so it can be raised further when a diff is very large.
+
 ## [0.10.1] — 2026-08-08
 
 Fewer permission prompts on a first run.
