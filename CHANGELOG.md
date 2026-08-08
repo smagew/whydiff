@@ -4,6 +4,29 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.10.1] — 2026-08-08
+
+Fewer permission prompts on a first run.
+
+### Added
+- **`gather.mjs` folds step 1 into one command.** The deterministic setup used to be
+  four commands the model chained with `&&`; the permission prompt could not
+  recognise the chain, so it asked. It is now a single bundled script — create
+  `.whydiff/`, write `manifest.json` and `diff.patch`, log the timing events, print a
+  per-file summary — and bundled scripts are auto-approved, so the run opens without
+  a prompt.
+
+### Changed
+- **The approve hook understands the shell the run actually uses.** It now parses a
+  command quote-aware, splits it on `&&`, `||`, `;` and `|`, and auto-approves when
+  every segment is one of the pipeline's own operations — the plugin's scripts,
+  read-only `git`/`gh`, or read-only text tools (`cat`, `sed`, `awk`, `head`, `tail`,
+  `wc`, `grep`, `diff`, …) reading the diff. A write redirect is allowed only into a
+  temp location (`.whydiff/`, a `scratchpad/`, `/tmp`), resolved against any `cd`.
+  Command substitution, a background `&`, `sed -i`, writes into source, and any
+  reference to a sensitive path still defer to the normal prompt. Covered by a new
+  `tests/approve.mjs`.
+
 ## [0.10.0] — 2026-08-07
 
 The overview panel becomes a per-group index, and the Files map stops fighting the
