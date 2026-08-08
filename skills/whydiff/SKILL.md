@@ -38,15 +38,18 @@ files stay out of the user's commits (do not edit `.gitignore` without a go-ahea
 ### 1. Deterministic data
 
 ```bash
-node ${CLAUDE_PLUGIN_ROOT}/scripts/timing.mjs log run_start --repo <repo> --meta ref="<spec or working-tree>"
-node ${CLAUDE_PLUGIN_ROOT}/scripts/manifest.mjs --repo <repo> [--ref <spec>] > <repo>/.whydiff/manifest.json
-git -C <repo> diff [<spec>] > <repo>/.whydiff/diff.patch
-node ${CLAUDE_PLUGIN_ROOT}/scripts/timing.mjs log deterministic_done --repo <repo>
+node ${CLAUDE_PLUGIN_ROOT}/scripts/gather.mjs --repo <repo> [--ref <spec>]
 ```
 
-Every pipeline run is timed via `timing.mjs` (events land in
-`.whydiff/timing.jsonl`). This is measurement ONLY — never skip or shorten an
-analysis step to make the numbers look better.
+One bundled command creates `.whydiff/`, writes `manifest.json` and `diff.patch`,
+logs the `run_start`/`deterministic_done` timing events, and prints a per-file
+summary. Run it as a SINGLE command (do not re-expand it into a shell chain) — the
+plugin's own scripts are auto-approved, so this step needs no permission prompt.
+
+Every pipeline run is timed (events land in `.whydiff/timing.jsonl`). This is
+measurement ONLY — never skip or shorten an analysis step to make the numbers look
+better. `timing.mjs log <event>` remains available for the later per-stage marks
+(`briefing_done`, and each pass), and `timing.mjs report` writes the summary.
 
 For working-tree mode also capture untracked file contents (they are absent from
 the patch): list them from the manifest (`isNew: true`) — agents will Read them
