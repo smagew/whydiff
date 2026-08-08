@@ -4,6 +4,13 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.11.3] — 2026-08-09
+
+### Fixed
+- **A long file explanation no longer stretches the inspector.** The drill-down
+  `why` block is capped (~3–4 sentences) and scrolls inside itself instead of
+  growing the whole panel.
+
 ## [0.11.2] — 2026-08-09
 
 ### Fixed
