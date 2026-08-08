@@ -60,10 +60,15 @@ run('git', ['commit', '-m', subject, '-m', 'Co-Authored-By: Claude Opus 4.8 <nor
 run('git', ['push', '-u', 'origin', branch])
 
 step('open PR')
-if (cap('gh', ['--version'])) {
+// whydiff is a personal (smagew) repo; never open a PR from the work account that
+// gh might be signed into. Only auto-create when gh is smagew.
+const ghUser = cap('gh', ['--version']) ? cap('gh', ['api', 'user', '--jq', '.login']) : null
+if (ghUser && /smagew/i.test(ghUser)) {
   run('gh', ['pr', 'create', '--base', 'main', '--head', branch, '--title', subject,
     '--body', `Release ${ver}. Merge (squash) to publish; the marketplace picks up the new version.`])
   console.log(`\n✓ release PR opened for ${ver}. Merge it, then: git tag v${ver} && git push origin v${ver}`)
 } else {
-  console.log(`\n✓ pushed ${branch}. gh not found — open the PR manually into main.`)
+  const why = ghUser ? `gh is signed in as "${ghUser}", not smagew` : 'gh not available'
+  console.log(`\n✓ pushed ${branch} (${why}). Open the PR into main manually:`)
+  console.log(`    https://github.com/smagew/whydiff/pull/new/${branch}`)
 }
