@@ -208,7 +208,10 @@
   .stat.hl { border-color: var(--accent); }
   .stat.hl b { color: var(--accent); }
 
-  .layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(340px, 440px); gap: 20px; align-items: start; }
+  .layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, var(--rc, 440px)); gap: 20px; align-items: start; }
+  /* a file drill-down carries more prose than the overview list, so the aside
+     opens at half the width there — unless the reader has dragged it themselves. */
+  .layout.wide { --rc: 50%; }
   @media (max-width: 960px) { .layout { grid-template-columns: 1fr; } }
   /* The right column is only written to from the Logic, Diagrams and Files tabs.
      It could collapse on the prose tabs to reclaim the width — but then the reading
@@ -226,7 +229,13 @@
   .layout.chatting > .rightcol > .inspector { display: none; }
   /* .layout sets align-items:start, which would size this column to its content
      and leave a sticky child no room to travel — the panel would scroll away. */
-  .rightcol { align-self: stretch; min-width: 0; }
+  .rightcol { align-self: stretch; min-width: 0; position: relative; }
+  /* drag the aside wider/narrower from its left edge; the pill floats at mid-height */
+  .rc-grip { position: absolute; top: 0; bottom: 0; left: -14px; width: 16px; z-index: 7; cursor: col-resize; }
+  .rc-grip-pill { position: sticky; top: calc(50vh - 22px); display: block; margin: 0 auto; width: 5px; height: 44px;
+    border-radius: 5px; background: var(--line-strong); transition: background var(--t); }
+  .rc-grip:hover .rc-grip-pill, .rc-grip.drag .rc-grip-pill { background: var(--accent); }
+  @media (max-width: 960px) { .rc-grip { display: none; } }
   /* collapse the right column back into the reading width; a slim tab brings it back */
   .layout.aside-collapsed { grid-template-columns: minmax(0, 1fr); }
   .layout.aside-collapsed > .rightcol { display: none !important; }
@@ -949,6 +958,7 @@
     </section>
 
     <div class="rightcol" id="rightcol">
+      <div class="rc-grip" id="rcGrip" title="Drag to resize"><span class="rc-grip-pill"></span></div>
       <button type="button" class="aside-toggle" id="asideToggle">»</button>
       <aside class="inspector" id="inspector" aria-live="polite"></aside>
     </div>
@@ -1896,11 +1906,18 @@ function relsHTML(path) {
   }
   return `<p class="rels-title">${L.relsTitle}</p><ul class="rels">${out.map(e => row(e, 'out')).join('')}${inc.map(e => row(e, 'in')).join('')}</ul>`
 }
+// A file drill-down opens the aside at half width (unless the reader sized it);
+// the overview list is narrow enough to keep its default width.
+function setAsideWide(on) {
+  if (SESSION.get('asideW', null) === null) layoutEl.classList.toggle('wide', on)
+  if (!document.getElementById('pane-files').hidden) requestAnimationFrame(drawEdges)
+}
 function showFile(path) {
   const f = RM.files[path]
   if (!f) return
   const g = RM.groups.find(g => g.id === fileGroup[path])
   revealAside()
+  setAsideWide(true)
   setActive(path)
   const hasFull = !!RM.fullFiles?.[path]
   inspector.innerHTML = `
@@ -1948,6 +1965,7 @@ const overviewGroupsHTML = () => RM.groups.map(g => `
   </section>`).join('')
 function showOverview() {
   setActive(null)
+  setAsideWide(false)
   // On a prose tab the idle legend is exactly what the panel was collapsed to
   // avoid, so "back" there gives the width back instead of rendering it. No new
   // affordance needed: the next file click reopens the panel.
@@ -2093,6 +2111,37 @@ const setAsideCollapsed = (on) => {
 asideToggle.addEventListener('click', () => setAsideCollapsed(true))
 asideReopen.addEventListener('click', () => setAsideCollapsed(false))
 if (SESSION.get('asideCollapsed', false)) setAsideCollapsed(true)
+
+// Drag the aside's left edge to resize it. A remembered width wins over the
+// per-view default (.wide), so once you size it, it stays that width everywhere.
+const rcGrip = document.getElementById('rcGrip')
+if (SESSION.get('asideW', null) !== null) layoutEl.style.setProperty('--rc', SESSION.get('asideW') + 'px')
+rcGrip.addEventListener('pointerdown', (e) => {
+  e.preventDefault()
+  rcGrip.classList.add('drag')
+  rcGrip.setPointerCapture(e.pointerId)
+  const rect = layoutEl.getBoundingClientRect()
+  const min = 320, max = Math.max(min, Math.round(rect.width - 380))
+  let raf = false
+  const onMove = (ev) => {
+    const w = Math.min(max, Math.max(min, Math.round(rect.right - ev.clientX)))
+    layoutEl.classList.remove('wide')       // an explicit drag overrides the default
+    layoutEl.style.setProperty('--rc', w + 'px')
+    if (!raf && !document.getElementById('pane-files').hidden) {
+      raf = true; requestAnimationFrame(() => { raf = false; drawEdges() })
+    }
+  }
+  const onUp = () => {
+    rcGrip.classList.remove('drag')
+    rcGrip.removeEventListener('pointermove', onMove)
+    rcGrip.removeEventListener('pointerup', onUp)
+    const w = parseInt(layoutEl.style.getPropertyValue('--rc'), 10)
+    if (w) SESSION.set('asideW', w)
+    if (!document.getElementById('pane-files').hidden) requestAnimationFrame(drawEdges)
+  }
+  rcGrip.addEventListener('pointermove', onMove)
+  rcGrip.addEventListener('pointerup', onUp)
+})
 
 // Settings that change how the diff reads, never what it says.
 // One palette ships at a time; the others exist so the choice stays reviewable.
