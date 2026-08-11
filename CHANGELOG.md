@@ -7,13 +7,14 @@ to receive an update.
 ## [0.15.0] — 2026-08-11
 
 ### Added
-- **A file-type icon on every Code-map card.** Each node now leads with a small
-  monochrome glyph for its category — code (`</>`), database (a cylinder), styles,
-  config, docs, shell, locale — so a migration, a config file or a doc is spotted
-  at a glance among the code. Static (extension → category → glyph, no model cost)
-  and within the design system (a per-language colour would need a third accent);
-  the exact language stays in the filename. Replaces a broken language dot that
-  rendered nothing.
+- **A per-language file icon next to every file, everywhere it is listed.** Real
+  language logos (php, js, ts, python, ruby, go, java, css, html, vue, docker …
+  from devicon, MIT — brand colours stripped so they inherit the palette and stay
+  monochrome, within the design system), with a monochrome category glyph
+  (database, config, docs, shell, locale, template, file) where no logo exists.
+  Shown on the Code-map cards, the Overview and Call-graph rows, the manifest, the
+  drill-down Links, and the story/cross-link chips. Static (extension → icon, no
+  model cost). Replaces a broken language dot that rendered nothing.
 
 ## [0.14.2] — 2026-08-11
 
