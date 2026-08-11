@@ -1627,10 +1627,10 @@ async function generate(section, btn) {
         let ev; try { ev = JSON.parse(ln) } catch { continue }
         if (ev.kind === 'step' && stepsEl) stepsEl.textContent = ev.text
         else if (ev.kind === 'error') throw new Error(ev.error)
-        else if (ev.kind === 'done') return location.reload()
+        else if (ev.kind === 'done') { SESSION.set('flashTab', section); return location.reload() }
       }
     }
-    location.reload()
+    SESSION.set('flashTab', section); location.reload()
   } catch (e) {
     btn.disabled = false; btn.textContent = L.generate
     if (stepsEl) stepsEl.hidden = true
@@ -2429,8 +2429,11 @@ setTab(defaultTab)
 
 // Restore the reader's position, then keep it current.
 if (SESSION.get('focus', false)) document.body.classList.add('focus')
-const savedTab = SESSION.get('tab', null)
-if (savedTab && TAB_KEYS.includes(savedTab)) setTab(savedTab)
+// A normal load opens on the default tab (Diagrams). We do NOT restore the last
+// tab visited — only a one-shot `flashTab` that generate() sets before its reload,
+// so clicking Generate returns you to that tab with its new content.
+const flashTab = SESSION.get('flashTab', null)
+if (flashTab) { SESSION.set('flashTab', null); if (TAB_KEYS.includes(flashTab)) setTab(flashTab) }
 const savedScroll = SESSION.get('scroll', 0)
 if (savedScroll) requestAnimationFrame(() => scrollTo(0, savedScroll))
 let scrollSaveRaf = 0
@@ -2439,7 +2442,7 @@ addEventListener('scroll', () => {
   scrollSaveRaf = requestAnimationFrame(() => SESSION.set('scroll', Math.round(scrollY)))
 }, { passive: true })
 const setTabPlain = setTab
-setTab = function (id) { setTabPlain(id); SESSION.set('tab', id); cursor = -1 }
+setTab = function (id) { setTabPlain(id); cursor = -1 }
 
 addEventListener('resize', () => { if (!document.getElementById('pane-files').hidden) drawEdges() })
 
