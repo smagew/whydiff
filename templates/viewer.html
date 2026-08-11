@@ -204,8 +204,8 @@
   .lang-chip { display: inline-flex; align-items: center; gap: 5px; font-family: var(--mono); font-size: 13px; color: var(--ink-3); border: none; padding: 1px 2px; }
   /* file-type badge: a short monospace type label (php/js/sql/po/tpl), a bare tag
      the design system allows (no box), fixed-width so filenames align in a gutter */
-  .ftype { flex: none; min-width: 4ch; margin-right: 7px; font-family: var(--mono); font-size: 13px;
-    font-weight: 500; color: var(--ink-3); letter-spacing: .01em; }
+  .ficon { flex: none; width: 15px; height: 15px; margin-right: 8px; color: var(--ink-3);
+    position: relative; top: 1px; }
   .node.dim { opacity: .3; }
   .stat { background: var(--surface); border: 1px solid var(--line); border-radius: 3px; padding: 10px 16px; min-width: 118px; }
   .stat b { display: block; font-size: 20px; font-weight: 500; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
@@ -1381,6 +1381,39 @@ function langOf(path) {
   const ext = base.includes('.') ? base.split('.').pop() : ''
   return LANG_LABELS[ext] || (ext ? ext.slice(0, 8) : null)
 }
+// File-type icons: monochrome glyphs by CATEGORY (a per-language logo would need
+// colour, which the design system forbids). Static — extension → category → glyph,
+// no model cost. They give the quick "code vs config vs db vs doc" read; the exact
+// language is in the filename's extension.
+const EXT_CAT = {
+  js: 'code', jsx: 'code', mjs: 'code', cjs: 'code', ts: 'code', tsx: 'code', php: 'code',
+  py: 'code', rb: 'code', go: 'code', rs: 'code', java: 'code', kt: 'code', swift: 'code',
+  cs: 'code', cpp: 'code', c: 'code', h: 'code', vue: 'code', svelte: 'code', html: 'code',
+  htm: 'code', tpl: 'code', twig: 'code', xml: 'code',
+  sql: 'db', prisma: 'db',
+  css: 'style', scss: 'style', sass: 'style', less: 'style',
+  json: 'config', yml: 'config', yaml: 'config', toml: 'config', ini: 'config', env: 'config', conf: 'config', tf: 'config',
+  md: 'doc', markdown: 'doc', txt: 'doc', rst: 'doc', adoc: 'doc',
+  sh: 'shell', bash: 'shell', zsh: 'shell', fish: 'shell',
+  po: 'locale', mo: 'locale', pot: 'locale',
+}
+const FILE_ICONS = {
+  code:   '<path d="M6 4.5 2.5 8 6 11.5"/><path d="M10 4.5 13.5 8 10 11.5"/>',
+  db:     '<path d="M8 2.3c2.7 0 4.7.8 4.7 1.9S10.7 6 8 6 3.3 5.2 3.3 4.2 5.3 2.3 8 2.3Z"/><path d="M3.3 4.2v7.6c0 1.1 2 1.9 4.7 1.9s4.7-.8 4.7-1.9V4.2"/><path d="M3.3 8c0 1.1 2 1.9 4.7 1.9S12.7 9.1 12.7 8"/>',
+  style:  '<path d="M8 2.4S3.9 6.7 3.9 10a4.1 4.1 0 0 0 8.2 0c0-3.3-4.1-7.6-4.1-7.6Z"/>',
+  config: '<path d="M6.2 3.2c-1.3 0-1.7.7-1.7 1.9v1.1c0 .8-.5 1.5-1.4 1.7.9.2 1.4.9 1.4 1.7v1.1c0 1.2.4 1.9 1.7 1.9"/><path d="M9.8 3.2c1.3 0 1.7.7 1.7 1.9v1.1c0 .8.5 1.5 1.4 1.7-.9.2-1.4.9-1.4 1.7v1.1c0 1.2-.4 1.9-1.7 1.9"/>',
+  doc:    '<path d="M4.4 2.3h4.5l2.7 2.7v8.7H4.4Z"/><path d="M8.9 2.3v2.7h2.7"/><path d="M6.3 8.3h3.4M6.3 10.5h3.4"/>',
+  shell:  '<rect x="2.4" y="3.4" width="11.2" height="9.2" rx="1.4"/><path d="M4.9 6.4 6.9 8.3 4.9 10.2"/><path d="M8.4 10.3h2.7"/>',
+  locale: '<circle cx="8" cy="8" r="5.3"/><path d="M2.7 8h10.6"/><path d="M8 2.7c1.6 1.9 1.6 8.7 0 10.6M8 2.7c-1.6 1.9-1.6 8.7 0 10.6"/>',
+  file:   '<path d="M4.4 2.3h4.5l2.7 2.7v8.7H4.4Z"/><path d="M8.9 2.3v2.7h2.7"/>',
+}
+function fileIconSVG(path) {
+  const base = path.split('/').pop().toLowerCase()
+  let cat
+  if (base === 'dockerfile' || base === 'makefile' || base.startsWith('.env')) cat = 'config'
+  else cat = EXT_CAT[base.includes('.') ? base.split('.').pop() : ''] || 'file'
+  return `<svg class="ficon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${FILE_ICONS[cat]}</svg>`
+}
 let scopeFilter = null
 {
   const services = new Map(), langs = new Map()
@@ -1802,7 +1835,7 @@ for (const g of RM.groups) {
     const links = crossLinks[path]
     const linksHTML = links?.length ? `<span class="node-links">${links.map(l =>
       `<span class="nlink" data-gofile="${esc(l.other)}" style="--sc:${gcolor(fileGroup[l.other])}" title="${esc((l.dir === '→' ? 'to ' : 'from ') + l.other + (l.title ? ' — ' + l.title : ''))}"><span class="dot"></span>${l.dir} ${esc(baseName(l.other))}</span>`).join('')}</span>` : ''
-    el.innerHTML = `<span class="node-top">${lang ? `<span class="ftype">${esc(lang)}</span>` : ''}<span class="fname">${fnameHTML(path)}</span>
+    el.innerHTML = `<span class="node-top">${fileIconSVG(path)}<span class="fname">${fnameHTML(path)}</span>
       <span class="fstat"><span class="a">+${f.add}</span> <span class="d">−${f.del}</span></span></span>
       <span class="node-meta">${f.service ? `<span class="svc">${esc(f.service)}</span>` : ''}<span class="frole">${esc(f.role || '')}</span></span>
       ${previewHTML(f)}${linksHTML}`
