@@ -290,6 +290,29 @@
   .ovg-file:hover .ovg-view, .ovg-view:focus-visible { opacity: 1; }
   .ovg-view:hover { border-color: var(--accent); color: var(--accent); }
   .ovg-view:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  /* aside sub-tabs: Overview | Call graph */
+  .aside-subtabs { display: flex; gap: 4px; margin: 0 0 14px; }
+  .aside-subtab { font: inherit; font-family: var(--mono); font-size: 13px; cursor: pointer; padding: 4px 10px;
+    border-radius: 5px; border: 1px solid var(--line); background: var(--surface-2); color: var(--muted); }
+  .aside-subtab:hover { border-color: var(--accent); }
+  .aside-subtab.on { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
+  .aside-subtab:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  /* call graph: a dependency tree of the map's edges, guide chars kept monospace */
+  .callgraph { font-family: var(--mono); font-size: 13px; }
+  .cg-row { display: flex; align-items: baseline; gap: 2px; border-radius: 3px; }
+  .cg-row:hover { background: var(--surface-2); }
+  .cg-guide { white-space: pre; color: var(--muted); flex: none; }
+  .cg-node { display: inline-flex; align-items: baseline; gap: 6px; min-width: 0; font: inherit; cursor: pointer;
+    background: none; border: none; padding: 1px 3px; color: inherit; text-align: left; overflow-wrap: anywhere; }
+  .cg-node:hover { color: var(--accent); }
+  .cg-node:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .cg-dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--sc, var(--muted)); align-self: center; }
+  .cg-rep { color: var(--muted); }
+  .cg-view { flex: none; margin-left: auto; align-self: center; font: inherit; font-size: 13px; cursor: pointer;
+    background: none; border: 1px solid var(--line); border-radius: 5px; padding: 0 7px; color: var(--muted); opacity: 0;
+    transition: opacity var(--t); }
+  .cg-row:hover .cg-view, .cg-view:focus-visible { opacity: 1; }
+  .cg-view:hover { border-color: var(--accent); color: var(--accent); }
   .ovg-ext { flex: none; min-width: 3.5ch; font-family: var(--mono); font-size: 13px; color: var(--muted); }
   .ovg-path { flex: 1; min-width: 0; font-family: var(--mono); font-size: 13px; overflow-wrap: anywhere; }
   .ovg-stat { flex: none; font-family: var(--mono); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -1063,8 +1086,9 @@ const I18N = {
     edgeMore: 'more', edgeLess: 'less',
     asideHide: 'Collapse panel — free up reading width', asideShow: 'Overview',
     jumpToGroup: 'Jump to this group on the Files tab',
-    jumpToFile: 'Jump to this file on the Files tab',
+    jumpToFile: 'Jump to this file on the Code map',
     viewChange: 'view', viewChangeTitle: 'Show the change with its explanation',
+    callGraphTab: 'Call graph', callGraphEmpty: 'This change has no tracked connections between files.',
     fold: (name) => `Collapse/expand: ${name}`,
     overviewTag: 'Overview', overviewTitle: 'How to read this map',
     overviewBody: 'The <b>Logic</b> tab reads top to bottom: each block exists <i>because of</i> the previous one. Click any file on any tab — details and code appear in the inspector. Groups are reviewer roles:',
@@ -1197,8 +1221,9 @@ const I18N = {
     edgeMore: 'подробнее', edgeLess: 'свернуть',
     asideHide: 'Свернуть панель — освободить место для чтения', asideShow: 'Обзор',
     jumpToGroup: 'Перейти к этой группе на вкладке «Файлы»',
-    jumpToFile: 'Перейти к этому файлу на вкладке «Файлы»',
+    jumpToFile: 'Перейти к этому файлу на «Карте кода»',
     viewChange: 'разбор', viewChangeTitle: 'Показать изменение с описанием',
+    callGraphTab: 'Граф вызовов', callGraphEmpty: 'В этом изменении нет отслеженных связей между файлами.',
     fold: (name) => `Свернуть/развернуть: ${name}`,
     overviewTag: 'Обзор', overviewTitle: 'Как читать эту карту',
     overviewBody: 'Вкладка <b>«Логика»</b> читается сверху вниз: каждый блок существует <i>из-за</i> предыдущего. Клик по файлу в любой вкладке — детали и код в инспекторе. Группы — это роли:',
@@ -1979,6 +2004,42 @@ const overviewGroupsHTML = () => RM.groups.map(g => `
       return `<li class="ovg-file"><button class="ovg-fpath" data-gofile="${esc(p)}" title="${esc(L.jumpToFile)}"><span class="ovg-ext">${ext ? esc(ext) : ''}</span><span class="ovg-path">${esc(p)}</span><span class="ovg-stat"><span class="a">+${f.add}</span> <span class="d">−${f.del}</span></span></button><button class="ovg-view" data-goto="${esc(p)}" title="${esc(L.viewChangeTitle)}">${esc(L.viewChange)}</button></li>`
     }).join('')}</ul>
   </section>`).join('')
+
+// The aside index has two views: the per-group Overview, and a Call graph — the
+// map's file connections (edges) laid out as a dependency tree. A node jumps the
+// reading column to its Code-map block; its `view` opens the drill-down.
+let asideIndexView = 'overview'
+function callGraphHTML() {
+  const edges = RM.edges || []
+  if (!edges.length) return `<p class="note">${esc(L.callGraphEmpty)}</p>`
+  const kids = {}, indeg = {}, nodes = new Set()
+  for (const [f, t] of edges) {
+    ;(kids[f] ||= []).push(t)
+    indeg[t] = (indeg[t] || 0) + 1
+    indeg[f] = indeg[f] || 0
+    nodes.add(f); nodes.add(t)
+  }
+  let roots = [...nodes].filter(n => !indeg[n])
+  if (!roots.length) roots = [...nodes].slice(0, 1) // all cyclic: start anywhere
+  const seen = new Set(), rows = []
+  const walk = (node, prefix, isLast, isRoot) => {
+    const guide = isRoot ? '' : prefix + (isLast ? '└── ' : '├── ')
+    const repeat = seen.has(node)
+    seen.add(node)
+    rows.push({ node, guide, repeat })
+    if (repeat) return // a node reached twice is shown once expanded, then folded
+    const cs = kids[node] || []
+    const cp = isRoot ? '' : prefix + (isLast ? '    ' : '│   ')
+    cs.forEach((c, i) => walk(c, cp, i === cs.length - 1, false))
+  }
+  roots.forEach((r, i) => walk(r, '', i === roots.length - 1, true))
+  return `<div class="callgraph">${rows.map(r => {
+    const view = r.repeat ? '' : `<button class="cg-view" data-goto="${esc(r.node)}" title="${esc(L.viewChangeTitle)}">${esc(L.viewChange)}</button>`
+    return `<div class="cg-row"><span class="cg-guide">${esc(r.guide)}</span>` +
+      `<button class="cg-node" data-gofile="${esc(r.node)}" style="--sc:${gcolor(fileGroup[r.node])}" title="${esc(L.jumpToFile)}">` +
+      `<span class="cg-dot"></span>${esc(shortName(r.node))}${r.repeat ? ' <span class="cg-rep">↩</span>' : ''}</button>${view}</div>`
+  }).join('')}</div>`
+}
 function showOverview() {
   setActive(null)
   setAsideWide(false)
@@ -1986,11 +2047,16 @@ function showOverview() {
   // avoid, so "back" there gives the width back instead of rendering it. No new
   // affordance needed: the next file click reopens the panel.
   if (!ASIDE_TABS.has(currentTab)) return applyAside(currentTab)
-  inspector.innerHTML = `
-    <p class="insp-tag" style="color:var(--accent)">${L.overviewTag}</p>
-    <h3 class="prose">${esc(RM.meta.title || RM.meta.project)}</h3>
-    ${overviewGroupsHTML()}
-    <p class="note">${L.completeness(RM.manifest.length)} · <button class="linklike" data-help>${L.helpLink}</button></p>`
+  const cg = asideIndexView === 'callgraph'
+  const subtabs = `<div class="aside-subtabs" role="tablist">
+    <button class="aside-subtab${cg ? '' : ' on'}" data-asideview="overview">${esc(L.overviewTag)}</button>
+    <button class="aside-subtab${cg ? ' on' : ''}" data-asideview="callgraph">${esc(L.callGraphTab)}</button></div>`
+  inspector.innerHTML = subtabs + (cg
+    ? callGraphHTML()
+    : `<h3 class="prose">${esc(RM.meta.title || RM.meta.project)}</h3>
+       ${overviewGroupsHTML()}
+       <p class="note">${L.completeness(RM.manifest.length)} · <button class="linklike" data-help>${L.helpLink}</button></p>`)
+  if (cg) return
   // reveal the more/less toggle only where the one-line note actually clips
   inspector.querySelectorAll('.ovg-note').forEach(note => {
     const btn = note.nextElementSibling
@@ -2051,6 +2117,8 @@ function jumpToFile(path) {
   })
 }
 document.addEventListener('click', (e) => {
+  const sv = e.target.closest('[data-asideview]')
+  if (sv) { asideIndexView = sv.dataset.asideview; return showOverview() }
   const jg = e.target.closest('[data-gogroup]')
   if (jg) return jumpToGroup(jg.dataset.gogroup)
   const jf = e.target.closest('[data-gofile]')
