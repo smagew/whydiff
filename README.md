@@ -25,11 +25,11 @@ See `PLAN.md` for the problem statement and the design principles.
      so neither a browser nor GitHub's CDN can keep serving the previous one. When you
      re-shoot, rename to the version being released and update these links. -->
 
-![The Logic tab: a causal story of the change, every block linked by why, with the Report / Review switch above it](assets/story-0.8.png)
+![The Code map: files grouped by cause, labeled links between them, a per-language icon on each, and the per-group Overview beside it](assets/code-map-0.15.png)
 
-| Diff-marked diagrams — click a node to open the file | Cause groups with labeled links between files |
+| Diff-marked diagrams — click a node to open the file | The Summary: a causal walkthrough, every block linked by why |
 |---|---|
-| ![Diagrams tab](assets/diagrams-0.8.png) | ![Files tab](assets/files-0.8.png) |
+| ![Diagrams tab](assets/diagrams-0.15.png) | ![Summary tab](assets/summary-0.15.png) |
 | **Review** — the merge gate: what blocks, grouped by where each problem came from, a patch waiting to be applied, and the decision manifest | **Options** — two or three ways to deal with a finding, differing in kind, each with its cost, risk and the criterion it would be judged by |
 | ![Review tab](assets/review-0.8.png) | ![Options offered on a test gap](assets/options-0.8.png) |
 
