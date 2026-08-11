@@ -114,7 +114,11 @@ for (const palette of ['slate', 'graphite', 'bond']) {
   const errs = []
   page.on('pageerror', e => errs.push(String(e.message)))
   await page.goto('file://' + htmlPath)
-  await page.evaluate(p => { localStorage.clear(); document.documentElement.dataset.p = p }, palette)
+  // Switch palette the way the UI does — click the swatch — so diagrams re-render
+  // under it. (Setting data-p directly skips applyPalette's re-render, which broke
+  // once Diagrams became the default tab and renders eagerly at load.)
+  await page.evaluate(() => localStorage.clear())
+  await page.locator(`.themepick button[data-v="${palette}"]`).click()
   await page.waitForTimeout(250)
 
   const probe = await page.evaluate(() => {

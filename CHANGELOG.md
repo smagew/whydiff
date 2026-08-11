@@ -4,6 +4,16 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.13.0] — 2026-08-11
+
+### Changed
+- **Tabs reordered, renamed, and Summary is now optional.** The order leads with
+  the strongest view: **Diagrams · Code map · User stories · Summary · Ops & risks
+  · Standards · Tests**. "Logic" is renamed **Summary** (a plain-language causal
+  walkthrough) and joins the lazy passes — a map without it shows the section blurb
+  and a Generate button, like User stories. "Files" is renamed **Code map**. The
+  map opens on Diagrams, falling back to the Code map when a diff changed no flow.
+
 ## [0.12.1] — 2026-08-11
 
 ### Changed

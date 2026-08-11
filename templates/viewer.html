@@ -999,7 +999,7 @@ const I18N = {
     statLines: 'lines', statGroups: 'cause groups',
     statAttention: 'files need careful reading', statEnv: 'env changes',
     consistency: 'Manifest entries missing a description on the map: ',
-    tabs: { story: 'Logic', tasks: 'Review', stories: 'User stories', diagrams: 'Diagrams', standards: 'Standards', tests: 'Tests', ops: 'Ops & risks', files: 'Files' },
+    tabs: { story: 'Summary', tasks: 'Review', stories: 'User stories', diagrams: 'Diagrams', standards: 'Standards', tests: 'Tests', ops: 'Ops & risks', files: 'Code map' },
     tasksHint: 'What is still unsettled about this change: work you agreed to, plans you turned down, questions nobody has answered, and problems the map found that nobody has decided about. Nothing here runs on its own.',
     reviewOpen: 'Review', reviewBack: 'Report', reviewTitle: 'Everything still unsettled about this change',
     reviewOpenTitle: 'Leave the report and open the review: agreed work, turned-down plans, open questions, undecided findings',
@@ -1042,6 +1042,7 @@ const I18N = {
     generateStatic: 'Not in this export — re-run whydiff with a full report to include it.',
     blastLazy: 'Not generated yet — comes with the Standards pass.',
     lazy: {
+      story: { title: 'Summary', what: 'The change told as a causal chain — what it does and why, block by block, in plain language. Useful for a walkthrough, but the Diagrams and Code map carry the structure on their own. Generate to add this pass.' },
       stories: { title: 'User stories', what: 'What changed on the outside, in each actor’s words, with a verdict on whether the code actually delivers it. Generate to add this pass to the report.' },
       standards: { title: 'Standards & blast radius', what: 'The change checked against this project’s own conventions, plus the reverse dependencies it reaches outside the diff. Generate to add this pass.' },
       tests: { title: 'Tests', what: 'What the tests now pin down, and — more usefully — what this change leaves uncovered. Generate to add this pass.' },
@@ -1132,7 +1133,7 @@ const I18N = {
     statLines: 'строк', statGroups: 'групп причин',
     statAttention: 'файла внимательного чтения', statEnv: 'env-изменений',
     consistency: 'В манифесте есть файлы без описания на карте: ',
-    tabs: { story: 'Логика', tasks: 'Ревью', stories: 'User stories', diagrams: 'Диаграммы', standards: 'Стандарты', tests: 'Тесты', ops: 'Операции и риски', files: 'Файлы' },
+    tabs: { story: 'Сводка', tasks: 'Ревью', stories: 'User stories', diagrams: 'Диаграммы', standards: 'Стандарты', tests: 'Тесты', ops: 'Операции и риски', files: 'Карта кода' },
     tasksHint: 'Что по этому изменению ещё не решено: задачи, на которые вы согласились, отклонённые планы, вопросы без ответа и находки карты, по которым никто не принял решения. Само здесь ничего не запускается.',
     reviewOpen: 'Ревью', reviewBack: 'Отчёт', reviewTitle: 'Всё, что по этому изменению ещё не решено',
     reviewOpenTitle: 'Выйти из отчёта в ревью: согласованные задачи, отклонённые планы, открытые вопросы, нерешённые находки',
@@ -1175,6 +1176,7 @@ const I18N = {
     generateStatic: 'Нет в этом экспорте — перезапусти whydiff с полным отчётом, чтобы включить.',
     blastLazy: 'Ещё не сгенерировано — идёт вместе с проходом «Стандарты».',
     lazy: {
+      story: { title: 'Сводка', what: 'Изменение как причинная цепочка — что делает и почему, блок за блоком, человеческим языком. Полезно для прохода по шагам, но структуру и так несут Диаграммы и Карта кода. Нажми, чтобы добавить проход.' },
       stories: { title: 'User stories', what: 'Что изменилось снаружи, языком каждого актора, с вердиктом — даёт ли это код на самом деле. Нажми, чтобы добавить этот проход в отчёт.' },
       standards: { title: 'Стандарты и радиус влияния', what: 'Проверка изменения против правил самого проекта плюс обратные зависимости за пределами диффа, которых оно касается. Нажми, чтобы добавить проход.' },
       tests: { title: 'Тесты', what: 'Что теперь фиксируют тесты и — важнее — что это изменение оставляет без покрытия. Нажми, чтобы добавить проход.' },
@@ -1403,24 +1405,30 @@ const PROBLEM_STATUS = new Set(['regressed', 'broken', 'partial'])
 // older maps are read by key-presence. A pass that ran but found nothing still
 // counts as generated, so it shows its "nothing here" result — not a Generate
 // button. Blast radius rides with the standards pass, so it has no key of its own.
-const GEN_KEY = { stories: () => RM.userStories != null, standards: () => Array.isArray(RM.standards), tests: () => RM.tests != null }
+const GEN_KEY = { story: () => Array.isArray(RM.story) && RM.story.length > 0, stories: () => RM.userStories != null, standards: () => Array.isArray(RM.standards), tests: () => RM.tests != null }
 const isGen = (name) => Array.isArray(RM.generated) ? RM.generated.includes(name) : (GEN_KEY[name] ? GEN_KEY[name]() : true)
 // The optional tabs stay in the menu even when their pass has not run — opening one
 // shows what it is and a Generate button, rather than vanishing.
 const hasStories = isGen('stories')
+const hasStory = isGen('story')
+// Order: Diagrams leads (the strongest view), then the Code map, then the actor's
+// view, then the narrative Summary, then the operational and quality passes.
 const PANES = [
-  ['story', L.tabs.story, null],
-  ['stories', L.tabs.stories, hasStories ? (RM.userStories.stories || []).filter(s => PROBLEM_STATUS.has(s.status)).length : 0],
   ['diagrams', L.tabs.diagrams, (RM.diagrams || []).length],
+  ['files', L.tabs.files, (RM.manifest || []).length],
+  ['stories', L.tabs.stories, hasStories ? (RM.userStories.stories || []).filter(s => PROBLEM_STATUS.has(s.status)).length : 0],
+  ['story', L.tabs.story, null],
+  ['ops', L.tabs.ops, (RM.ops?.env || []).length + (RM.blastRadius || []).length],
   ['standards', L.tabs.standards, isGen('standards') ? (RM.standards || []).filter(s => s.severity !== 'ok').length : 0],
   ['tests', L.tabs.tests, isGen('tests') ? ((RM.tests?.gaps || []).length ? `${(RM.tests.fixed || []).length}/${(RM.tests.gaps || []).length}` : (RM.tests?.fixed || []).length) : 0],
-  ['ops', L.tabs.ops, (RM.ops?.env || []).length + (RM.blastRadius || []).length],
-  ['files', L.tabs.files, (RM.manifest || []).length],
 ]
+// Diagrams is the default view; a diff with no flow change has none, so fall back
+// to the Code map rather than opening on an empty tab.
+const defaultTab = (RM.diagrams || []).length ? 'diagrams' : 'files'
 const tabsEl = document.getElementById('tabs')
 for (const [id, name, cnt] of PANES) {
   const b = document.createElement('button')
-  b.className = 'tab' + (id === 'story' ? ' active' : '')
+  b.className = 'tab' + (id === defaultTab ? ' active' : '')
   b.innerHTML = esc(name) + (cnt ? ` <span class="cnt">${cnt}</span>` : '')
   b.addEventListener('click', () => setTab(id))
   b.dataset.pane = id
@@ -1443,7 +1451,7 @@ tabsEl.appendChild(helpBtn)
 // aside carries the Overview by default and the drill-down when a file is opened.
 const ASIDE_TABS = new Set(['story', 'stories', 'diagrams', 'standards', 'tests', 'ops', 'files'])
 const layoutEl = document.querySelector('.layout')
-let currentTab = 'story'
+let currentTab = defaultTab
 const applyAside = (id) => layoutEl.classList.toggle('solo', !ASIDE_TABS.has(id))
 const revealAside = () => layoutEl.classList.remove('solo')
 
@@ -1525,7 +1533,10 @@ function runDiagrams() {
 // ── story ────────────────────────────────────────────────────────────────────
 const storyEl = document.getElementById('story')
 let blockNo = 0
-for (const item of RM.story) {
+// Summary is an optional pass now: when it has not run, the pane shows what it is
+// and a Generate button, like the other lazy sections.
+if (!hasStory) storyEl.innerHTML = lazyPane('story')
+else for (const item of RM.story) {
   if (item.link) {
     const row = document.createElement('div')
     row.className = 'link-row'
@@ -1550,7 +1561,9 @@ for (const item of RM.story) {
 // ── lazy sections: generate on demand ────────────────────────────────────────
 // An optional pass that was not run shows what it is and a button that runs its
 // agent against this same diff and folds the result into the report in place.
-const canGenerate = () => !!(window.__WHYDIFF_SERVE__ && window.__WHYDIFF_SERVE__.token)
+// A function declaration (not a const): lazyPane() is called from the story block
+// above, which runs before this line, so it must be hoisted past the TDZ.
+function canGenerate() { return !!(window.__WHYDIFF_SERVE__ && window.__WHYDIFF_SERVE__.token) }
 function lazyPane(section) {
   const m = L.lazy[section]
   return `<div class="lazy">
@@ -2342,6 +2355,9 @@ addEventListener('keydown', (e) => {
 
 showOverview()
 refreshSeen()
+// The default-visible pane in the HTML is the first one; sync the reading area to
+// the chosen default tab (Diagrams, or the Code map when there are none).
+setTab(defaultTab)
 
 // Restore the reader's position, then keep it current.
 if (SESSION.get('focus', false)) document.body.classList.add('focus')
