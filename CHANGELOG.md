@@ -4,6 +4,15 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.15.0] — 2026-08-11
+
+### Added
+- **A file-type badge on every Code-map card.** Each node now leads with a short
+  monospace type tag (`php` / `ts` / `sql` / `po` / `tpl` …) in a fixed-width
+  gutter, so files are told apart at a glance instead of all looking the same. The
+  tag is static (extension → label, no model cost) and monochrome, within the
+  design system — this also replaces a broken language dot that rendered nothing.
+
 ## [0.14.2] — 2026-08-11
 
 ### Fixed

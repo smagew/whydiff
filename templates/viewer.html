@@ -202,8 +202,10 @@
   .scope-chip.active .cnt { color: var(--accent); }
   .scope-sep { width: 1px; height: 13px; background: var(--line); margin: 0 4px; }
   .lang-chip { display: inline-flex; align-items: center; gap: 5px; font-family: var(--mono); font-size: 13px; color: var(--ink-3); border: none; padding: 1px 2px; }
-  .ldot { display: inline-block; width: 8px; height: 8px; border-radius: 3px; flex: none; }
-  .node .ldot { width: 7px; height: 7px; margin-right: 6px; position: relative; top: -0.5px; }
+  /* file-type badge: a short monospace type label (php/js/sql/po/tpl), a bare tag
+     the design system allows (no box), fixed-width so filenames align in a gutter */
+  .ftype { flex: none; min-width: 4ch; margin-right: 7px; font-family: var(--mono); font-size: 13px;
+    font-weight: 500; color: var(--ink-3); letter-spacing: .01em; }
   .node.dim { opacity: .3; }
   .stat { background: var(--surface); border: 1px solid var(--line); border-radius: 3px; padding: 10px 16px; min-width: 118px; }
   .stat b { display: block; font-size: 20px; font-weight: 500; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
@@ -1800,7 +1802,7 @@ for (const g of RM.groups) {
     const links = crossLinks[path]
     const linksHTML = links?.length ? `<span class="node-links">${links.map(l =>
       `<span class="nlink" data-gofile="${esc(l.other)}" style="--sc:${gcolor(fileGroup[l.other])}" title="${esc((l.dir === '→' ? 'to ' : 'from ') + l.other + (l.title ? ' — ' + l.title : ''))}"><span class="dot"></span>${l.dir} ${esc(baseName(l.other))}</span>`).join('')}</span>` : ''
-    el.innerHTML = `<span class="node-top">${lang ? `<span class="ldot" style="background:${lang[1]}" title="${esc(lang[0])}"></span>` : ''}<span class="fname">${fnameHTML(path)}</span>
+    el.innerHTML = `<span class="node-top">${lang ? `<span class="ftype">${esc(lang)}</span>` : ''}<span class="fname">${fnameHTML(path)}</span>
       <span class="fstat"><span class="a">+${f.add}</span> <span class="d">−${f.del}</span></span></span>
       <span class="node-meta">${f.service ? `<span class="svc">${esc(f.service)}</span>` : ''}<span class="frole">${esc(f.role || '')}</span></span>
       ${previewHTML(f)}${linksHTML}`
