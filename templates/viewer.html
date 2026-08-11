@@ -388,7 +388,9 @@
     width: max-content; max-width: 300px; background: var(--surface); border: 1px solid var(--line-strong);
     border-radius: 5px; padding: 8px 10px; z-index: 6; }
   .elabel:hover .elabel-pop, .elabel-pop:hover { display: block; }
-  .elabel-desc { font-size: 13px; line-height: 1.5; color: var(--ink-2); }
+  .elabel-title { display: block; font-family: var(--mono); font-size: 13px; font-weight: 500; color: var(--ink); }
+  .elabel-title:not(:only-child) { margin-bottom: 6px; }
+  .elabel-desc { display: block; font-size: 13px; line-height: 1.5; color: var(--ink-2); }
   .elabel-pop:not(.expanded) .elabel-desc { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
   .elabel-more { display: block; margin-top: 6px; font: inherit; font-size: 13px; cursor: pointer;
     background: none; border: none; padding: 0; color: var(--accent); }
@@ -1855,16 +1857,19 @@ function drawEdges() {
     ar.setAttribute('class', 'arrow')
     ar.style.setProperty('--ec', color); ar.dataset.from = from; ar.dataset.to = to
     svg.appendChild(ar)
-    // The title rides the line as a one-line pill, capped by CSS (no truncation in
-    // JS); hovering it opens a popover with the full description. Both live in an
-    // HTML layer over the map so width-limit, ellipsis and the popover are plain CSS.
+    // The title rides the line as a one-line pill, capped by CSS to a short width.
+    // Hovering it opens a popover with the FULL title (the pill ellipsised it) and
+    // the description — so nothing on the line is unreadable. Both live in an HTML
+    // layer over the map, so the width-limit, ellipsis and popover are plain CSS.
     if (title) {
       const lab = document.createElement('div')
       lab.className = 'elabel'; lab.dataset.from = from; lab.dataset.to = to
       lab.style.left = ((x1 + x2) / 2) + 'px'; lab.style.top = my + 'px'
       const long = !!description && description.length > 150
       lab.innerHTML = `<span class="elabel-t">${esc(title)}</span>`
-        + (description ? `<span class="elabel-pop"><span class="elabel-desc">${esc(description)}</span>${long ? `<button type="button" class="elabel-more">${esc(L.edgeMore)}</button>` : ''}</span>` : '')
+        + `<span class="elabel-pop"><b class="elabel-title">${esc(title)}</b>`
+        + (description ? `<span class="elabel-desc">${esc(description)}</span>${long ? `<button type="button" class="elabel-more">${esc(L.edgeMore)}</button>` : ''}` : '')
+        + `</span>`
       labels.appendChild(lab)
     }
   }

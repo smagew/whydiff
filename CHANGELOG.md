@@ -12,6 +12,11 @@ to receive an update.
   background variables, so its default light "odd" row rendered light text on a
   light fill in graphite. Both rows are now forced onto dark surface tokens (light
   in a light palette), so the text contrasts on either.
+- **Hovering a connection label shows its full title and description.** The label
+  on an edge is ellipsised to a short pill; hovering it now opens a popover with
+  the whole title (which the pill cut off) plus the description — previously the
+  popover carried only the description, and a title-only label had none at all, so
+  a cut-off title was unreadable.
 
 ## [0.14.1] — 2026-08-11
 
