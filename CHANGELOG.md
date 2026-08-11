@@ -4,6 +4,16 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.14.0] — 2026-08-11
+
+### Added
+- **A Call graph in the aside, beside the Overview.** The right panel now has two
+  sub-tabs: the per-group **Overview**, and a **Call graph** — the map's file
+  connections (`edges`) laid out as a dependency tree with monospace guides, a node
+  shown once and folded (↩) if it recurs. Clicking a node jumps the Code map to its
+  block and flashes it; each node keeps a `view` button for the drill-down. Empty
+  when the change tracks no connections.
+
 ## [0.13.0] — 2026-08-11
 
 ### Changed
