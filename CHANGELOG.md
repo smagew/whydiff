@@ -4,6 +4,20 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.14.2] — 2026-08-11
+
+### Fixed
+- **erDiagram rows are readable in a dark palette.** Mermaid 11 draws attribute
+  rows as `.row-rect-odd`/`.row-rect-even` and ignores the theme's attribute-
+  background variables, so its default light "odd" row rendered light text on a
+  light fill in graphite. Both rows are now forced onto dark surface tokens (light
+  in a light palette), so the text contrasts on either.
+- **Hovering a connection label shows its full title and description.** The label
+  on an edge is ellipsised to a short pill; hovering it now opens a popover with
+  the whole title (which the pill cut off) plus the description — previously the
+  popover carried only the description, and a title-only label had none at all, so
+  a cut-off title was unreadable.
+
 ## [0.14.1] — 2026-08-11
 
 ### Fixed
