@@ -874,8 +874,8 @@
      ignores the theme's attribute-background variables — its default light "odd" row
      lands unreadable in a dark palette. Force both rows onto dark tokens (light in a
      light palette); the text is already --ink and so contrasts on either. */
-  .mermaid .row-rect-odd { fill: var(--panel) !important; stroke: var(--line) !important; }
-  .mermaid .row-rect-even { fill: var(--sunken) !important; stroke: var(--line) !important; }
+  .mermaid .row-rect-odd, .mermaid .row-rect-odd path { fill: var(--panel) !important; stroke: var(--line) !important; }
+  .mermaid .row-rect-even, .mermaid .row-rect-even path { fill: var(--sunken) !important; stroke: var(--line) !important; }
   .node { border: 1px solid var(--line); border-radius: var(--r-input); }
   .groups .node:hover { border-color: var(--line-strong); transform: none; }
   /* §9: a status is a mono word, not a plate. In a monochrome palette the word
