@@ -4,6 +4,15 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.14.2] — 2026-08-11
+
+### Fixed
+- **erDiagram rows are readable in a dark palette.** Mermaid 11 draws attribute
+  rows as `.row-rect-odd`/`.row-rect-even` and ignores the theme's attribute-
+  background variables, so its default light "odd" row rendered light text on a
+  light fill in graphite. Both rows are now forced onto dark surface tokens (light
+  in a light palette), so the text contrasts on either.
+
 ## [0.14.1] — 2026-08-11
 
 ### Fixed
