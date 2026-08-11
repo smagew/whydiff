@@ -4,6 +4,15 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.14.1] — 2026-08-11
+
+### Fixed
+- **A normal load always opens on the default tab (Diagrams).** The map restored
+  the last tab you visited, so a stale session could open on Summary instead of the
+  intended default. The last-tab restore is gone; only a one-shot flag survives, so
+  clicking Generate still returns you to that tab with its new content, while every
+  other load opens on Diagrams (or the Code map when a diff changed no flow).
+
 ## [0.14.0] — 2026-08-11
 
 ### Added
