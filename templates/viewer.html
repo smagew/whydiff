@@ -7,10 +7,23 @@
      an old hardcoded value. */
   /* ── tokens ────────────────────────────────────────────────────────────────
      The only place a hex may appear; tests/design.mjs fails the build otherwise.
-     Three palettes, exactly one of which ships — slate by default. Legacy names
+     Three palettes, exactly one of which ships — graphite by default. Legacy names
      (--bg, --surface, --muted, --p1…) are aliases so no rule can resolve to a
      stale literal. */
-  :root, [data-p="slate"] {          /* slate — monochrome, one signal colour */
+  /* graphite is the shipped default, so it sits on :root; slate and bond come
+     AFTER it and override when their attribute is set (equal specificity → source
+     order decides, and :root always matches <html> whatever data-p says). */
+  :root, [data-p="graphite"] {       /* dark-first, brass — ships by default */
+    --canvas:#14161A; --panel:#1E2126; --sunken:#0F1113;
+    --line:#31363D;   --line-strong:#454B53;
+    --ink:#DDE1E6;    --ink-2:#C3C9D0;  --ink-3:#8E969E;
+    --mark:#C9A227;   --flag:#D2635A;   --flag-soft:#2B1F1C;
+    --pass:#6DB98C;   --caution:#CBA23E;
+    --add-bg:#182530; --add-edge:#4F7EA8; --add-ink:#C3D7E8;
+    --del-bg:#2B1F1C; --del-edge:#A5634E; --del-ink:#E4C8BC;
+    --mark-ink:#14161A;
+  }
+  [data-p="slate"] {                 /* slate — monochrome, one signal colour */
     --canvas:#EEF0F2; --panel:#F8F9FA; --sunken:#E4E7EA;
     --line:#D5D9DC;   --line-strong:#BEC3C8;
     /* Spec value #15181B measures 15.6:1 on canvas and 16.9:1 on panel, above
@@ -23,16 +36,6 @@
     --add-bg:#E1E7EE; --add-edge:#3B5F87; --add-ink:#17324D;
     --del-bg:#EFE3E5; --del-edge:#8A2B3D; --del-ink:#4A1620;
     --mark-ink:#F8F9FA;
-  }
-  [data-p="graphite"] {              /* dark-first, brass */
-    --canvas:#14161A; --panel:#1E2126; --sunken:#0F1113;
-    --line:#31363D;   --line-strong:#454B53;
-    --ink:#DDE1E6;    --ink-2:#C3C9D0;  --ink-3:#8E969E;
-    --mark:#C9A227;   --flag:#D2635A;   --flag-soft:#2B1F1C;
-    --pass:#6DB98C;   --caution:#CBA23E;
-    --add-bg:#182530; --add-edge:#4F7EA8; --add-ink:#C3D7E8;
-    --del-bg:#2B1F1C; --del-edge:#A5634E; --del-ink:#E4C8BC;
-    --mark-ink:#14161A;
   }
   [data-p="bond"] {                  /* neutral near-white, plum */
     --canvas:#FBFBF9; --panel:#FFFFFF; --sunken:#F0F0EE;
@@ -2177,11 +2180,11 @@ for (const v of PALETTES) {
 }
 document.querySelector('.wrap').prepend(themePick)
 const syncThemePick = () => {
-  const cur = document.documentElement.dataset.p || 'slate'
+  const cur = document.documentElement.dataset.p || 'graphite'
   for (const b of themePick.children) b.classList.toggle('on', b.dataset.v === cur)
 }
 const applyPalette = (v) => {
-  document.documentElement.dataset.p = PALETTES.includes(v) ? v : 'slate'
+  document.documentElement.dataset.p = PALETTES.includes(v) ? v : 'graphite'
   SESSION.set('palette', document.documentElement.dataset.p)
   syncThemePick()
   // the diff-mark CSS follows the tokens on its own; the diagram's own theme is
@@ -2197,7 +2200,7 @@ const applyDiff = (v) => {
   else document.documentElement.dataset.diff = v
   SESSION.set('diff', v)
 }
-applyPalette(SESSION.get('palette', matchMedia('(prefers-color-scheme: dark)').matches ? 'graphite' : 'slate'))
+applyPalette(SESSION.get('palette', 'graphite'))
 applyDiff(SESSION.get('diff', 'quiet'))
 
 const seen = new Set(SESSION.get('seen', []))

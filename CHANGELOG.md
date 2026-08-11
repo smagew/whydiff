@@ -4,6 +4,13 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.12.1] — 2026-08-11
+
+### Changed
+- **Graphite is the default palette.** The dark-first graphite theme now ships on
+  `:root` (previously slate, with graphite only auto-selected under a dark OS
+  preference). Slate and bond remain one swatch-click away.
+
 ## [0.12.0] — 2026-08-09
 
 ### Added
