@@ -25,9 +25,9 @@ Speed inputs (when present in the task prompt):
   them from the orchestrator. Add a full group object only when your scope needs a
   group the list genuinely lacks.
 - `SCOPE: <paths>` — you are one shard of a larger run. Cover exactly these files
-  in `files`, propose `groups`/`edges` for them only, and skip `intent`/`story`/
-  `ops` (the orchestrator writes those); still write valid JSON with just your
-  keys to `OUT:`.
+  in `files`, propose `groups`/`edges` for them only, and skip `intent`/`ops`
+  (the orchestrator writes those); still write valid JSON with just your keys to
+  `OUT:`.
 
 ## Where your answer goes
 
@@ -48,13 +48,10 @@ slowest part of the pipeline.
 These keys:
 
 - `intent`: one sentence — the tl;dr of *what* the change does, so a reviewer
-  gets the gist without opening a tab. Do NOT restate the mechanics (that is the
-  `story`) or the risks (those live in `ops`). Inline `<b>`/`<code>` allowed.
+  gets the gist without opening a tab. Do NOT restate the mechanics (the lazy
+  Summary pass covers that) or the risks (those live in `ops`). Inline
+  `<b>`/`<code>` allowed.
 - `attentionFiles`: integer — how many files genuinely require careful reading.
-- `story`: array alternating step objects and link objects.
-  Step: `{ "label", "group", "text", "branches": [[tag, text], ...]?, "files": [paths] }`.
-  Link: `{ "link": "WHY the next block exists" }` — causal, not decorative.
-  5–8 steps: goal first, consequences in causal order, confirmation last.
 - `groups`: array of `{ "id", "name", "role", "tag", "why", "collapsed"?, "files" }`
   — or just `{ "id", "files" }` when `GROUPS:` already defined the group.
   Roles are REVIEWER ROLES, not file types:

@@ -13,6 +13,11 @@ to receive an update.
   walkthrough) and joins the lazy passes — a map without it shows the section blurb
   and a Generate button, like User stories. "Files" is renamed **Code map**. The
   map opens on Diagrams, falling back to the Code map when a diff changed no flow.
+- **The Summary is generated on demand.** The classifier no longer authors the
+  `story`, so a default run omits it and the Summary tab is lazy. A new
+  `summariser` agent writes it — from the built map plus the diff — on a full run
+  or when you click Generate (a new `story` section in the serve endpoint). Present
+  story is marked in `generated`, so the viewer shows it rather than the button.
 
 ## [0.12.1] — 2026-08-11
 

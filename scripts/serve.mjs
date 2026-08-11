@@ -619,11 +619,12 @@ const applyPatch = (res, taskId) => {
 }
 
 // ── generating an optional section on demand ────────────────────────────────────
-// The core run builds Logic/Diagrams/Files/Ops(env). The other passes are lazy:
+// The core run builds the Code map/Diagrams/Ops(env). The other passes are lazy:
 // clicking Generate runs that pass's own agent against the same diff, read-only,
 // and folds its keys into the map. Read-only by construction (same allowlist as
 // ask/plan) — this writes only the report's own JSON in .whydiff, never the repo.
 const SECTIONS = {
+  story: { agent: 'summariser', keys: ['story'] },
   standards: { agent: 'standards-reviewer', keys: ['standards', 'blastRadius'] },
   tests: { agent: 'tests-analyst', keys: ['tests'] },
   stories: { agent: 'story-writer', keys: ['userStories'] },

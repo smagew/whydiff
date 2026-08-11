@@ -80,14 +80,17 @@ consult it before exploratory grepping.
 You are done reading: `timing.mjs log briefing_done --repo <repo>`.
 
 **Core by default; the rest are lazy.** A default run spawns only the two CORE
-agents — `classifier` and `diagrammer` — which give the reviewer Logic, Diagrams,
-Files and Ops (env). The three OPTIONAL passes — `standards-reviewer`,
-`tests-analyst`, `story-writer` — are NOT spawned by default: their tabs render as
-a one-line explanation with a **Generate** button that runs that pass on demand
-(served mode), and `merge.mjs` records which passes ran in the map's `generated`
-list. Spawn the optional passes up front ONLY when the user asked for a **full**
-report (words like "full", "everything", "all sections", or a `--full`/`full`
-argument to the skill). When in doubt, run core and say the rest are one click away.
+agents — `classifier` and `diagrammer` — which give the reviewer the Code map,
+Diagrams and Ops (env). The four OPTIONAL passes — `summariser`,
+`standards-reviewer`, `tests-analyst`, `story-writer` — are NOT spawned by default:
+their tabs render as a one-line explanation with a **Generate** button that runs
+that pass on demand (served mode), and `merge.mjs` records which passes ran in the
+map's `generated` list. The `summariser` writes the **Summary** (the map's `story`,
+a plain-language causal walkthrough); the classifier no longer authors it, so a
+default run leaves `story` empty and the Summary tab lazy. Spawn the optional
+passes up front ONLY when the user asked for a **full** report (words like "full",
+"everything", "all sections", or a `--full`/`full` argument to the skill). When in
+doubt, run core and say the rest are one click away.
 
 Spawn the chosen agents IN ONE MESSAGE (they are independent), logging
 `timing.mjs log agents_spawned --repo <repo>` right before the spawn message and
@@ -101,8 +104,9 @@ Each returns one confirmation line, and `merge.mjs` reads the files. Retyping a
 
 | Agent | Tier | Writes (`OUT:`) | Contents |
 |---|---|---|---|
-| `whydiff:classifier` | core | `.whydiff/classifier.json` | `intent`, `attentionFiles`, `story`, `groups`, `files`, `edges`, `ops` |
+| `whydiff:classifier` | core | `.whydiff/classifier.json` | `intent`, `attentionFiles`, `groups`, `files`, `edges`, `ops` |
 | `whydiff:diagrammer` | core | `.whydiff/diagrammer.json` | `diagrams` |
+| `whydiff:summariser` | full only | `.whydiff/story.json` | `story` |
 | `whydiff:standards-reviewer` | full only | `.whydiff/standards.json` | `standards`, `blastRadius` |
 | `whydiff:tests-analyst` | full only | `.whydiff/tests.json` | `tests` |
 | `whydiff:story-writer` | full only | `.whydiff/stories.json` | `userStories` |
@@ -153,14 +157,14 @@ are never sharded.
 
 ### 4. Write the narrative, then merge by script
 
-The only thing you author here is what no agent can: the causal narrative. Write
+The only things you author here are what no agent supplies on a default run: the
+map's `meta`, and any correction to the classifier's output. Write
 `<repo>/.whydiff/narrative.json`:
 
 ```json
 {
   "meta": { "lang": "ru", "ref": "working tree (main)", "title": "short feature name" },
   "intent": "one paragraph: what + why + what could break",
-  "story": [ … ],
   "groups": [{ "id": "…", "name": "…", "role": "read", "tag": "…", "why": "…" }],
   "attentionFiles": 8,
   "embedFull": ["path/a.ts", "path/b.ts"],
@@ -171,8 +175,9 @@ The only thing you author here is what no agent can: the causal narrative. Write
 ```
 
 `meta.project`, `meta.generatedAt` and `stats` are filled in for you. On an
-unsharded run the classifier already wrote `intent`/`story`/`ops`, so omit them
-here unless you are correcting it — `meta` is what only you can supply. `ops` is
+unsharded run the classifier already wrote `intent`/`ops`, so omit them here
+unless you are correcting it — `meta` is what only you can supply. The Summary
+(`story`) is a lazy pass now (`summariser`); do not author it here. `ops` is
 optional — omitted, the shards' `ops` are concatenated.
 
 - `groups` carries the same list you passed to the shards as `GROUPS:` — metadata
@@ -244,8 +249,8 @@ Both serving and assembling inline the mermaid bundle from the plugin's
 **Serve it. This is the default way to hand the map over — not a static file.**
 The report only earns its keep live: the reviewer selects anything and asks about
 it, instructs a change, weighs options, and — because a default run builds only the
-core — clicks **Generate** on the standards, tests and user-story tabs to add those
-passes on demand. A static file can do NONE of that: its Generate buttons and ask
+core — clicks **Generate** on the Summary, standards, tests and user-story tabs to
+add those passes on demand. A static file can do NONE of that: its Generate buttons and ask
 panel are inert. So unless the user explicitly wants a file to keep or an artifact
 to publish, serve — do not assemble.
 
@@ -256,7 +261,7 @@ node ${CLAUDE_PLUGIN_ROOT}/scripts/serve.mjs <repo>/.whydiff/review-map.json \
 
 Give the user the printed `http://127.0.0.1:<port>/`. The server injects a per-run
 token and answers from the page by calling `claude -p` in the repo (read-only).
-Anchors: a user-story card, a Logic block (⌘/Ctrl-click several for one question
+Anchors: a user-story card, a Summary block (⌘/Ctrl-click several for one question
 about the set), a diagram (Alt-click one node), or any text selection. Every remark
 is appended to the review journal at `<repo>/.whydiff/review.log.jsonl` and reloaded
 on the next serve, so it is not lost when the tab closes. To read that journal from a
