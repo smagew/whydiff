@@ -1,0 +1,43 @@
+name: release
+
+# A version bump becomes a tag and a GitHub Release, automatically. We bump the
+# version in the same PR as the change, so every merge to main that moved
+# plugin.json's version is a release. This runs on push to main and — when
+# v<version> is not tagged yet — cuts the tag and a Release whose body is that
+# version's CHANGELOG section. No manual tagging, no release notes to write twice.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: tag + release when the version is new
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./.claude-plugin/plugin.json').version")
+          tag="v$version"
+          if gh release view "$tag" >/dev/null 2>&1 || git rev-parse "$tag" >/dev/null 2>&1; then
+            echo "$tag already exists — nothing to release"
+            exit 0
+          fi
+          # The CHANGELOG section for this version = lines between its "## [x.y.z]"
+          # heading and the next "## [" heading.
+          notes=$(awk -v ver="$version" '
+            $0 ~ "^## \\[" ver "\\]" { inside=1; next }
+            inside && /^## \[/ { exit }
+            inside { print }
+          ' CHANGELOG.md)
+          if [ -z "$notes" ]; then notes="Release $tag."; fi
+          printf '%s\n' "$notes" > /tmp/release-notes.md
+          gh release create "$tag" --title "$tag" --notes-file /tmp/release-notes.md --target "$GITHUB_SHA"
+          echo "released $tag"
