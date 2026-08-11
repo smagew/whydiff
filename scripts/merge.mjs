@@ -184,7 +184,13 @@ const ops = narrative.ops || {
 
 // ── assemble ──────────────────────────────────────────────────────────────────
 const intent = narrative.intent || shards.map(s => s.data.intent).find(Boolean)
-const story = narrative.story || shards.map(s => s.data.story).find(Boolean)
+// Summary (story) is a lazy pass now: a default run writes none, so story defaults
+// to []. It arrives from the summariser (story.json), or — for back-compat — from
+// an orchestrator/classifier that still authored one.
+const story = read('story.json')?.story || narrative.story || shards.map(s => s.data.story).find(Boolean) || []
+// Present story ⇒ mark it generated, so the viewer shows it rather than a Generate
+// button. Tying this to content (not just a file) keeps the two in step.
+if (Array.isArray(story) && story.length && !generated.includes('story')) generated.push('story')
 const attentionFiles = narrative.attentionFiles
   ?? shards.reduce((n, s) => n + (s.data.attentionFiles || 0), 0)
 
