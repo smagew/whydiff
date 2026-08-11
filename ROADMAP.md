@@ -54,6 +54,30 @@ same prompts, write the same JSON, hand it to the same assembler — not a fork.
 5. **Fold the differences back.** Whatever the Codex adapter forced apart becomes
    the template for host #3.
 
+## Related work / positioning
+
+Where whydiff sits, so the difference stays deliberate:
+
+- **revdiff** — a *diff reader*. A fast local TUI for navigating a raw diff. No
+  LLM, agent-agnostic. Adjacent niche, not ours.
+- **[plannotator](https://github.com/backnotprop/plannotator)** — *annotate and
+  route*. A browser surface where a human marks up an agent's plan or diff and
+  sends structured feedback back to the agent to revise. Multi-agent (Claude Code,
+  Codex, Gemini, …), human-in-the-loop. The closest neighbour.
+- **whydiff** — *explain the change*. The LLM does the comprehension work and emits
+  a self-contained map (causal story, diff-marked diagrams, proven-complete file
+  list). The human reads a generated understanding rather than authoring notes on a
+  blank surface.
+
+Two takeaways this pins down:
+
+- **Multi-host is table stakes, not a differentiator.** plannotator already spans
+  many agents — so "works in Codex too" validates the direction above but can't be
+  our headline. Our claim is the **generated map itself**.
+- **They may be complementary, not rival.** plannotator annotates HTML artifacts;
+  a whydiff map *is* one. "whydiff explains the diff → plannotator annotates it and
+  routes feedback" is a plausible seam worth keeping in view.
+
 ## Near-term
 
 - Land the Codex integration spike (step 4 above), even rough, to test the split.
