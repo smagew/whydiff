@@ -4,6 +4,18 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.15.0] — 2026-08-11
+
+### Added
+- **A per-language file icon next to every file, everywhere it is listed.** Real
+  language logos (php, js, ts, python, ruby, go, java, css, html, vue, docker …
+  from devicon, MIT — brand colours stripped so they inherit the palette and stay
+  monochrome, within the design system), with a monochrome category glyph
+  (database, config, docs, shell, locale, template, file) where no logo exists.
+  Shown on the Code-map cards, the Overview and Call-graph rows, the manifest, the
+  drill-down Links, and the story/cross-link chips. Static (extension → icon, no
+  model cost). Replaces a broken language dot that rendered nothing.
+
 ## [0.14.2] — 2026-08-11
 
 ### Fixed
