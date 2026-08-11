@@ -25,11 +25,11 @@ See `PLAN.md` for the problem statement and the design principles.
      so neither a browser nor GitHub's CDN can keep serving the previous one. When you
      re-shoot, rename to the version being released and update these links. -->
 
-![The Logic tab: a causal story of the change, every block linked by why, with the Report / Review switch above it](assets/story-0.8.png)
+![The Code map: files grouped by cause, labeled links between them, a per-language icon on each, and the per-group Overview beside it](assets/code-map-0.15.png)
 
-| Diff-marked diagrams — click a node to open the file | Cause groups with labeled links between files |
+| Diff-marked diagrams — click a node to open the file | The Summary: a causal walkthrough, every block linked by why |
 |---|---|
-| ![Diagrams tab](assets/diagrams-0.8.png) | ![Files tab](assets/files-0.8.png) |
+| ![Diagrams tab](assets/diagrams-0.15.png) | ![Summary tab](assets/summary-0.15.png) |
 | **Review** — the merge gate: what blocks, grouped by where each problem came from, a patch waiting to be applied, and the decision manifest | **Options** — two or three ways to deal with a finding, differing in kind, each with its cost, risk and the criterion it would be judged by |
 | ![Review tab](assets/review-0.8.png) | ![Options offered on a test gap](assets/options-0.8.png) |
 
@@ -118,9 +118,11 @@ Prerequisites: `npm install` (mermaid for the assembler) and
 
 To update an installed copy after new commits: `/plugin marketplace update whydiff`.
 
-Releasing: bump `version` in `.claude-plugin/plugin.json` **and**
-`.claude-plugin/marketplace.json`, add a `CHANGELOG.md` entry, tag `vX.Y.Z` —
-installed users only receive updates when the version changes.
+Releasing: `make bump BUMP=<patch|minor|major>` moves the version everywhere it
+lives and opens a `CHANGELOG.md` entry; merging that to `main` tags `vX.Y.Z` and
+publishes a GitHub Release automatically (`.github/workflows/release.yml`, from the
+CHANGELOG section). Installed users only receive updates when the version changes —
+the `version-guard` check enforces the bump. See `RELEASING.md`.
 
 ## Layout
 
@@ -284,3 +286,11 @@ regenerating the map and seeing it flip, `manual` by the reviewer.
    errors are fixed and re-validated until clean (completeness is proven by
    script, never asserted by the LLM).
 7. `assemble.mjs` — self-contained HTML with the mermaid bundle inlined.
+
+## Project docs
+
+- [CONTRIBUTING.md](CONTRIBUTING.md) — scope, conventions, how a change lands
+- [ROADMAP.md](ROADMAP.md) — where whydiff is going (one core, many hosts)
+- [SECURITY.md](SECURITY.md) — what runs locally, and how to report a vulnerability
+- [RELEASING.md](RELEASING.md) — versioning and the auto-release flow
+- [CHANGELOG.md](CHANGELOG.md) — per-version notes
