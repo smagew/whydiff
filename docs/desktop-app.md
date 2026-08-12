@@ -138,16 +138,25 @@ interactive Claude Code agent?** The skill today is driven by the main agent.
   (verified headlessly via the store test + a compiling build; the GUI itself is run
   locally with `npm run dev`).
 
-### Phase 3 — Select → git state → run → view
+### Phase 3 — Select → git state → run → view — 🚧 built (2026-08-12)
 
 - **Goal:** select a local project → check uncommitted → offer analysis (accept →
   runner → **`serve.mjs` spawned and loaded in the window**); decline → list
-  commits/branches, click one → run. This is the core loop.
+  commits, click one → run. This is the core loop.
 - **Depends on:** Phases 1 + 2.
-- **Decisions:** how the app spawns the runner and shows progress; how it embeds
-  `serve.mjs` (BrowserWindow to its localhost URL); git-history UX.
-- **Done when:** the whole loop works for a local project (uncommitted, and a past
-  commit).
+- **Decisions settled:** the app spawns the runner (`scripts/run.mjs`) and the server
+  (`scripts/serve.mjs`) as child processes via `app/src/main/whydiff.mjs`, streaming
+  the runner's progress lines to the window and loading the server's localhost URL in
+  a new `BrowserWindow`. Working-tree analysis needed `run.mjs` to treat "no range" as
+  the working tree — done (0.19.0). GitHub projects show a placeholder until Phase 5.
+- **Built:** `app/src/main/git.mjs` (git state: uncommitted + commits + per-commit
+  range) and `whydiff.mjs` (run + serve bridge), both tested under node; IPC in
+  `main/index.js`; the `ProjectView` UI (uncommitted banner + "Analyze working
+  changes", a commit list with per-commit "Analyze", live progress, opens the map in
+  its own window). `npm test` (store/git/bridge) passes; the build compiles.
+- **Done when:** the full loop is exercised in the running app — verified headlessly
+  here (module tests + compiling build); the GUI + a real analysis are run locally
+  with `npm run dev`.
 
 ### Phase 4 — Analyses index + history
 

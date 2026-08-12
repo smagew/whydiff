@@ -75,3 +75,39 @@ body {
   cursor: pointer; font-size: 14px; padding: 4px 6px; border-radius: 5px;
 }
 .x:hover { color: var(--err); background: rgba(247, 118, 142, 0.12); }
+
+/* ── Phase 3: project view ───────────────────────────────────────────────── */
+.row-btn { width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer; }
+.row-btn:hover { border-color: var(--accent); }
+
+.pv-head { display: flex; align-items: center; gap: 14px; }
+.brand.sm { font-size: 17px; }
+.link-back {
+  flex: none; background: none; border: 1px solid var(--line); color: var(--ink-2);
+  border-radius: 6px; padding: 6px 10px; font: inherit; cursor: pointer;
+}
+.link-back:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.link-back:disabled { opacity: 0.5; cursor: default; }
+
+.btn.primary { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
+
+.banner {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  background: var(--accent-bg); border: 1px solid transparent; border-radius: 8px;
+  padding: 12px 16px; margin-bottom: 18px;
+}
+.sec-title { color: var(--muted); font-size: 12.5px; margin: 8px 0; }
+.hash {
+  flex: none; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px; color: var(--accent); background: var(--accent-bg);
+  border-radius: 5px; padding: 2px 8px;
+}
+.note { color: var(--ink-2); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
+
+.run { display: flex; align-items: center; gap: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; }
+.run-txt { color: var(--ink-2); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; }
+.spin {
+  flex: none; width: 13px; height: 13px; border-radius: 50%;
+  border: 2px solid var(--line); border-top-color: var(--accent); animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }

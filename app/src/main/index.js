@@ -2,8 +2,12 @@ import { app, BrowserWindow, ipcMain, dialog } from 'electron'
 import { join, basename } from 'node:path'
 import { existsSync, statSync } from 'node:fs'
 import { openStore, repoNameFromUrl } from './store.mjs'
+import { gitState, rangeForCommit } from './git.mjs'
+import { runAnalysis, serveMap } from './whydiff.mjs'
 
 let store
+// Map windows and their servers, so closing a map window stops its `serve.mjs`.
+const mapServers = new Set()
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -53,8 +57,32 @@ app.whenReady().then(() => {
     return store.addProject({ kind: 'github', url: u, name: repoNameFromUrl(u) })
   })
 
+  // ── Phase 3: a local project's git state, run an analysis, view the map ──────
+  ipcMain.handle('project:gitState', (_e, repo) => gitState(repo))
+  ipcMain.handle('project:rangeForCommit', (_e, { repo, hash }) => rangeForCommit(repo, hash))
+
+  // Run whydiff for a range (empty = the working tree), streaming progress to the
+  // window that asked. Resolves with the produced map's path.
+  ipcMain.handle('project:analyze', async (e, { repo, range }) => {
+    const onProgress = (line) => { if (!e.sender.isDestroyed()) e.sender.send('analyze:progress', line) }
+    return runAnalysis(repo, range || '', { onProgress })
+  })
+
+  // Serve a produced map and open it in its own window; stop the server when the
+  // window closes.
+  ipcMain.handle('map:open', async (_e, { repo, mapPath, title }) => {
+    const { url, stop } = await serveMap(repo, mapPath)
+    mapServers.add(stop)
+    const win = new BrowserWindow({ width: 1400, height: 900, backgroundColor: '#14161a', title: title || 'whydiff', autoHideMenuBar: true })
+    win.loadURL(url)
+    win.on('closed', () => { mapServers.delete(stop); stop() })
+    return true
+  })
+
   createWindow()
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow() })
 })
+
+app.on('before-quit', () => { for (const stop of mapServers) stop() })
 
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit() })
