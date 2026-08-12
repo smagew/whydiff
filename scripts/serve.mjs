@@ -786,7 +786,9 @@ const server = createServer(async (req, res) => {
   if (url.pathname === '/api/note') {
     try {
       review = appendEvents(reviewDir, {
-        type: 'note.added', by: 'reviewer', kind: 'decision',
+        // `note` is a bare reviewer remark pinned to a place; `decision` is the
+        // reviewer's verdict on a plan (e.g. "not now"). The client says which.
+        type: 'note.added', by: 'reviewer', kind: payload.kind === 'note' ? 'note' : 'decision',
         anchor: normalizeAnchor(payload), text: String(payload.text || '').trim(),
         replyTo: payload.replyTo || undefined,
       }).state
