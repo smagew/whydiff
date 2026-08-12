@@ -353,12 +353,28 @@
   .dg-btn:hover { border-color: var(--accent); color: var(--accent); }
   .dg-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .diagram .cap { margin: 0 0 10px; font-size: 13px; color: var(--muted); }
-  .diagram .mermaid-box { overflow-x: auto; background: var(--surface-2); border-radius: 3px; padding: 10px; position: relative; }
+  /* Crosshair over the field says "drag to select a region"; a node overrides it
+     with a pointer to say "click me". Together they make the diagram's two
+     affordances legible without a word of instruction. */
+  .diagram .mermaid-box { overflow-x: auto; background: var(--surface-2); border-radius: 3px; padding: 10px; position: relative; cursor: crosshair; }
+  .mermaid-box svg .node, .mermaid-box svg .er.entityBox, .mermaid-box svg g[id^="entity-"] { cursor: pointer; }
   /* Drag-select rectangle for asking about a region of a diagram. */
   .dg-select { position: absolute; z-index: 5; pointer-events: none; border: 1.5px dashed var(--accent);
     background: color-mix(in srgb, var(--accent) 12%, transparent); border-radius: 2px; }
+  /* A persisted region: the frame of a selection that carries a note or a
+     discussion, redrawn from the journal on every render (mermaid re-lays-out the
+     SVG, so pixel geometry is recomputed from the covered nodes each time). */
+  .dg-region { position: absolute; z-index: 4; pointer-events: none; border: 1.5px dashed var(--line-strong); border-radius: 3px; }
+  /* The badge(s) at an annotated node or region: a small square with a chat or a
+     note glyph. Clickable — opens that place's thread. */
+  .dg-badges { position: absolute; z-index: 6; display: inline-flex; gap: 3px; }
+  .dg-badge { width: 20px; height: 20px; display: grid; place-items: center; padding: 0; cursor: pointer;
+    border: 1px solid var(--line); border-radius: 4px; background: var(--surface); color: var(--ink-2);
+    transition: border-color var(--t), color var(--t); }
+  .dg-badge:hover { border-color: var(--accent); color: var(--accent); }
+  .dg-badge:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .dg-badge svg { width: 13px; height: 13px; }
   pre.mermaid { margin: 0; text-align: center; }
-  .mermaid-box .clickable { cursor: pointer; }
   /* No :hover restyle on diagram nodes. On an SVG <g>, ANY hover repaint (opacity,
      stroke, …) rides on a :hover state that drops and regains itself every frame,
      so the node visibly flickers/shifts. The pointer cursor is the affordance;
@@ -1116,7 +1132,8 @@ const I18N = {
     askPlaceholder: 'What do you want to know about the selected part?',
     askHint: 'Enter to send, Shift+Enter for a newline · answers are saved next to the map',
     askSend: 'Ask', askThinking: 'asking Claude…', askFailed: 'Could not answer',
-    askAboutSelection: 'Ask about this text', askAboutDiagram: 'Ask about this diagram (Alt-click a node for one node)',
+    askAboutSelection: 'Ask about this text', askAboutDiagram: 'Ask about this whole diagram (click a block, or drag a region, for part of it)',
+    dgBadgeChat: 'A discussion is pinned here — open it', dgBadgeNote: 'A note is pinned here — open it',
     askSelected: 'Ask about these blocks', askClear: 'clear',
     askPickedN: (n) => `${n} block${n === 1 ? '' : 's'} selected`,
     askInspector: '◧ file', askShowInspector: 'Hand the column back to the file inspector',
@@ -1258,7 +1275,8 @@ const I18N = {
     askPlaceholder: 'Что хочется узнать про выделенное?',
     askHint: 'Enter — отправить, Shift+Enter — перенос строки · ответы сохраняются рядом с картой',
     askSend: 'Спросить', askThinking: 'спрашиваю Claude…', askFailed: 'Не удалось ответить',
-    askAboutSelection: 'Спросить про этот текст', askAboutDiagram: 'Вопрос по диаграмме (Alt-клик по ноде — по одной ноде)',
+    askAboutSelection: 'Спросить про этот текст', askAboutDiagram: 'Вопрос по всей диаграмме (клик по блоку или выделение области — по части)',
+    dgBadgeChat: 'Здесь закреплена дискуссия — открыть', dgBadgeNote: 'Здесь закреплена заметка — открыть',
     askSelected: 'Спросить про эти блоки', askClear: 'сбросить',
     askPickedN: (n) => `Выбрано блоков: ${n}`,
     askInspector: '◧ файл', askShowInspector: 'Вернуть колонку инспектору файлов',
@@ -2800,6 +2818,7 @@ if (SERVE?.token) (() => {
       }
     }
     layoutRail()
+    drawDiagramMarks() // a new question or note may have annotated a diagram place
   }
 
   // ── left rail: bookmarks at the height of their anchor ─────────────────────
@@ -2916,6 +2935,88 @@ if (SERVE?.token) (() => {
   addEventListener('scroll', hideSel, { passive: true })
 
   // ── diagrams ───────────────────────────────────────────────────────────────
+  const nodeText = (n) => (n.textContent || '').replace(/\s+/g, ' ').trim()
+  const nslug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+  const nodeAnchor = (dg, i, label) => ({
+    kind: 'diagram-node',
+    key: `diagram:${i}:${nslug(label).slice(0, 40)}`,
+    label: `${dg.querySelector('h3')?.textContent || ''} → ${label}`,
+    files: filesOf(dg),
+    context: `Node "${label}" in this diagram:\n${(RM.diagrams?.[i]?.mermaid || '').slice(0, 2500)}`,
+    lang: RM.meta.lang,
+  })
+  // Small monochrome glyphs (currentColor), within the design system: a chat bubble
+  // for a place with a discussion (question answered / plan / options), a pencil for
+  // a place carrying a bare note.
+  const CHAT_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>'
+  const NOTE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>'
+
+  // Redraw the persisted annotations on every diagram from the journal: a badge on
+  // each annotated node, and a dashed frame + badge around each annotated region.
+  // Called after every (re-)render, because mermaid rebuilds the SVG and pixel
+  // positions with it. No MutationObserver, so these DOM writes never re-trigger it.
+  function drawDiagramMarks() {
+    const pane = document.getElementById('pane-diagrams')
+    if (!pane) return
+    pane.querySelectorAll('.dg-region, .dg-badges').forEach(el => el.remove())
+    pane.querySelectorAll('.diagram').forEach((dg, i) => {
+      const box = dg.querySelector('.mermaid-box')
+      if (!box || !box.querySelector('svg')) return
+      const br = box.getBoundingClientRect()
+      const svgNodes = [...box.querySelectorAll('svg .node')]
+      // One entry per annotated anchor on this diagram, with the kinds it carries.
+      const byKey = new Map()
+      for (const t of threads) {
+        if (!t.anchorKey?.startsWith(`diagram:${i}:`)) continue
+        const e = byKey.get(t.anchorKey) || { anchor: t.anchor, chat: false, note: false }
+        if (t.kind === 'note') e.note = true; else e.chat = true
+        byKey.set(t.anchorKey, e)
+      }
+      const badgesEl = (anchor, chat, note) => {
+        const wrap = document.createElement('div')
+        wrap.className = 'dg-badges'
+        for (const [on, icon, title] of [[chat, CHAT_ICON, L.dgBadgeChat], [note, NOTE_ICON, L.dgBadgeNote]]) {
+          if (!on) continue
+          const b = document.createElement('button')
+          b.type = 'button'; b.className = 'dg-badge'; b.title = title; b.innerHTML = icon
+          b.addEventListener('click', (e) => { e.stopPropagation(); openFor(anchor) })
+          wrap.appendChild(b)
+        }
+        return wrap
+      }
+      const place = (wrap, right, top) => {
+        wrap.style.left = (right - br.left + box.scrollLeft - 12) + 'px'
+        wrap.style.top = (top - br.top + box.scrollTop - 8) + 'px'
+        box.appendChild(wrap)
+      }
+      for (const [key, e] of byKey) {
+        if (/:region:/.test(key)) {
+          const labels = new Set((e.anchor?.nodes || []).map(String))
+          const inside = svgNodes.filter(n => labels.has(nodeText(n).slice(0, 60)))
+          if (!inside.length) continue
+          let L1 = Infinity, T1 = Infinity, R1 = -Infinity, B1 = -Infinity
+          for (const n of inside) { const b = n.getBoundingClientRect(); L1 = Math.min(L1, b.left); T1 = Math.min(T1, b.top); R1 = Math.max(R1, b.right); B1 = Math.max(B1, b.bottom) }
+          const pad = 6
+          const fr = document.createElement('div')
+          fr.className = 'dg-region'
+          fr.style.left = (L1 - br.left + box.scrollLeft - pad) + 'px'
+          fr.style.top = (T1 - br.top + box.scrollTop - pad) + 'px'
+          fr.style.width = (R1 - L1 + pad * 2) + 'px'
+          fr.style.height = (B1 - T1 + pad * 2) + 'px'
+          box.appendChild(fr)
+          place(badgesEl(e.anchor, e.chat, e.note), R1 + pad, T1 - pad)
+        } else {
+          // A node anchor: find the node whose label slug matches the key's tail.
+          const slug = key.slice(`diagram:${i}:`.length)
+          const node = svgNodes.find(n => nslug(nodeText(n).slice(0, 90)).slice(0, 40) === slug)
+          if (!node) continue
+          const b = node.getBoundingClientRect()
+          place(badgesEl(e.anchor, e.chat, e.note), b.right, b.top)
+        }
+      }
+    })
+  }
+
   const wireDiagrams = () => {
     // Guarded: this runs from a MutationObserver on the pane, and refreshMarks()
     // inserts a marker into that same pane. Only a genuinely new anchor triggers
@@ -2946,29 +3047,25 @@ if (SERVE?.token) (() => {
         }))
         head.appendChild(b)
       }
-      dg.querySelectorAll('svg .node, svg .er.entityBox, svg g[id^="entity-"]').forEach((node) => {
-        if (node.dataset.askWired) return
-        node.dataset.askWired = '1'
-        node.addEventListener('click', (e) => {
-          if (!e.altKey) return // plain click keeps its existing drill-down
-          e.preventDefault(); e.stopPropagation()
-          const label = (node.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 90)
-          openFor({
-            kind: 'diagram-node',
-            key: `diagram:${i}:${label.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40)}`,
-            label: `${dg.querySelector('h3')?.textContent || ''} → ${label}`,
-            files: filesOf(dg),
-            context: `Node "${label}" in this diagram:\n${(RM.diagrams?.[i]?.mermaid || '').slice(0, 2500)}`,
-            lang: RM.meta.lang,
-          })
-        })
-      })
-      // Drag a rectangle over the diagram to ask about a REGION, not one node: on
-      // release, the nodes the box covers become the anchor's context. A plain
-      // click (no movement) is left alone, so node drill-down still works.
+      // Node click and region drag are delegated to the BOX, not wired per node:
+      // mermaid rebuilds the node elements on every render (palette switch, re-open),
+      // but the box persists — so one listener on it survives, where per-node
+      // listeners would silently be lost.
       const box = dg.querySelector('.mermaid-box')
       if (box && !box.dataset.selWired) {
         box.dataset.selWired = '1'
+        // A plain click on a block opens the panel to ask or note about it. Capture +
+        // stopImmediate so mermaid's own click directive (which would open the file)
+        // does not also fire — the file stays reachable from the chips below.
+        box.addEventListener('click', (e) => {
+          const node = e.target.closest?.('.node, .er.entityBox, g[id^="entity-"]')
+          if (!node || !box.contains(node)) return
+          e.preventDefault(); e.stopImmediatePropagation()
+          openFor(nodeAnchor(dg, i, nodeText(node).slice(0, 90)))
+        }, true)
+        // Drag a rectangle over the diagram to ask about a REGION, not one node: on
+        // release, the nodes the box covers become the anchor's context. A plain
+        // click (no movement) is left to the click handler above.
         box.addEventListener('mousedown', (e) => {
           if (e.button !== 0) return
           const r = box.getBoundingClientRect()
@@ -2991,13 +3088,18 @@ if (SERVE?.token) (() => {
             const covered = [...dg.querySelectorAll('svg .node')].filter((n) => {
               const b = n.getBoundingClientRect()
               return b.left < box2.right && b.right > box2.left && b.top < box2.bottom && b.bottom > box2.top
-            }).map((n) => (n.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 60)).filter(Boolean)
+            }).map((n) => nodeText(n).slice(0, 60)).filter(Boolean)
             if (!covered.length) return
+            // The covered node labels ARE the region — stored on the anchor so the
+            // frame can be redrawn from them after mermaid re-lays-out the SVG, when
+            // pixel geometry is gone. Keyed off the sorted labels so the same region
+            // is the same anchor.
             openFor({
               kind: 'diagram-region',
-              key: `diagram:${i}:region:${covered.length}:${covered.join('|').length}`,
+              key: `diagram:${i}:region:${nslug([...covered].sort().join('+')).slice(0, 60)}`,
               label: `${dg.querySelector('h3')?.textContent || ''} → ${covered.slice(0, 3).join(', ')}${covered.length > 3 ? '…' : ''}`,
               files: filesOf(dg),
+              nodes: covered,
               context: `A selected region of this diagram covers these nodes: ${covered.join('; ')}.\nFull diagram:\n${(RM.diagrams?.[i]?.mermaid || '').slice(0, 2500)}`,
               lang: RM.meta.lang,
             })
@@ -3006,10 +3108,19 @@ if (SERVE?.token) (() => {
         })
       }
     })
-    if (fresh) refreshMarks() // diagrams anchor late; their markers are drawn now
+    if (fresh) refreshMarks()
+    drawDiagramMarks()
   }
+  // Re-wire and repaint when a render rebuilds the SVG (first open, palette switch),
+  // but IGNORE our own annotation writes (badges/frames) — otherwise painting them
+  // would re-trigger the observer forever. So the observer reacts to real diagram
+  // mutations only, and drawDiagramMarks can add its overlay without a disconnect.
+  const dgPane = document.getElementById('pane-diagrams')
+  const isOurs = (n) => n.nodeType === 1 && (n.classList?.contains('dg-badges') || n.classList?.contains('dg-region'))
+  new MutationObserver((muts) => {
+    if (muts.some(m => [...m.addedNodes, ...m.removedNodes].some(n => !isOurs(n)))) wireDiagrams()
+  }).observe(dgPane, { childList: true, subtree: true })
   tabsEl.querySelector('.tab[data-pane="diagrams"]')?.addEventListener('click', wireDiagrams)
-  new MutationObserver(wireDiagrams).observe(document.getElementById('pane-diagrams'), { childList: true, subtree: true })
 
   // ── conversation ───────────────────────────────────────────────────────────
   const traceHTML = (steps, open) => !steps?.length ? '' : `

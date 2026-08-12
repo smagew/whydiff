@@ -56,6 +56,9 @@ await page.waitForTimeout(400)
 const clickable = await page.locator('#pane-diagrams .clickable').count()
 if (clickable < 1) fail('no clickable mermaid nodes rendered')
 
+// In a standalone file there is no ask UI (it needs a live model), so a diagram
+// block keeps its file drill-down on click. The click-to-ask behaviour is a served
+// feature, covered by tests/serve.mjs.
 await page.locator('#pane-diagrams .clickable').first().click()
 await page.waitForTimeout(300)
 const insp = (await page.locator('#inspector h3').textContent()) || ''
