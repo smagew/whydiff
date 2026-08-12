@@ -1,0 +1,23 @@
+{
+  "name": "whydiff-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Desktop host for whydiff — pick a project, browse its changes, run a review map. (Phase 2: shell + project list.)",
+  "main": "out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "start": "electron-vite preview",
+    "test": "node test/store.test.mjs"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "electron": "^33.2.1",
+    "electron-vite": "^2.3.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "vite": "^5.4.11"
+  }
+}
