@@ -124,6 +124,12 @@ better on first contact. Close that gap:
 - Bigger-map ergonomics beyond what's shipped (search across nodes, deep links
   into a specific block/file).
 - More host integrations once the Codex one has paid for the abstraction.
+- **A desktop app** — a host over the core: pick a project (local or a GitHub URL),
+  browse its commits/PRs, run whydiff on any of them, and keep a saved, searchable
+  index of analyses, all in one window on macOS/Linux/Windows. Reuses `serve.mjs` as
+  the viewer; its precondition is the standalone runner above. Full plan, stack
+  decision (Electron for the MVP), and MVP sequence in
+  [`docs/desktop-app.md`](docs/desktop-app.md).
 - Small ops polish: a documented "serving over SSH" note + a `--no-open` mode
   (serve assumes it can open a local browser), and a documented way to clear
   `<repo>/.whydiff/` (our only on-disk state — the closest thing we have to
