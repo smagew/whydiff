@@ -1,9 +1,19 @@
 # ADR: hardening the feedback → agent loop (Track A) — buy vs build
 
-Status: proposed (2026-08-12). Extends `review-loop.md` (tier-3 worktree
-execution, already shipped). No code change yet — this records the failure modes we
-must cover, and what we **reuse** vs **reject** vs **spike**, so the "childhood
-diseases" of this pattern are decided deliberately rather than rediscovered.
+Status: accepted (2026-08-12). Extends `review-loop.md` (tier-3 worktree
+execution, already shipped). Records the failure modes we must cover and what we
+**reuse** vs **reject** vs **spike**, so the "childhood diseases" of this pattern
+are decided deliberately rather than rediscovered.
+
+> **Update (2026-08-12), after an empirical check:** the "patch doesn't apply" row
+> below originally said *adopt `git apply --3way`*. A quick experiment killed that:
+> `--3way` implies `--index`, and the reviewed tree is **dirty** (the change under
+> review is uncommitted), so git refuses with *"does not match index"* before it
+> ever tries to merge. A working-tree 3-way would mean a hand-rolled `git merge-file`
+> pipeline (reconstruct base/other per file, handle new/renamed/binary) — exactly the
+> fragile code this ADR exists to avoid. Decision revised: **keep the clean-or-refuse
+> gate, and make re-running the task the recovery.** The row and the "Next" section
+> reflect the shipped behaviour; a true auto-merge is parked in the backlog below.
 
 ## Context
 
@@ -31,7 +41,7 @@ Two findings shaped the decision:
 
 | Concern (failure mode) | Reusable solution | Verdict |
 |---|---|---|
-| **Patch doesn't apply** — reviewed tree moved on, or patch already in it | `git apply --3way` (built-in three-way merge) | **Adopt.** `applyPatch` (`serve.mjs:595`) does `--check` then a plain apply and 409s on any drift; switch to `--3way` and surface conflict markers instead of a hard failure. Our patch comes from `git diff --cached` (carries index lines) and the blobs are local — both preconditions for `--3way` are met. |
+| **Patch doesn't apply** — reviewed tree moved on, or patch already in it | `git apply --reverse --check` to classify; git's own gate to refuse | **Shipped (revised).** `git apply --3way` does **not** fit a dirty reviewed tree (see the update above). Instead: keep `--check`-then-apply, and when it fails, use `git apply --reverse --check` to tell *already-applied* (nothing to do) from *moved-on* (re-run the task to rebase it). The gate stays clean-or-refuse — the tree is never left half-applied or with conflict markers. |
 | **Worktree leak on hard kill** | `git worktree prune` + sweep of stale tmp dirs | **Build, small.** `makeWorktree`/`dropWorktree` (`serve.mjs:457`,`:471`) clean up in `finally`, but a SIGKILL of the server leaks the tmp worktree and its registration. Add `git worktree prune` + removal of stale `whydiff-work-*` dirs at startup. ~10 lines; no package (pure-JS git libs like isomorphic-git don't cover worktrees). |
 | **Agent run + structured diff + streaming + permissions** | Claude Agent SDK (TypeScript, first-party) | **Spike, then a follow-up ADR.** May replace the hand-rolled `run()` (`serve.mjs:287`) and patch reconstruction (`git add -A` + `git diff --cached`, `serve.mjs:558`) with a supported API that returns a structured `gitDiff` and models tool allowlists natively. See the spike section — it is the one real dependency decision, and it touches portability. |
 | **Reconnect to an in-flight stream** | SSE `Last-Event-ID` / a job store | **Build tiny, or skip.** Single-process local server; "close the tab, reload shows the final journalled state" already holds (writes to a dead socket are swallowed and the worker finishes). Not worth a queue library. |
@@ -77,13 +87,25 @@ core.
 ## Next
 
 Two zero-dependency git fixes, both before the end-to-end run because they change
-what "as is" even means:
+what "as is" even means — **shipped** (`scripts/serve.mjs`, tests in
+`tests/work-harden.mjs`):
 
-1. `git apply --3way` in `applyPatch`, with conflict surfaced rather than forced.
-2. `git worktree prune` + `whydiff-work-*` sweep at server startup.
+1. `applyPatch` classifies a non-applying patch as *already-applied* vs *moved-on*
+   (`git apply --reverse --check`) and refuses with the matching guidance; the gate
+   stays clean-or-refuse. (Not `--3way` — see the update at the top.)
+2. `sweepWorktrees()` at startup: `git worktree prune` + a force-remove of leftover
+   `whydiff-work-*` worktrees, ours only.
 
 Then run the loop on a live diff (`serve --work`) to turn the failure-mode list
 above into observed facts. The Agent SDK is a separate spike and its own ADR.
+
+### Backlog
+
+- **True auto-merge of a moved-on patch.** If re-running the task proves too coarse
+  in practice, revisit a working-tree 3-way via `git merge-file`, fed by the result
+  blobs recorded at resolve time (they already live in the shared object store after
+  the worker's `git add`), so no fragile per-file reconstruction is needed. Low
+  priority — the "moved-on" case is uncommon, and re-work is a clean recovery.
 
 ## Prior art referenced
 

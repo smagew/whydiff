@@ -471,6 +471,27 @@ const makeWorktree = (taskId) => {
 const dropWorktree = (dir) => {
   try { git(repo, ['worktree', 'remove', '--force', dir]) } catch { try { rmSync(dir, { recursive: true, force: true }) } catch {} }
 }
+// Reclaim worktrees a killed run left behind. Ours are named `whydiff-work-*`:
+// `prune` clears registrations whose directory is already gone (a reboot wiped the
+// temp dir); a force-remove reclaims the ones a SIGKILL left on disk. Only our own
+// worktrees are touched — never someone else's. Runs once at startup, under --work.
+// (Two `serve --work` on one repo is unsupported — the worker lock is per process —
+// so a second start reclaiming a first's in-flight worktree is not a real case.)
+const sweepWorktrees = () => {
+  try { git(repo, ['worktree', 'prune']) } catch {}
+  let list = ''
+  try { list = git(repo, ['worktree', 'list', '--porcelain']) } catch { return }
+  let cleaned = 0
+  for (const block of list.split('\n\n')) {
+    const m = /^worktree (.+)$/m.exec(block)
+    if (!m || !m[1].includes('/whydiff-work-')) continue
+    try { git(repo, ['worktree', 'remove', '--force', m[1]]) } catch {}
+    try { rmSync(m[1], { recursive: true, force: true }) } catch {}
+    cleaned++
+  }
+  if (cleaned) { try { git(repo, ['worktree', 'prune']) } catch {} }
+  if (cleaned) process.stdout.write(`  ⌫ reclaimed ${cleaned} leftover worktree(s) from a previous run\n`)
+}
 
 const buildWorkPrompt = (task, thread, wt) => `You are doing one agreed task from a whydiff code review, inside a throwaway git worktree.
 
@@ -600,7 +621,17 @@ const applyPatch = (res, taskId) => {
   try {
     git(repo, ['apply', '--check', task.resolution.patch])
   } catch (e) {
-    return json(res, 409, { error: `the patch does not apply to the working tree as it stands — it may already be applied, or the tree moved on (${String(e.stderr || e.message).trim().slice(0, 300)})` })
+    // Tell the two cases apart, because the fix differs. If the reverse patch
+    // applies cleanly the change is already in the tree — nothing to do. Otherwise
+    // the tree moved on since this task was worked, and the honest recovery is to
+    // re-run the task so the worker rebases it on the tree as it stands now. The
+    // gate stays clean-or-refuse: a patch that does not fit is never forced, so the
+    // working tree is never left half-applied or carrying conflict markers.
+    let already = false
+    try { git(repo, ['apply', '--reverse', '--check', task.resolution.patch]); already = true } catch {}
+    return already
+      ? json(res, 409, { applied: true, error: 'this patch is already in your working tree — there is nothing to apply' })
+      : json(res, 409, { movedOn: true, error: `the patch no longer fits the working tree — it changed since this task was worked. Re-run the task to rebase it on the tree as it stands now (${String(e.stderr || e.message).trim().slice(0, 200)})` })
   }
   try {
     git(repo, ['apply', task.resolution.patch])
@@ -767,6 +798,7 @@ const server = createServer(async (req, res) => {
 })
 
 server.listen(port, '127.0.0.1', () => {
+  if (workMode) sweepWorktrees()
   const url = `http://127.0.0.1:${port}/`
   console.log(`whydiff serve: ${url}`)
   console.log(`  map    ${mapPath}`)

@@ -4,6 +4,16 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.15.1] — 2026-08-12
+
+### Changed
+- **serve --work is steadier at the edges.** On startup it reclaims worktrees a
+  killed run left behind (`whydiff-work-*`) and prunes stale registrations — ours
+  only, never another worktree. And a patch that no longer fits the working tree is
+  refused with the case named: *already applied* (nothing to do) vs *moved on*
+  (re-run the task to rebase it), instead of one ambiguous message. The apply gate
+  stays clean-or-refuse — the tree is never left half-applied.
+
 ## [0.15.0] — 2026-08-11
 
 ### Added
