@@ -78,9 +78,21 @@ Each phase is useful on its own and unblocks the next. The spine is: **prove a
 headless run → wrap it in a runner → put a shell around it → add history → add
 remotes → package.** Decisions are pulled to the phase that first forces them.
 
-### Phase 0 — Prove a headless run (a spike, no app)
+### Phase 0 — Prove a headless run (a spike, no app) — ✅ DONE (2026-08-12)
 
-The one unknown that everything rests on: **can a full whydiff run happen without an
+> **Result:** confirmed. `claude -p "/whydiff HEAD~1..HEAD" --plugin-dir <repo>` ran
+> a full analysis on the `synthetic` fixture headlessly, **exit 0, no interactive
+> permission wall** — the plugin's `approve` hook auto-approves the pipeline's own
+> ops in `-p` mode. It produced a valid `review-map.json` (10 files, 6 groups, 3
+> diagrams; `validate.mjs --ref HEAD~1..HEAD` → *"structure valid, manifest matches
+> the real diff"*) **and** the self-contained `review-map.served.html`. Wall-clock
+> ~4 min on the small fixture. **Path (A) — shell the skill — is viable; it is the
+> MVP path.** Notes for the runner: it must pass and record the range and reuse it
+> for validation (the pipeline already records `ref` in `manifest.json`); and the
+> MVP therefore depends on Claude Code + the plugin being installed (fine for A,
+> lifted later by B).
+
+The one unknown that everything rested on: **can a full whydiff run happen without an
 interactive Claude Code agent?** The skill today is driven by the main agent.
 
 - The headless docs say user-invoked skills work in `-p` mode (`claude -p "/whydiff
