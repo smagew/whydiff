@@ -4,6 +4,15 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.19.0] — 2026-08-12
+
+### Changed
+- **`run.mjs` with no range maps the working tree.** `node scripts/run.mjs <repo>`
+  (no `<base..head>`) now analyses the working tree vs HEAD — staged, unstaged and
+  untracked — the same default `/whydiff` uses, and validates with no `--ref`. A range
+  is still passed through. This is what lets the desktop app offer "analyze my
+  uncommitted changes".
+
 ## [0.18.0] — 2026-08-12
 
 ### Added
