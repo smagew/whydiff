@@ -35,7 +35,9 @@ export const EVENT_TYPES = [
   'map.observed', 'note.added', 'task.opened', 'task.state', 'task.resolved',
   'task.verified', 'anchor.rebound',
 ]
-export const NOTE_KINDS = ['question', 'answer', 'instruction', 'proposal', 'decision', 'report']
+// `note` is a bare reviewer remark on a place — no model, no reply, not a decision
+// about a plan. It exists so a thought can be pinned to the map and read back.
+export const NOTE_KINDS = ['question', 'answer', 'instruction', 'proposal', 'decision', 'report', 'note']
 export const TASK_STATES = ['proposed', 'open', 'in_progress', 'done', 'verified', 'declined']
 
 // A task can be reopened from `done` (the patch was reviewed and rejected) and from
@@ -427,6 +429,16 @@ export function turns(state) {
     decision: state.notes.find(n => n.kind === 'decision' && n.replyTo === noteId) || null,
   })
   for (const req of state.notes) {
+    // A bare reviewer note is a turn on its own — a remark with no reply to wait
+    // for. It surfaces so the map can mark its place and the panel can read it back.
+    if (req.kind === 'note') {
+      out.push({
+        anchorKey: req.anchor.key, anchor: req.anchor, at: req.at, kind: 'note',
+        requestId: req.noteId, request: req.text, response: null, steps: [],
+        plan: null, proposal: null, decision: null, task: null,
+      })
+      continue
+    }
     // A proposal has no request to pair with: Claude speaks first, prompted by a
     // finding rather than by something the reviewer typed.
     if (req.kind === 'proposal') {

@@ -4,6 +4,17 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.16.0] — 2026-08-12
+
+### Added
+- **Notes on the map — `ask` becomes a visible annotation.** The ask panel gains a
+  fourth mode, **Note**: pin a bare reviewer remark to any place (a story, a diagram
+  node, a file, a finding, a selection) with no model involved. Like a question, a
+  note marks its anchor on the map, reads back in the panel, and is saved to the
+  review journal so it survives a reload — making the map a surface you annotate,
+  not only read. A new `note` journal kind carries it (distinct from a `decision`,
+  which is a verdict on a plan).
+
 ## [0.15.2] — 2026-08-12
 
 ### Changed

@@ -1125,7 +1125,11 @@ const I18N = {
     askLostAnchor: 'its place in the report is gone',
     staleTag: 'stale', staleWhy: 'the report was regenerated and this place is gone — the discussion is kept',
     askOnThisTab: (n) => `${n} note${n === 1 ? '' : 's'} on this tab`,
-    modeAsk: 'Ask', modeInstruct: 'Instruct', modePropose: 'Options',
+    modeAsk: 'Ask', modeInstruct: 'Instruct', modePropose: 'Options', modeNote: 'Note',
+    modeNoteTitle: 'Pin a note on this place — for the review, no model involved',
+    notePlaceholder: 'A note to pin here…',
+    noteHint: 'Enter to pin · a remark saved on this place, no model',
+    noteSend: 'Add note', noteFailed: 'Could not save the note',
     modeAskTitle: 'Ask a question about this place', modeInstructTitle: 'Say what should change here — Claude plans it, nothing is edited',
     modeProposeTitle: 'Ask for ways to deal with this finding — two or three, differing in kind',
     modeProposeOff: 'Options are only offered for a problem the map found: a standards finding, a test gap, or a story that is not delivered',
@@ -1263,7 +1267,11 @@ const I18N = {
     askLostAnchor: 'место в отчёте потеряно',
     staleTag: 'место потеряно', staleWhy: 'отчёт перегенерирован, этого места в нём больше нет — обсуждение сохранено',
     askOnThisTab: (n) => `Заметок на этой вкладке: ${n}`,
-    modeAsk: 'Спросить', modeInstruct: 'Поручить', modePropose: 'Варианты',
+    modeAsk: 'Спросить', modeInstruct: 'Поручить', modePropose: 'Варианты', modeNote: 'Заметка',
+    modeNoteTitle: 'Прикрепить заметку к этому месту — для ревью, без модели',
+    notePlaceholder: 'Заметка к этому месту…',
+    noteHint: 'Enter — прикрепить · реплика сохраняется на этом месте, без модели',
+    noteSend: 'Добавить', noteFailed: 'Не удалось сохранить заметку',
     modeAskTitle: 'Задать вопрос по этому месту', modeInstructTitle: 'Сказать, что здесь изменить — Claude составит план, ничего не правит',
     modeProposeTitle: 'Запросить варианты, как поступить с этой находкой — два-три, различающихся видом',
     modeProposeOff: 'Варианты предлагаются только для проблемы, которую нашла карта: замечание по стандартам, пробел в тестах или история не в статусе delivered',
@@ -2595,6 +2603,7 @@ if (SERVE?.token) (() => {
         <button data-mode="ask" class="on" title="${esc(L.modeAskTitle)}">${esc(L.modeAsk)}</button>
         <button data-mode="instruct" title="${esc(L.modeInstructTitle)}">${esc(L.modeInstruct)}</button>
         <button data-mode="propose" title="${esc(L.modeProposeTitle)}">${esc(L.modePropose)}</button>
+        <button data-mode="note" title="${esc(L.modeNoteTitle)}">${esc(L.modeNote)}</button>
       </div>
       <textarea placeholder="${esc(L.askPlaceholder)}"></textarea>
       <div class="dk-row"><span class="dk-hint">${esc(L.askHint)}</span><button class="btn primary dk-send">${esc(L.askSend)}</button></div>
@@ -2623,9 +2632,9 @@ if (SERVE?.token) (() => {
     mode = next
     for (const b of panel.querySelectorAll('.dk-mode button')) b.classList.toggle('on', b.dataset.mode === next)
     dkText.hidden = next === 'propose'
-    dkText.placeholder = next === 'instruct' ? L.instructPlaceholder : L.askPlaceholder
-    dkHint.textContent = next === 'ask' ? L.askHint : next === 'instruct' ? L.instructHint : L.proposeHint
-    dkSend.textContent = next === 'ask' ? L.askSend : next === 'instruct' ? L.instructSend : L.proposeSend
+    dkText.placeholder = next === 'note' ? L.notePlaceholder : next === 'instruct' ? L.instructPlaceholder : L.askPlaceholder
+    dkHint.textContent = next === 'ask' ? L.askHint : next === 'instruct' ? L.instructHint : next === 'note' ? L.noteHint : L.proposeHint
+    dkSend.textContent = next === 'ask' ? L.askSend : next === 'instruct' ? L.instructSend : next === 'note' ? L.noteSend : L.proposeSend
   }
   for (const b of panel.querySelectorAll('.dk-mode button')) {
     b.addEventListener('click', () => { if (!b.disabled) { setMode(b.dataset.mode); if (!dkText.hidden) dkText.focus() } })
@@ -3065,8 +3074,10 @@ if (SERVE?.token) (() => {
   const KQ = { instruct: () => L.modeInstruct, proposal: () => L.modePropose }
   const renderThreads = (toEnd) => {
     const mine = forKey(current?.key)
-    dkThreads.innerHTML = mine.map((t, i) => `
-      <div class="dk-t">${t.request === null
+    dkThreads.innerHTML = mine.map((t, i) => t.kind === 'note'
+      // A bare note is the whole turn: a reviewer's remark, no answer to render.
+      ? `<div class="dk-t"><div class="dk-q"><span class="kq">${esc(L.modeNote)}</span>${esc(t.request)}</div></div>`
+      : `<div class="dk-t">${t.request === null
         ? `<div class="dk-q"><span class="kq">${esc(KQ[t.kind]?.() || '')}</span>${esc(L.proposeAsked)}</div>`
         : `<div class="dk-q">${KQ[t.kind] ? `<span class="kq">${esc(KQ[t.kind]())}</span>` : ''}${esc(t.request)}</div>`}
         ${traceHTML(t.steps)}
@@ -3168,6 +3179,24 @@ if (SERVE?.token) (() => {
     const question = dkText.value.trim()
     // In Options mode the finding is the input, so there is nothing to type.
     if ((!question && mode !== 'propose') || !current || dkSend.disabled) return
+    // A note is not an exchange — no model, no stream. Pin it and re-render.
+    if (mode === 'note') {
+      dkSend.disabled = true
+      dkErr.hidden = true
+      try {
+        const d = await api('note', { anchor: current, anchorKey: current.key, kind: 'note', text: question })
+        threads = d.threads || threads
+        review = d.review || review
+        dkText.value = ''
+        renderThreads(true)
+        renderTasks()
+        refreshMarks()
+      } catch (e) {
+        dkErr.hidden = false
+        dkErr.textContent = `${L.noteFailed}: ${e.message}`
+      } finally { dkSend.disabled = false }
+      return
+    }
     const label = mode === 'propose' ? (current.label || current.key) : question
     const thinking = mode === 'ask' ? L.askThinking : mode === 'instruct' ? L.instructThinking : L.proposeThinking
     dkSend.disabled = true
