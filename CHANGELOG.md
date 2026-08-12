@@ -4,6 +4,20 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.17.0] — 2026-08-12
+
+### Added
+- **Diagrams are an annotation surface.** The cursor now tells you what a diagram
+  affords: a **crosshair** over the field (drag to select a region) and a **pointer**
+  over a block (click it). A plain click on a block opens the panel to **ask or
+  note** about that block — the file it links to stays reachable from the chips below
+  — and dragging a rectangle asks about a whole **region**. An annotated block or
+  region carries a small **badge** — a chat glyph where a discussion is pinned, a note
+  glyph where a note is — and a region keeps its **dashed frame**. Both are redrawn
+  from the review journal on every render (so they survive a palette switch and a
+  reload), and clicking a badge opens its thread. Served-only, like the rest of the
+  ask UI.
+
 ## [0.16.1] — 2026-08-12
 
 ### Fixed
