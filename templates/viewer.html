@@ -1537,10 +1537,12 @@ tabsEl.appendChild(helpBtn)
 // [data-goto] links into it, so collapsing must be reversible: a file click from
 // any tab reveals the panel again (see revealAside), otherwise those links would
 // look broken. Ops has no such links at all.
-// Every report tab keeps the aside, so the reading column never changes width
-// between tabs (an empty right half read as the whole block "shrinking"). The
-// aside carries the Overview by default and the drill-down when a file is opened.
-const ASIDE_TABS = new Set(['story', 'stories', 'diagrams', 'standards', 'tests', 'ops', 'files'])
+// The aside carries the Overview | Call graph switcher, which belongs to the Code
+// map — so only that tab keeps it by default. Every other tab runs the reading
+// column full width; a cross-link or a diagram node still reveals the aside on
+// demand for a file drill-down (revealAside), and it collapses again on Back or a
+// tab change (see closeDrill).
+const ASIDE_TABS = new Set(['files'])
 const layoutEl = document.querySelector('.layout')
 let currentTab = defaultTab
 const applyAside = (id) => layoutEl.classList.toggle('solo', !ASIDE_TABS.has(id))
@@ -2022,6 +2024,14 @@ function setAsideWide(on) {
   if (SESSION.get('asideW', null) === null) layoutEl.classList.toggle('wide', on)
   if (!document.getElementById('pane-files').hidden) requestAnimationFrame(drawEdges)
 }
+// Back out of a file drill-down: on the Code map, return to the Overview; on any
+// other tab the aside was revealed just for this drill-down, so collapse it again
+// rather than leaving the Overview | Call graph switcher on a tab that shouldn't
+// carry it.
+function closeDrill() {
+  if (ASIDE_TABS.has(currentTab)) showOverview()
+  else applyAside(currentTab)
+}
 function showFile(path) {
   const f = RM.files[path]
   if (!f) return
@@ -2042,7 +2052,7 @@ function showFile(path) {
       <button class="btn btn-back">${L.back}</button>
     </div>`
   if (hasFull) document.getElementById('openFull').addEventListener('click', () => openFull(path))
-  inspector.querySelectorAll('.btn-back').forEach(b => b.addEventListener('click', showOverview))
+  inspector.querySelectorAll('.btn-back').forEach(b => b.addEventListener('click', closeDrill))
 }
 function showGroup(g) {
   revealAside()
@@ -2053,7 +2063,7 @@ function showGroup(g) {
     <div class="why">${prose(g.why)}</div>
     <ul class="filelist">${g.files.map(p => `<li>${esc(p)}</li>`).join('')}</ul>
     <div class="actions"><button class="btn" id="backBtn">${L.back}</button></div>`
-  document.getElementById('backBtn').addEventListener('click', showOverview)
+  document.getElementById('backBtn').addEventListener('click', closeDrill)
 }
 // Compact group legend — used in the help dialog ("?"), where a short list is right.
 const legendHTML = () => `<ul class="glegend">${RM.groups.map(g => `

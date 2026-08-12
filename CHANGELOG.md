@@ -4,6 +4,15 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.16.1] — 2026-08-12
+
+### Fixed
+- **The Overview | Call graph aside belongs to the Code map.** It was showing on
+  every tab, including Diagrams; now it appears only on the Code map, and every other
+  tab runs the reading column full width. A cross-link or a diagram node still
+  reveals the aside on demand for a file drill-down, which collapses again on Back or
+  when you switch tabs.
+
 ## [0.16.0] — 2026-08-12
 
 ### Added
