@@ -1,13 +1,13 @@
 {
   "name": "whydiff",
-  "version": "0.15.1",
+  "version": "0.15.2",
   "description": "Follow the meaning of a change instead of reading every file an LLM touched \u2014 runtime deps for the whydiff Claude Code plugin (mermaid for the HTML assembler)",
   "main": "index.js",
   "directories": {
     "example": "examples"
   },
   "scripts": {
-    "test": "node tests/merge.mjs && node tests/shards.mjs && node tests/review.mjs && node tests/rebind.mjs && node tests/work.mjs && node tests/work-harden.mjs && node tests/approve.mjs && node tests/design.mjs && node tests/smoke.mjs && node tests/serve.mjs"
+    "test": "node tests/merge.mjs && node tests/shards.mjs && node tests/review.mjs && node tests/rebind.mjs && node tests/work.mjs && node tests/work-harden.mjs && node tests/work-rerun.mjs && node tests/approve.mjs && node tests/design.mjs && node tests/smoke.mjs && node tests/serve.mjs"
   },
   "keywords": [],
   "author": "",

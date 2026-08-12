@@ -1060,6 +1060,9 @@ const I18N = {
     tasksPatch: (n) => `${n} file${n === 1 ? '' : 's'} changed — the patch is not in your tree yet`,
     tasksApply: 'Apply to the working tree', tasksApplied: 'This patch is in your working tree',
     tasksApplyFailed: 'Could not apply',
+    tasksMovedOn: 'The tree changed since this was worked, so the patch no longer fits.',
+    tasksRerun: 'Re-run to rebase',
+    tasksAlreadyApplied: 'This patch is already in your working tree.',
     tasksShowPatch: 'show the patch', tasksHidePatch: 'hide the patch',
     tasksCopy: 'Copy the queue as a prompt', tasksCopied: 'copied — paste it into your Claude Code session',
     tasksCopyNothing: 'nothing agreed to copy yet',
@@ -1195,6 +1198,9 @@ const I18N = {
     tasksPatch: (n) => `Файлов изменено: ${n} — в вашем дереве этого пока нет`,
     tasksApply: 'Применить к рабочему дереву', tasksApplied: 'Патч уже в вашем рабочем дереве',
     tasksApplyFailed: 'Не удалось применить',
+    tasksMovedOn: 'Дерево изменилось после выполнения задачи — патч больше не подходит.',
+    tasksRerun: 'Перезапустить и пере-базировать',
+    tasksAlreadyApplied: 'Этот патч уже в вашем рабочем дереве.',
     tasksShowPatch: 'показать патч', tasksHidePatch: 'скрыть патч',
     tasksCopy: 'Скопировать очередь как промпт', tasksCopied: 'скопировано — вставьте в свою сессию Claude Code',
     tasksCopyNothing: 'пока нечего копировать',
@@ -2561,7 +2567,7 @@ if (SERVE?.token) (() => {
     })
     if (raw) { if (!res.ok) throw new Error(`HTTP ${res.status}`); return res }
     const data = await res.json().catch(() => ({}))
-    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`)
+    if (!res.ok) { const err = new Error(data.error || `HTTP ${res.status}`); err.data = data; err.status = res.status; throw err }
     return data
   }
 
@@ -3517,6 +3523,21 @@ if (SERVE?.token) (() => {
     }
   }
 
+  // Re-work a task whose patch no longer fits: reopen it (which discards the stale
+  // resolution) and run the worker again, so it rebases on the tree as it stands now.
+  const rerun = async (taskId) => {
+    try {
+      const d = await api('task-state', { taskId, state: 'open' })
+      review = d.review || review
+      threads = d.threads || threads
+      renderTasks()
+      const card = tkGroups.querySelector(`.tkcard[data-id="${CSS.escape(taskId)}"]`)
+      card?.querySelector('.tkpatch')?.remove()   // the stale patch is about to be replaced
+      const run = card?.querySelector('.tk-run')
+      if (card && run && !run.disabled) work(card, run)
+    } catch (e) { console.error('re-run failed:', e) }
+  }
+
   const apply = async (card, btn) => {
     btn.disabled = true
     try {
@@ -3526,8 +3547,21 @@ if (SERVE?.token) (() => {
       renderTasks()
       refreshMarks()
     } catch (e) {
-      btn.insertAdjacentHTML('afterend', `<span class="dk-err">${esc(L.tasksApplyFailed)}: ${esc(e.message)}</span>`)
-      btn.disabled = false
+      // The tree moved on since this task was worked: offer to re-work it against the
+      // tree as it stands, which the gate can then apply. Already-applied is not a
+      // failure — say so plainly. Anything else is a real error.
+      if (e.data?.movedOn) {
+        const span = document.createElement('span')
+        span.className = 'tk-moved'
+        span.innerHTML = `<span class="dk-note">${esc(L.tasksMovedOn)}</span> <button class="dk-btn tk-rerun">${esc(L.tasksRerun)}</button>`
+        btn.replaceWith(span)
+        span.querySelector('.tk-rerun').addEventListener('click', () => rerun(card.dataset.id))
+      } else if (e.data?.applied) {
+        btn.replaceWith(Object.assign(document.createElement('span'), { className: 'dk-note', textContent: L.tasksAlreadyApplied }))
+      } else {
+        btn.insertAdjacentHTML('afterend', `<span class="dk-err">${esc(L.tasksApplyFailed)}: ${esc(e.message)}</span>`)
+        btn.disabled = false
+      }
     }
   }
 
