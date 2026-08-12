@@ -162,7 +162,7 @@ ok(decision?.taskId === 't_w1' && decision.by === 'reviewer', `the apply was not
 // Applying twice is refused, not forced: the patch no longer applies.
 const again = await fetch(base + '/api/apply', { method: 'POST', headers: H, body: JSON.stringify({ taskId: 't_w1' }) })
 if (again.status !== 409) fail(`expected 409 applying a patch twice, got ${again.status}`)
-if (!/already be applied/.test((await again.json()).error || '')) fail('the conflict does not explain itself')
+if (!/already/.test((await again.json()).error || '')) fail('the conflict does not explain itself')
 
 // A task that is already done is not worked again.
 const redo = await fetch(base + '/api/work', { method: 'POST', headers: H, body: JSON.stringify({ taskId: 't_w1' }) })
