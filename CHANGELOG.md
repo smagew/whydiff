@@ -4,6 +4,15 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.15.2] — 2026-08-12
+
+### Changed
+- **A *moved-on* patch no longer dead-ends.** When applying a worked patch fails
+  because the reviewed tree changed since the task was worked, the Tasks tab offers
+  **Re-run to rebase** — it reopens the task and re-works it against the tree as it
+  stands, producing a patch the gate can apply. Already-applied is shown as a plain
+  note, not an error. (Client half of the 0.15.1 server-side classification.)
+
 ## [0.15.1] — 2026-08-12
 
 ### Changed
