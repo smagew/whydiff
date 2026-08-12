@@ -287,6 +287,32 @@ regenerating the map and seeing it flip, `manual` by the reviewer.
    script, never asserted by the LLM).
 7. `assemble.mjs` — self-contained HTML with the mermaid bundle inlined.
 
+## Sharing a review
+
+A map is a **single self-contained HTML file** — the mermaid bundle and every asset
+are inlined, so it opens in any browser, offline, with no server and no dependency
+on Claude. That makes it portable: the review travels as a file, not as a link to
+something you have to keep running.
+
+Produce one from a `review-map.json` (the `/whydiff` run leaves it in `.whydiff/`):
+
+```bash
+node scripts/assemble.mjs .whydiff/review-map.json --out review.html
+```
+
+It comes out a few MB — well under every messaging limit — so **hand it to a
+teammate by attaching it to a message**:
+
+- **Slack** (1 GB/file) and **Telegram** (2 GB) take the `.html` as-is; the
+  recipient opens it in a browser.
+- **Email** works too (Gmail 25 MB), but many mail filters block a bare `.html`
+  attachment as a phishing risk — **zip it first** and it goes through.
+
+Privacy: the map can quote your diff and code, so treat it like the source itself.
+Send it only to people you'd show the code to, over a channel you trust. whydiff
+never uploads it anywhere — sharing is your deliberate act, and there is no
+whydiff-hosted link or third-party host in the loop.
+
 ## Project docs
 
 - [CONTRIBUTING.md](CONTRIBUTING.md) — scope, conventions, how a change lands
