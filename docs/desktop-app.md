@@ -72,25 +72,110 @@ light. Electron's bundled Chromium gives the same rendering everywhere.
    canonical: the per-repo `.whydiff/` (portable, travels with the repo) as the store,
    with the SQLite DB as an index/cache over it.
 
-## MVP sequence (one step at a time)
+## Phases
 
-1. **Standalone runner** — `node scripts/run.mjs <repo> <range>` → `review-map.json`,
-   calling `claude -p`. A precondition for the app, and independently valuable (CI, the
-   ROADMAP CLI item). Build this first: the app has nothing to launch without it.
-2. **Electron skeleton** — window, project list (SQLite), "add project" (disk path or
-   GitHub URL).
-3. **Select project → git status** — uncommitted present → offer analysis; else list
-   commits/branches (+ PRs via API); click → runner → `serve.mjs` in the window.
-4. **Analyses index** — save analyses, mark commits/PRs that have one, "latest whydiff
-   analyses" list.
+Each phase is useful on its own and unblocks the next. The spine is: **prove a
+headless run → wrap it in a runner → put a shell around it → add history → add
+remotes → package.** Decisions are pulled to the phase that first forces them.
 
-## Open decisions (to settle as we go)
+### Phase 0 — Prove a headless run (a spike, no app)
 
-- LLM path for v1: shell to `claude` CLI (assumed) vs API key vs Agent SDK.
-- Electron vs Tauri final call (MVP leans Electron; revisit on size/memory).
-- Canonical store for analyses: per-repo `.whydiff/` + SQLite index (assumed) vs
-  app-owned store only.
-- Multi-provider (non-Claude) — deferred until the single-host app proves out.
+The one unknown that everything rests on: **can a full whydiff run happen without an
+interactive Claude Code agent?** The skill today is driven by the main agent.
+
+- The headless docs say user-invoked skills work in `-p` mode (`claude -p "/whydiff
+  HEAD~1..HEAD"` expands the skill), so **shelling the skill is the likely path** —
+  confirm it end-to-end on a fixture and check `.whydiff/review-map.json` comes out
+  valid (`validate.mjs`).
+- **Decision it forces — how the model is driven (the crux):**
+  - **(A) Shell the skill** — `claude -p "/whydiff …"` with the plugin installed;
+    Claude Code does the orchestration. Fastest; but needs Claude Code + the plugin
+    present (the app runs it, the user doesn't open it).
+  - **(B) Orchestrate the passes ourselves** — the runner reads `agents/*.md`, calls
+    `claude -p` (or the API) per pass, merges/assembles deterministically. True
+    standalone (no Claude Code), more work; this is the portable core done properly.
+  - Recommendation: **start with (A)** to get end-to-end fast; **evolve to (B)** for
+    real independence and non-Claude providers.
+- **Done when:** a fixture analyses from a plain terminal and the map validates.
+
+### Phase 1 — Standalone runner (headless, no UI)
+
+- **Goal:** `node scripts/run.mjs <repo> <base..head>` → writes `.whydiff/` (map +
+  assembled HTML), streaming progress; wraps whichever path Phase 0 chose.
+- **Depends on:** Phase 0.
+- **Decisions:** progress/streaming shape; timeouts; failure handling; which passes a
+  "quick" run does (core: classifier + diagrammer) vs a "full" one.
+- **Done when:** the runner produces a valid map on the fixtures; independently useful
+  for CI (closes the ROADMAP "standalone CLI" item).
+
+### Phase 2 — Electron skeleton + projects
+
+- **Goal:** one window; "add project" (disk path or GitHub URL); a saved **project
+  list** (SQLite under `userData`); re-select on next launch.
+- **Depends on:** nothing (can run parallel to Phase 1).
+- **Decisions:** Electron vs Tauri final (MVP → Electron); SQLite schema (projects,
+  analyses); where a GitHub-URL clone is cached.
+- **Done when:** add two projects, relaunch, they're listed and re-selectable.
+
+### Phase 3 — Select → git state → run → view
+
+- **Goal:** select a local project → check uncommitted → offer analysis (accept →
+  runner → **`serve.mjs` spawned and loaded in the window**); decline → list
+  commits/branches, click one → run. This is the core loop.
+- **Depends on:** Phases 1 + 2.
+- **Decisions:** how the app spawns the runner and shows progress; how it embeds
+  `serve.mjs` (BrowserWindow to its localhost URL); git-history UX.
+- **Done when:** the whole loop works for a local project (uncommitted, and a past
+  commit).
+
+### Phase 4 — Analyses index + history
+
+- **Goal:** save analyses; mark commits that already have one with an icon; a **latest
+  analyses** list; re-open a saved analysis.
+- **Depends on:** Phase 3.
+- **Decisions:** canonical store — per-repo `.whydiff/` (portable) with SQLite as an
+  index/cache over it (assumed); keying (repo + range hash); stale detection when the
+  tree moved.
+- **Done when:** relaunch shows prior analyses and which commits carry one.
+
+### Phase 5 — Remotes: PR/MR + GitHub-URL projects
+
+- **Goal:** list a repo's PRs (Octokit); GitHub-URL projects (shallow clone + PR
+  browse); click a PR → run.
+- **Depends on:** Phase 3 (+ 4 for marking).
+- **Decisions:** **GitHub auth + token storage in the OS keychain** (the real one
+  here); private repos; GitLab parity (later).
+- **Done when:** add a repo by URL, list PRs, analyse one.
+
+### Phase 6 — Packaging & cross-OS polish
+
+- **Goal:** signed/notarised builds — macOS (`.dmg`, **Apple notarisation needs a paid
+  developer account** — a real gate), Linux (AppImage/deb), Windows (installer +
+  signing); auto-update.
+- **Depends on:** a working app.
+- **Decisions:** code-signing certificates (cost/time), auto-update infra, and the
+  Tauri revisit if size/memory matter by then.
+
+## Cross-cutting questions to settle
+
+1. **How the model is driven** — (A) shell the skill vs (B) orchestrate passes vs API
+   key/SDK. *Blocks Phase 0/1. The most important one.*
+2. **Does whydiff run headlessly today**, and with what dependencies (Claude Code +
+   plugin installed)? *Phase 0 spike.*
+3. **GitHub auth** — token in the OS keychain. *Phase 5.*
+4. **Canonical analyses store** — `.whydiff/` + SQLite index. *Phase 4.*
+5. **Packaging/signing** — Apple developer account, Windows cert. *Phase 6, has lead
+   time and cost — worth deciding early even though it lands late.*
+6. **Electron vs Tauri** — MVP leans Electron; low-risk to defer the final call to
+   Phase 2.
+
+## Start here
+
+**Phase 0 spike:** run `claude -p "/whydiff HEAD~1..HEAD"` in a prepared fixture and
+check that a valid `review-map.json` lands in `.whydiff/`. It's cheap, answers the
+biggest unknown (does a headless run work, and via which path), and everything else
+depends on the answer. If it works, Phase 1 (wrap it as `scripts/run.mjs`) is a small,
+CI-useful step that doesn't touch any app code.
 
 ## Scope note
 
