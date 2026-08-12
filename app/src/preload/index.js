@@ -7,4 +7,16 @@ contextBridge.exposeInMainWorld('api', {
   addLocal: () => ipcRenderer.invoke('projects:addLocal'),
   addGithub: (url) => ipcRenderer.invoke('projects:addGithub', url),
   removeProject: (id) => ipcRenderer.invoke('projects:remove', id),
+
+  // Phase 3
+  gitState: (repo) => ipcRenderer.invoke('project:gitState', repo),
+  rangeForCommit: (repo, hash) => ipcRenderer.invoke('project:rangeForCommit', { repo, hash }),
+  analyze: (repo, range) => ipcRenderer.invoke('project:analyze', { repo, range }),
+  openMap: (repo, mapPath, title) => ipcRenderer.invoke('map:open', { repo, mapPath, title }),
+  // Progress lines during an analyze; returns an unsubscribe fn.
+  onAnalyzeProgress: (cb) => {
+    const h = (_e, line) => cb(line)
+    ipcRenderer.on('analyze:progress', h)
+    return () => ipcRenderer.removeListener('analyze:progress', h)
+  },
 })

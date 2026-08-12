@@ -23,6 +23,7 @@ writeFileSync(join(repo, 'f.txt'), 'line1\n')
 git('add', '-A'); git('commit', '-qm', 'one')
 writeFileSync(join(repo, 'f.txt'), 'line2\n')
 git('add', '-A'); git('commit', '-qm', 'two')
+writeFileSync(join(repo, 'f.txt'), 'line3\n') // an uncommitted change → the working-tree diff is also f.txt +1/-1
 
 // A map that matches that diff, written by the stub into <repo>/.whydiff/.
 const MAP = {
@@ -33,8 +34,11 @@ const MAP = {
   edges: [], manifest: [['f.txt', 1, 1, 'g', false]],
 }
 
+// Stubs live OUTSIDE the repo so they don't show up as untracked files in the
+// working-tree diff (which would make the no-range case mismatch the map).
+const stubs = mkdtempSync(join(tmpdir(), 'whydiff-runstubs-'))
 const mkStub = (body) => {
-  const p = join(repo, `stub-${Math.abs([...body].reduce((a, c) => a + c.charCodeAt(0), 0))}.mjs`)
+  const p = join(stubs, `stub-${Math.abs([...body].reduce((a, c) => a + c.charCodeAt(0), 0))}.mjs`)
   writeFileSync(p, `#!/usr/bin/env node\n${body}\n`)
   chmodSync(p, 0o755)
   return p
@@ -45,7 +49,7 @@ const goodStub = mkStub(`
 import { writeFileSync, mkdirSync } from 'node:fs'
 const a = process.argv.slice(2)
 const prompt = a[a.indexOf('-p') + 1] || ''
-if (!/\\/whydiff HEAD~1\\.\\.HEAD/.test(prompt)) { console.error('bad prompt: ' + prompt); process.exit(3) }
+if (!/\\/whydiff(\\s|$)/.test(prompt)) { console.error('bad prompt: ' + prompt); process.exit(3) }
 if (a.indexOf('--plugin-dir') < 0) { console.error('no --plugin-dir'); process.exit(4) }
 if (!a.includes('stream-json')) { console.error('no stream-json'); process.exit(5) }
 mkdirSync('.whydiff', { recursive: true })
@@ -69,6 +73,15 @@ const run = (args) => spawnSync('node', [join(root, 'scripts', 'run.mjs'), ...ar
   ok(/OK: 1 files, 1 groups/.test(r.stdout), `the summary is missing: ${r.stdout}`)
   ok(existsSync(join(repo, '.whydiff', 'review-map.html')), 'the portable HTML was not assembled')
   ok(/· Task classifier/.test(r.stderr), `per-step progress was not streamed: ${r.stderr}`)
+}
+
+// ── no range = the working tree (whydiff's default): validates with no --ref ──
+{
+  execFileSync('rm', ['-rf', join(repo, '.whydiff')])
+  const r = run([repo, '--claude-cmd', goodStub, '--plugin-dir', root])
+  ok(r.status === 0, `working-tree run exited ${r.status}: ${r.stderr}`)
+  ok(/OK: 1 files/.test(r.stdout), `working-tree summary missing: ${r.stdout}`)
+  ok(/working tree/.test(r.stderr), `working-tree run should say so: ${r.stderr}`)
 }
 
 // ── --no-assemble skips the HTML but still validates ─────────────────────────

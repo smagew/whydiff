@@ -47,7 +47,9 @@ const repo = positional[0]
 if (!repo) die(2, 'a repo path is required')
 const repoAbs = resolve(repo)
 if (!existsSync(join(repoAbs, '.git'))) die(2, `not a git repository: ${repoAbs}`)
-const range = positional[1] || 'HEAD~1..HEAD'
+// No range means the working tree vs HEAD (staged + unstaged + untracked) — the same
+// default `/whydiff` uses. A range ("HEAD~3", "main..feat", a SHA) is passed through.
+const range = positional[1] || ''
 const pluginDir = resolve(opts['--plugin-dir'] || rootDir)
 const claudeCmd = opts['--claude-cmd'] || 'claude'
 const timeout = Number(opts['--timeout'] || 900000)
@@ -60,7 +62,7 @@ const log = (s) => { if (!quiet) process.stderr.write(s + '\n') }
 // tool calls run without a prompt; nothing here bypasses permissions.
 const runPipeline = () => new Promise((ok, no) => {
   const child = spawn(claudeCmd, [
-    '-p', `/whydiff ${range}`,
+    '-p', range ? `/whydiff ${range}` : '/whydiff',
     '--plugin-dir', pluginDir,
     '--output-format', 'stream-json', '--verbose',
   ], { cwd: repoAbs, stdio: ['ignore', 'pipe', 'pipe'] })
@@ -96,7 +98,7 @@ const runPipeline = () => new Promise((ok, no) => {
 const node = (script, ...a) => execFileSync('node', [join(rootDir, 'scripts', script), ...a], { stdio: ['ignore', 'inherit', 'inherit'] })
 
 try {
-  log(`whydiff: ${range} in ${repoAbs}`)
+  log(`whydiff: ${range || 'working tree'} in ${repoAbs}`)
   await runPipeline()
 
   const mapPath = join(repoAbs, '.whydiff', 'review-map.json')
@@ -104,7 +106,7 @@ try {
 
   // Prove the map matches the real diff, not just that it is well-formed. The
   // pipeline validates internally too; re-checking here is the runner's contract.
-  node('validate.mjs', mapPath, '--repo', repoAbs, '--ref', range)
+  node('validate.mjs', mapPath, '--repo', repoAbs, ...(range ? ['--ref', range] : []))
 
   // The portable, shareable artifact (mermaid inlined) — what a host would hand on.
   if (!opts['--no-assemble']) node('assemble.mjs', mapPath, '--repo', repoAbs)
