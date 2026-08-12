@@ -43,13 +43,18 @@ Two findings shaped the decision:
 |---|---|---|
 | **Patch doesn't apply** — reviewed tree moved on, or patch already in it | `git apply --reverse --check` to classify; git's own gate to refuse | **Shipped (revised).** `git apply --3way` does **not** fit a dirty reviewed tree (see the update above). Instead: keep `--check`-then-apply, and when it fails, use `git apply --reverse --check` to tell *already-applied* (nothing to do) from *moved-on* (re-run the task to rebase it). The gate stays clean-or-refuse — the tree is never left half-applied or with conflict markers. |
 | **Worktree leak on hard kill** | `git worktree prune` + sweep of stale tmp dirs | **Build, small.** `makeWorktree`/`dropWorktree` (`serve.mjs:457`,`:471`) clean up in `finally`, but a SIGKILL of the server leaks the tmp worktree and its registration. Add `git worktree prune` + removal of stale `whydiff-work-*` dirs at startup. ~10 lines; no package (pure-JS git libs like isomorphic-git don't cover worktrees). |
-| **Agent run + structured diff + streaming + permissions** | Claude Agent SDK (TypeScript, first-party) | **Spike, then a follow-up ADR.** May replace the hand-rolled `run()` (`serve.mjs:287`) and patch reconstruction (`git add -A` + `git diff --cached`, `serve.mjs:558`) with a supported API that returns a structured `gitDiff` and models tool allowlists natively. See the spike section — it is the one real dependency decision, and it touches portability. |
+| **Agent run + structured diff + streaming + permissions** | Claude Agent SDK (TypeScript, first-party) | **Spiked → rejected** ([`agent-sdk-worker.md`](agent-sdk-worker.md)). The premise — a structured `gitDiff` — does not exist in the SDK; edits are just `tool_use` + text `tool_result`, so the caller still reconstructs the diff (as `run()` already does). Everything else it offers, `run()` already covers; adopting only adds a dependency + platform binary + an auth mismatch. |
 | **Reconnect to an in-flight stream** | SSE `Last-Event-ID` / a job store | **Build tiny, or skip.** Single-process local server; "close the tab, reload shows the final journalled state" already holds (writes to a dead socket are swallowed and the worker finishes). Not worth a queue library. |
 | **Two workers at once** | — | **Keep ours.** The `working` lock (`serve.mjs:531`, 409 on a second `/api/work`) already covers it. |
 | **Process (not just file) isolation** — worker can touch files outside the task's scope | Dagger container-use pattern (worktree + container) | **Out of scope now.** Our worker isolates *files*, not the *process*; the apply-gate + human patch review is the current backstop. Noted as the upgrade path if we ever need a hard boundary. |
 | **All-or-nothing apply** | per-file review/apply, as the parallel-worktree tools do | **Backlog UX.** Our `Apply` is atomic; partial apply is a nice-to-have, not a reliability fix. |
 
 ## The Claude Agent SDK spike (the one real "adopt a package")
+
+> **Resolved (2026-08-12): rejected.** The spike ran and the answer is no — the SDK
+> exposes no structured diff, so the reconstruction stays and adoption buys nothing.
+> Full reasoning in [`agent-sdk-worker.md`](agent-sdk-worker.md). The section below is
+> the pre-spike framing, kept for the record.
 
 Today the worker shells out to `claude -p`, parses NDJSON, and reconstructs the
 patch from the worktree. The first-party Agent SDK reportedly hands back a
