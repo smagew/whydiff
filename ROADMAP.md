@@ -80,11 +80,42 @@ Two takeaways this pins down:
 
 ## Near-term
 
+- **(high) Tighten the feedback → agent loop.** The handoff from a decision made in
+  the map to the agent doing it is our weakest seam next to plannotator's one-click
+  round-trip. The journal (`review.log.jsonl`) is already the shared bus between the
+  served panel and a `/whydiff-work` session; the gap is the *trigger*. Two moves,
+  both reusing what exists: (a) expose serve's `--work` worker as a per-task **Do
+  it** button in the Tasks tab — it already runs `claude -p` in a throwaway
+  worktree and streams NDJSON, so this is UI + an apply-gate over built machinery;
+  (b) let `/whydiff-work` **poll** the journal when the queue is empty, so the
+  reviewer invokes it once and then just clicks in the browser instead of re-pasting
+  the queue prompt each time. Its own plan is being drafted separately.
+- **(high) Share a map.** The output is a self-contained HTML *file*, which is hard
+  to hand to a teammate. Add a way to share a review by link (host the assembled
+  map, or lean on the Claude artifact path). Needed before whydiff is useful to a
+  team rather than one reviewer.
+- **(high) Notes on the map (`ask` → a visible annotation).** We already persist
+  every anchored remark in the journal — that *is* a notes substrate. The missing
+  half is rendering: mark blocks/nodes/files that carry discussion, show the remarks
+  back on the map, and allow a bare note (not only a question or an instruction).
+  Mostly a viewer feature over data we already store.
 - Land the Codex integration spike (step 4 above), even rough, to test the split.
 - Re-shoot the remaining screenshots (Ops & risks, Options) at current version and
   finish the README refresh.
 - A short demo (gif or a hosted sample map) on the README so the tool is legible
   before install.
+
+## Presentation / README (high, cheap wins)
+
+The README leads with *how* before *why*; plannotator's does the reverse and reads
+better on first contact. Close that gap:
+
+- A hero: one-line thesis + one screenshot of a map + a plain
+  "runs locally · self-contained · explains the change" line.
+- A short privacy/local callout near the top (the three lines from `SECURITY.md`) —
+  turn "nothing leaves your machine" from a buried fact into a visible advantage.
+- A "How it works" diagram instead of / alongside the prose Pipeline list — we're a
+  diagramming tool; explaining ourselves in text is the wrong look.
 
 ## Later
 
@@ -93,6 +124,10 @@ Two takeaways this pins down:
 - Bigger-map ergonomics beyond what's shipped (search across nodes, deep links
   into a specific block/file).
 - More host integrations once the Codex one has paid for the abstraction.
+- Small ops polish: a documented "serving over SSH" note + a `--no-open` mode
+  (serve assumes it can open a local browser), and a documented way to clear
+  `<repo>/.whydiff/` (our only on-disk state — the closest thing we have to
+  plannotator's `uninstall --purge`).
 
 ## Ideas (unfiled)
 
@@ -100,6 +135,14 @@ Kept here so they aren't lost; each still has to earn its place under the scope 
 [CONTRIBUTING.md](CONTRIBUTING.md) (a local, self-contained review map — not a bug
 finder, not a PR bot).
 
+- **(low) Review the *plan*, not only the diff.** plannotator intercepts an agent's
+  plan before it writes code; our "explain + structure" approach could produce a
+  map of a plan the same way. Interesting, not urgent.
+- **(low) Unified installer with agent autodetect.** plannotator's `curl | bash`
+  auto-detects installed agents and wires each. If we grow past one host this is the
+  shape to copy — but it folds into "one core, many hosts" above, so no separate
+  push yet.
+- **(low) A landing page.** Only if the project grows; premature for a personal repo.
 - Posting a map to a PR from CI. Tempting, but pulls toward "PR bot" — needs a
   scope answer before it's real work.
 - Remembering a project's own conventions across runs to sharpen the standards
