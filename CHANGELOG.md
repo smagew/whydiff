@@ -4,6 +4,18 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.18.0] — 2026-08-12
+
+### Added
+- **A standalone headless runner.** `node scripts/run.mjs <repo> [<base..head>]`
+  produces a change map with no interactive session: it drives `claude -p "/whydiff
+  <range>"` (streaming which pass is running), then validates the map against the
+  real diff and assembles the portable `review-map.html`. Clear exit codes (0 ok / 1
+  run-or-validate failure / 2 usage). This is the headless core a CI job or a desktop
+  host builds on — the first stone of the desktop-app plan
+  ([`docs/desktop-app.md`](docs/desktop-app.md)) and the ROADMAP "standalone CLI"
+  item. Path (A) — shell the skill — so it needs Claude Code + the plugin present.
+
 ## [0.17.0] — 2026-08-12
 
 ### Added
