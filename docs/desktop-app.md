@@ -120,14 +120,23 @@ interactive Claude Code agent?** The skill today is driven by the main agent.
 - **Done when:** the runner produces a valid map on the fixtures; independently useful
   for CI (closes the ROADMAP "standalone CLI" item).
 
-### Phase 2 — Electron skeleton + projects
+### Phase 2 — Electron skeleton + projects — 🚧 in progress (2026-08-12)
 
 - **Goal:** one window; "add project" (disk path or GitHub URL); a saved **project
-  list** (SQLite under `userData`); re-select on next launch.
+  list**; re-select on next launch.
 - **Depends on:** nothing (can run parallel to Phase 1).
-- **Decisions:** Electron vs Tauri final (MVP → Electron); SQLite schema (projects,
-  analyses); where a GitHub-URL clone is cached.
-- **Done when:** add two projects, relaunch, they're listed and re-selectable.
+- **Decisions settled:** Electron (electron-vite + React), monorepo `app/`. **Store:
+  a plain JSON file, not SQLite** — the native `better-sqlite3` segfaulted under this
+  Node/Electron ABI, and Electron's bundled Node has no built-in `sqlite`; a JSON file
+  is enough for a project list and keeps the app native-dependency-free (the exact
+  cross-OS packaging pain we want to avoid). SQLite returns in **Phase 4** behind the
+  same `openStore()` interface. Still open: where a GitHub-URL clone is cached.
+- **Built:** `app/` — window + IPC, the projects store (`openStore()`, tested under
+  node), and the React project list (add local folder / add GitHub URL, remove,
+  persisted). `npm run build` compiles; `npm test` passes.
+- **Done when:** add two projects, relaunch, they're listed and re-selectable
+  (verified headlessly via the store test + a compiling build; the GUI itself is run
+  locally with `npm run dev`).
 
 ### Phase 3 — Select → git state → run → view
 
