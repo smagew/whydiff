@@ -17,7 +17,7 @@ export default function ProjectView({ project, onBack }) {
   const [analyzing, setAnalyzing] = useState(false)
   const [progress, setProgress] = useState('')
   const [error, setError] = useState('')
-  const [fullReport, setFullReport] = useState(true) // generate every section, not just the core map
+  const [fullReport, setFullReport] = useState(false) // opt-in: core map by default, like the plugin — no surprise cost
 
   const latestByRef = new Map()
   for (const a of analyses) if (!latestByRef.has(a.ref)) latestByRef.set(a.ref, a)

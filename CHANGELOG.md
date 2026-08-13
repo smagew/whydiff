@@ -14,9 +14,10 @@ to receive an update.
   generated yet".)
 - **`run.mjs --full` generates every section.** With `--full`, the runner asks the
   skill for the optional passes (Summary, user stories, standards, tests) up front, so
-  the produced map is complete — no Generate button needed. The desktop app runs full
-  by default (a "Full report" toggle in the project view), because a standalone map
-  file cannot generate lazily (that needs the live server).
+  the produced map is complete — no Generate button needed (a standalone map file
+  cannot generate lazily; that needs the live server). The desktop app exposes this as
+  an **opt-in "Full report" toggle** (off by default — a core map, like the plugin, so
+  there is no surprise cost).
 
 ## [0.20.0] — 2026-08-13
 
