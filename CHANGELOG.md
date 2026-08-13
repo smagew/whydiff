@@ -4,6 +4,15 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.20.0] — 2026-08-13
+
+### Changed
+- **A saved or shared map file renders correctly when opened directly.** The
+  assembled HTML now starts with `<!doctype html><meta charset="utf-8">`, so a map
+  opened as a file (the desktop app's window, a shared `.html`, artifact hosting)
+  shows non-ASCII text — arrows, em-dashes, Cyrillic — right, not just when served
+  with a charset header. Fixes mojibake in the desktop app's map window.
+
 ## [0.19.0] — 2026-08-12
 
 ### Changed

@@ -62,14 +62,31 @@ app.whenReady().then(() => {
   // by the store. A saved copy means a past analysis re-opens without re-running,
   // even if the repo's own .whydiff was cleaned.
   const analysesDir = join(app.getPath('userData'), 'analyses')
-  const analysisMap = (id) => join(analysesDir, String(id), 'review-map.json')
 
-  const openMapWindow = async (repo, mapPath, title) => {
-    const { url, stop } = await serveMap(repo, mapPath)
-    mapServers.add(stop)
-    const win = new BrowserWindow({ width: 1400, height: 900, backgroundColor: '#14161a', title: title || 'whydiff', autoHideMenuBar: true })
-    win.loadURL(url)
-    win.on('closed', () => { mapServers.delete(stop); stop() })
+  // Open a saved analysis in its own window. The saved `review-map.html` is fully
+  // self-contained, so we load it directly — no re-assembly, no server, no port; it
+  // renders even if the repo has moved. (Serving via serve.mjs would re-read the
+  // repo's files for the live ask/instruct panel and fail when they aren't there;
+  // it stays as a fallback only when the HTML is somehow missing.)
+  const openAnalysisWindow = async (id) => {
+    const a = store.getAnalysis(id)
+    if (!a) throw new Error('that analysis is gone')
+    const dir = join(analysesDir, String(id))
+    const html = join(dir, 'review-map.html')
+    const json = join(dir, 'review-map.json')
+    const project = store.getProject(a.projectId)
+    const win = new BrowserWindow({ width: 1400, height: 900, backgroundColor: '#14161a', title: a.title || project?.name || 'whydiff', autoHideMenuBar: true })
+    if (existsSync(html)) {
+      win.loadFile(html)
+    } else if (existsSync(json)) {
+      const { url, stop } = await serveMap(project?.path || dir, json)
+      mapServers.add(stop)
+      win.loadURL(url)
+      win.on('closed', () => { mapServers.delete(stop); stop() })
+    } else {
+      win.destroy()
+      throw new Error('the saved map file is missing')
+    }
   }
 
   // ── Phase 3: a local project's git state ────────────────────────────────────
@@ -97,17 +114,7 @@ app.whenReady().then(() => {
   ipcMain.handle('analyses:latest', (_e, limit = 8) => {
     return store.listAnalyses({ limit }).map(a => ({ ...a, projectName: store.getProject(a.projectId)?.name || '?' }))
   })
-  ipcMain.handle('analysis:open', async (_e, id) => {
-    const a = store.getAnalysis(id)
-    if (!a) throw new Error('that analysis is gone')
-    const mapPath = analysisMap(id)
-    if (!existsSync(mapPath)) throw new Error('the saved map file is missing')
-    const project = store.getProject(a.projectId)
-    // The repo lets the served map answer/instruct against the code; a saved map
-    // whose repo has moved still renders (those live actions just fail).
-    await openMapWindow(project?.path || dirname(mapPath), mapPath, a.title || project?.name)
-    return true
-  })
+  ipcMain.handle('analysis:open', async (_e, id) => { await openAnalysisWindow(id); return true })
   ipcMain.handle('analysis:remove', (_e, id) => {
     const ok = store.removeAnalysis(id)
     if (ok) rmSync(join(analysesDir, String(id)), { recursive: true, force: true })
