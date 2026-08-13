@@ -222,8 +222,11 @@ interactive Claude Code agent?** The skill today is driven by the main agent.
 - **CI:** `.github/workflows/desktop.yml` builds all three on their own runners
   (unsigned) and uploads the artifacts — the reliable way to get Linux/Windows, which
   can't be cross-built from a Mac. Manual (`workflow_dispatch`) or on an `app-v*` tag.
-- **Left:** an app icon (currently the default Electron icon); signing/notarisation +
-  auto-update when distributing publicly; the Tauri revisit if size/memory matter.
+- **App icon:** the brand giraffe — `build/icon.svg` (source) rendered to a
+  1024×1024 `build/icon.png`; electron-builder generates the mac `.icns` / win `.ico`
+  / linux png from it (the mac `.app` ships `icon.icns`, not the default).
+- **Left:** signing/notarisation + auto-update when distributing publicly; the Tauri
+  revisit if size/memory matter.
 
 ## Cross-cutting questions to settle
 
