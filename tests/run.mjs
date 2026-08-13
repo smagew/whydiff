@@ -58,6 +58,17 @@ const say = (o) => process.stdout.write(JSON.stringify(o) + '\\n')
 say({ type: 'assistant', message: { content: [{ type: 'tool_use', name: 'Task', input: { subagent_type: 'classifier' } }] } })
 say({ type: 'result', subtype: 'success', result: 'Built the map.' })
 `)
+// A stub that only succeeds when the prompt asked for a "full" report — proves
+// --full reaches the skill.
+const fullStub = mkStub(`
+import { writeFileSync, mkdirSync } from 'node:fs'
+const a = process.argv.slice(2)
+const prompt = a[a.indexOf('-p') + 1] || ''
+if (!/\\bfull\\b/.test(prompt)) { console.error('prompt not full: ' + prompt); process.exit(7) }
+mkdirSync('.whydiff', { recursive: true })
+writeFileSync('.whydiff/review-map.json', ${JSON.stringify(JSON.stringify(MAP))})
+process.stdout.write(JSON.stringify({ type: 'result', subtype: 'success', result: 'full' }) + '\\n')
+`)
 // A stub that finishes successfully but produces nothing.
 const emptyStub = mkStub(`
 const say = (o) => process.stdout.write(JSON.stringify(o) + '\\n')
@@ -82,6 +93,16 @@ const run = (args) => spawnSync('node', [join(root, 'scripts', 'run.mjs'), ...ar
   ok(r.status === 0, `working-tree run exited ${r.status}: ${r.stderr}`)
   ok(/OK: 1 files/.test(r.stdout), `working-tree summary missing: ${r.stdout}`)
   ok(/working tree/.test(r.stderr), `working-tree run should say so: ${r.stderr}`)
+}
+
+// ── --full asks the skill for every section ──────────────────────────────────
+{
+  execFileSync('rm', ['-rf', join(repo, '.whydiff')])
+  const withFull = run([repo, 'HEAD~1..HEAD', '--full', '--claude-cmd', fullStub, '--plugin-dir', root, '--no-assemble', '--quiet'])
+  ok(withFull.status === 0, `--full run should pass the full stub, exited ${withFull.status}: ${withFull.stderr}`)
+  execFileSync('rm', ['-rf', join(repo, '.whydiff')])
+  const noFull = run([repo, 'HEAD~1..HEAD', '--claude-cmd', fullStub, '--plugin-dir', root, '--quiet'])
+  ok(noFull.status === 1, 'without --full the prompt should not say "full", so the full stub fails the run')
 }
 
 // ── --no-assemble skips the HTML but still validates ─────────────────────────

@@ -117,3 +117,8 @@ body {
 .banner-acts { display: flex; gap: 8px; flex: none; }
 .btn.ghost { background: none; color: var(--muted); }
 .btn.ghost:hover:not(:disabled) { color: var(--accent); }
+
+/* full-report toggle */
+.opt-full { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 16px; color: var(--ink-2); font-size: 13px; cursor: pointer; user-select: none; }
+.opt-full input { accent-color: var(--accent); cursor: pointer; }
+.opt-full .hint { color: var(--muted); }

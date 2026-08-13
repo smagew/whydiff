@@ -4,6 +4,20 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.21.0] — 2026-08-13
+
+### Changed
+- **The Diagrams tab says when there is nothing to draw.** A change that alters no
+  control or data flow produces no diagrams; the tab used to show only the generic
+  "how a node is marked" hint over a blank pane. It now says so plainly and points at
+  the Code map. (Diagrams are a core pass — empty means no flow changed, not "not
+  generated yet".)
+- **`run.mjs --full` generates every section.** With `--full`, the runner asks the
+  skill for the optional passes (Summary, user stories, standards, tests) up front, so
+  the produced map is complete — no Generate button needed. The desktop app runs full
+  by default (a "Full report" toggle in the project view), because a standalone map
+  file cannot generate lazily (that needs the live server).
+
 ## [0.20.0] — 2026-08-13
 
 ### Changed
