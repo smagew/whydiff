@@ -37,6 +37,14 @@ extraResources:
 mac:
   target: [dmg, zip]
   category: public.app-category.developer-tools
+  gatekeeperAssess: false
+# Free ad-hoc signing (no Apple Developer account). electron-builder can't do it —
+# it reads mac.identity as a keychain name and skips when none matches, leaving the
+# linker-signed placeholder that ships "damaged". So we sign the whole bundle
+# ourselves after packing: `codesign --deep --force --sign -`. This is a real ad-hoc
+# signature over our bundle id; notarisation (removing the Gatekeeper prompt entirely)
+# still needs the paid Developer ID.
+afterPack: build/afterPack.cjs
 linux:
   target: [AppImage, deb]
   category: Development

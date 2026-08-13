@@ -46,10 +46,12 @@ jobs:
           V="${GITHUB_REF_NAME#app-v}"
           node -e "const fs=require('fs'),p=require('./package.json');p.version=process.argv[1];fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n')" "$V"
           echo "app version → $V"
-      - name: build + package (unsigned)
+      - name: build + package (ad-hoc signed, not notarised)
         working-directory: app
-        env:
-          CSC_IDENTITY_AUTO_DISCOVERY: 'false' # never try to sign
+        # No Developer ID: mac is ad-hoc signed via electron-builder.yml (identity '-').
+        # We deliberately do NOT set CSC_IDENTITY_AUTO_DISCOVERY=false — with it off,
+        # electron-builder skips signing entirely and the arm64 app ships "damaged".
+        # There is no real cert on the runner, so ad-hoc is what it uses.
         run: npx electron-vite build && npx electron-builder ${{ matrix.flag }} --publish never
       # always() so a target that builds early (e.g. Linux AppImage) still uploads even
       # if a later target in the same run fails (e.g. deb) — we never lose a good build.
