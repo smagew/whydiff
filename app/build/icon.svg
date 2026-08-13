@@ -1,0 +1,112 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">WhyDiff app icon</title>
+  <desc id="desc">Rounded-square app icon with a stylized giraffe whose pattern is built from flowchart nodes and connectors.</desc>
+
+  <defs>
+    <clipPath id="iconClip">
+      <rect x="20" y="20" width="472" height="472" rx="92"/>
+    </clipPath>
+  </defs>
+
+  <!-- background -->
+  <rect x="20" y="20" width="472" height="472" rx="92" fill="#071827"/>
+
+  <g clip-path="url(#iconClip)">
+    <!-- giraffe base silhouette -->
+    <path fill="#FFFDF7" d="
+      M137 500
+      C149 435 157 370 169 311
+      C176 278 187 250 199 228
+      C210 208 222 195 236 184
+      C252 171 270 163 289 159
+      C311 155 329 158 344 166
+      C359 174 368 187 378 202
+      C390 220 405 228 426 233
+      C447 238 460 252 462 271
+      C464 286 455 298 440 302
+      C425 306 411 304 395 298
+      C378 292 365 286 350 282
+      C332 277 313 278 297 286
+      C280 294 269 309 260 326
+      C249 346 243 370 240 400
+      L234 500 Z"/>
+
+    <!-- ear -->
+    <path fill="#FFFDF7" d="
+      M230 176
+      C204 148 176 144 147 158
+      C162 181 186 195 218 191 Z"/>
+    <path fill="#071827" d="
+      M212 177
+      C191 163 173 162 158 168
+      C171 180 188 185 207 184 Z"/>
+
+    <!-- ossicones -->
+    <path fill="#F4A11A" d="M258 163 L251 105 C250 93 255 84 266 81 C278 77 288 85 288 97 L284 157 Z"/>
+    <path fill="#F4A11A" d="M313 159 L314 102 C314 91 320 82 331 81 C343 80 351 88 350 100 L343 162 Z"/>
+    <circle cx="266" cy="80" r="18" fill="#FFFDF7"/>
+    <circle cx="334" cy="80" r="18" fill="#FFFDF7"/>
+
+    <!-- muzzle cut / nostril -->
+    <path fill="#071827" d="
+      M385 242
+      C412 245 433 255 444 269
+      C438 275 430 278 418 277
+      C400 275 390 265 385 242 Z"/>
+    <ellipse cx="430" cy="265" rx="9" ry="6" fill="#F4A11A"/>
+
+    <!-- eye -->
+    <path fill="#071827" d="M333 201 C349 188 368 190 380 203 C366 211 348 213 333 201 Z"/>
+    <circle cx="356" cy="202" r="6" fill="#FFFDF7"/>
+    <path fill="#071827" d="M373 193 l13 -5 -9 10 10 5 -15 1 z"/>
+
+    <!-- orange facial patches -->
+    <path fill="#F4A11A" d="M274 149 C292 145 306 149 316 159 C302 168 286 170 271 164 Z"/>
+    <path fill="#F4A11A" d="M303 199 C316 187 330 183 343 187 C338 200 327 210 313 214 Z"/>
+    <path fill="#F4A11A" d="M364 229 C378 221 390 222 399 231 C392 242 380 247 369 244 Z"/>
+
+    <!-- flowchart connectors -->
+    <g fill="none" stroke="#F4A11A" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M198 251 H238 V229 H281"/>
+      <path d="M238 251 V295 H281"/>
+      <path d="M281 229 H332 L353 248"/>
+      <path d="M281 295 H322 V341 H352"/>
+      <path d="M200 336 H236 V378 H272"/>
+      <path d="M182 410 H217 V449 H254"/>
+    </g>
+
+    <g fill="none" stroke="#071827" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M224 205 L250 186 L280 173"/>
+      <path d="M250 186 L270 205"/>
+      <path d="M335 247 H375"/>
+    </g>
+
+    <!-- dark flowchart spots -->
+    <circle cx="198" cy="251" r="17" fill="#071827"/>
+    <rect x="219" y="211" width="38" height="38" rx="7" fill="#071827"/>
+    <circle cx="281" cy="229" r="13" fill="#071827"/>
+    <path d="M281 278 l17 17 -17 17 -17 -17 z" fill="#071827"/>
+    <rect x="187" y="315" width="35" height="35" rx="10" fill="#071827"/>
+    <path d="M236 361 C251 348 271 350 281 365 C269 381 250 386 235 377 Z" fill="#071827"/>
+    <path d="M180 392 l22 22 -22 22 -22 -22 z" fill="#071827"/>
+    <rect x="201" y="437" width="39" height="42" rx="11" fill="#071827"/>
+    <path d="M250 432 l23 23 -23 23 -23 -23 z" fill="#071827"/>
+
+    <!-- orange flowchart spots -->
+    <circle cx="238" cy="295" r="19" fill="#F4A11A"/>
+    <path d="M322 323 l18 18 -18 18 -18 -18 z" fill="#F4A11A"/>
+    <rect x="333" y="241" width="31" height="31" rx="9" fill="#F4A11A"/>
+    <circle cx="200" cy="336" r="16" fill="#F4A11A"/>
+    <rect x="166" y="429" width="37" height="41" rx="10" fill="#F4A11A"/>
+
+    <!-- a few small nodes -->
+    <circle cx="224" cy="205" r="8" fill="#071827"/>
+    <circle cx="250" cy="186" r="7" fill="#071827"/>
+    <circle cx="280" cy="173" r="9" fill="#071827"/>
+    <circle cx="353" cy="248" r="8" fill="#F4A11A"/>
+    <circle cx="182" cy="410" r="7" fill="#F4A11A"/>
+  </g>
+
+  <!-- subtle inner keyline -->
+  <rect x="20" y="20" width="472" height="472" rx="92" fill="none" stroke="#10283B" stroke-width="4"/>
+</svg>
