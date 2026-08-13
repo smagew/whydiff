@@ -64,3 +64,23 @@ export async function rangeForCommit(dir, hash) {
     return `${EMPTY_TREE}..${hash}`
   }
 }
+
+// Clone a repo (a GitHub URL, or any git remote — even a local path, which is how
+// this is tested) into `dest`. Streams git's progress lines if asked.
+export function clone(url, dest, { onProgress } = {}) {
+  return new Promise((resolve, reject) => {
+    const child = execFile('git', ['clone', '--progress', url, dest], { maxBuffer: 64 * 1024 * 1024 }, (err, _o, stderr) => {
+      if (err) reject(new Error(`clone failed: ${(stderr || err.message).toString().trim().split('\n').pop()}`))
+      else resolve(dest)
+    })
+    if (onProgress) child.stderr?.on('data', (d) => String(d).split(/\r|\n/).forEach(l => l.trim() && onProgress(l.trim())))
+  })
+}
+
+// Fetch a PR's head into a local ref and return the diff range for its changes:
+// base...head (three-dot = merge-base..head, i.e. what the PR introduces).
+export async function fetchPrRange(dir, number, baseRef) {
+  const local = `whydiff/pr-${number}`
+  await git(dir, ['fetch', '--force', 'origin', `pull/${number}/head:${local}`])
+  return `origin/${baseRef}...${local}`
+}

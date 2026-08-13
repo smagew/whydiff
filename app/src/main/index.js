@@ -2,7 +2,8 @@ import { app, BrowserWindow, ipcMain, dialog } from 'electron'
 import { join, basename, dirname } from 'node:path'
 import { existsSync, statSync, mkdirSync, copyFileSync, rmSync } from 'node:fs'
 import { openStore, repoNameFromUrl } from './store.mjs'
-import { gitState, rangeForCommit } from './git.mjs'
+import { gitState, rangeForCommit, clone, fetchPrRange } from './git.mjs'
+import { fetchPRs, parseRepo } from './github.mjs'
 import { runAnalysis, serveMap } from './whydiff.mjs'
 
 let store
@@ -112,6 +113,32 @@ app.whenReady().then(() => {
     if (ok) rmSync(join(analysesDir, String(id)), { recursive: true, force: true })
     return ok
   })
+
+  // ── Phase 5: GitHub — clone on demand, list PRs, analyze one ─────────────────
+  const clonesDir = join(app.getPath('userData'), 'clones')
+  const cloneSlug = (url) => { const r = parseRepo(url); return (r ? `${r.owner}__${r.repo}` : url).replace(/[^a-zA-Z0-9._-]/g, '_') }
+  const clonePathFor = (project) => join(clonesDir, cloneSlug(project.url))
+
+  // Where a project's git actually lives, and whether it is ready. A local project
+  // is itself; a GitHub one is its clone, once cloned.
+  ipcMain.handle('project:resolve', (_e, project) => {
+    if (project.kind === 'local') return { repo: project.path, cloned: existsSync(join(project.path, '.git')) }
+    const repo = clonePathFor(project)
+    return { repo, cloned: existsSync(join(repo, '.git')) }
+  })
+
+  ipcMain.handle('project:clone', async (e, project) => {
+    const dest = clonePathFor(project)
+    if (!existsSync(join(dest, '.git'))) {
+      mkdirSync(clonesDir, { recursive: true })
+      const onProgress = (line) => { if (!e.sender.isDestroyed()) e.sender.send('clone:progress', line) }
+      await clone(project.url, dest, { onProgress })
+    }
+    return { repo: dest, state: await gitState(dest) }
+  })
+
+  ipcMain.handle('github:prs', (_e, project) => fetchPRs(project.url))
+  ipcMain.handle('project:rangeForPr', (_e, { repo, number, baseRef }) => fetchPrRange(repo, number, baseRef))
 
   createWindow()
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow() })
