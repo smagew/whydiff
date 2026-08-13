@@ -1,6 +1,6 @@
 import { app, BrowserWindow, ipcMain, dialog } from 'electron'
-import { join, basename } from 'node:path'
-import { existsSync, statSync } from 'node:fs'
+import { join, basename, dirname } from 'node:path'
+import { existsSync, statSync, mkdirSync, copyFileSync, rmSync } from 'node:fs'
 import { openStore, repoNameFromUrl } from './store.mjs'
 import { gitState, rangeForCommit } from './git.mjs'
 import { runAnalysis, serveMap } from './whydiff.mjs'
@@ -57,26 +57,60 @@ app.whenReady().then(() => {
     return store.addProject({ kind: 'github', url: u, name: repoNameFromUrl(u) })
   })
 
-  // ── Phase 3: a local project's git state, run an analysis, view the map ──────
-  ipcMain.handle('project:gitState', (_e, repo) => gitState(repo))
-  ipcMain.handle('project:rangeForCommit', (_e, { repo, hash }) => rangeForCommit(repo, hash))
+  // Saved analyses live under userData/analyses/<id>/ (the map + its HTML), indexed
+  // by the store. A saved copy means a past analysis re-opens without re-running,
+  // even if the repo's own .whydiff was cleaned.
+  const analysesDir = join(app.getPath('userData'), 'analyses')
+  const analysisMap = (id) => join(analysesDir, String(id), 'review-map.json')
 
-  // Run whydiff for a range (empty = the working tree), streaming progress to the
-  // window that asked. Resolves with the produced map's path.
-  ipcMain.handle('project:analyze', async (e, { repo, range }) => {
-    const onProgress = (line) => { if (!e.sender.isDestroyed()) e.sender.send('analyze:progress', line) }
-    return runAnalysis(repo, range || '', { onProgress })
-  })
-
-  // Serve a produced map and open it in its own window; stop the server when the
-  // window closes.
-  ipcMain.handle('map:open', async (_e, { repo, mapPath, title }) => {
+  const openMapWindow = async (repo, mapPath, title) => {
     const { url, stop } = await serveMap(repo, mapPath)
     mapServers.add(stop)
     const win = new BrowserWindow({ width: 1400, height: 900, backgroundColor: '#14161a', title: title || 'whydiff', autoHideMenuBar: true })
     win.loadURL(url)
     win.on('closed', () => { mapServers.delete(stop); stop() })
+  }
+
+  // ── Phase 3: a local project's git state ────────────────────────────────────
+  ipcMain.handle('project:gitState', (_e, repo) => gitState(repo))
+  ipcMain.handle('project:rangeForCommit', (_e, { repo, hash }) => rangeForCommit(repo, hash))
+
+  // Run whydiff for a range (empty = the working tree), streaming progress to the
+  // window that asked, then save the map into the analyses index and return the
+  // stored record.
+  ipcMain.handle('project:analyze', async (e, { repo, range, projectId, kind, ref, title }) => {
+    const onProgress = (line) => { if (!e.sender.isDestroyed()) e.sender.send('analyze:progress', line) }
+    const { mapPath } = await runAnalysis(repo, range || '', { onProgress })
+    const rec = store.addAnalysis({ projectId, kind, ref: ref || '', title: title || '' })
+    const dir = join(analysesDir, String(rec.id))
+    mkdirSync(dir, { recursive: true })
+    copyFileSync(mapPath, join(dir, 'review-map.json'))
+    const html = mapPath.replace(/\.json$/, '.html')
+    if (existsSync(html)) copyFileSync(html, join(dir, 'review-map.html'))
+    return { analysis: rec }
+  })
+
+  // ── Phase 4: the analyses index ─────────────────────────────────────────────
+  ipcMain.handle('analyses:forProject', (_e, projectId) => store.listAnalyses({ projectId }))
+  // Latest across everything, each tagged with its project's name for the home list.
+  ipcMain.handle('analyses:latest', (_e, limit = 8) => {
+    return store.listAnalyses({ limit }).map(a => ({ ...a, projectName: store.getProject(a.projectId)?.name || '?' }))
+  })
+  ipcMain.handle('analysis:open', async (_e, id) => {
+    const a = store.getAnalysis(id)
+    if (!a) throw new Error('that analysis is gone')
+    const mapPath = analysisMap(id)
+    if (!existsSync(mapPath)) throw new Error('the saved map file is missing')
+    const project = store.getProject(a.projectId)
+    // The repo lets the served map answer/instruct against the code; a saved map
+    // whose repo has moved still renders (those live actions just fail).
+    await openMapWindow(project?.path || dirname(mapPath), mapPath, a.title || project?.name)
     return true
+  })
+  ipcMain.handle('analysis:remove', (_e, id) => {
+    const ok = store.removeAnalysis(id)
+    if (ok) rmSync(join(analysesDir, String(id)), { recursive: true, force: true })
+    return ok
   })
 
   createWindow()

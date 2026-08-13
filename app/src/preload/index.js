@@ -8,15 +8,21 @@ contextBridge.exposeInMainWorld('api', {
   addGithub: (url) => ipcRenderer.invoke('projects:addGithub', url),
   removeProject: (id) => ipcRenderer.invoke('projects:remove', id),
 
-  // Phase 3
+  // Phase 3 — git state + analyze
   gitState: (repo) => ipcRenderer.invoke('project:gitState', repo),
   rangeForCommit: (repo, hash) => ipcRenderer.invoke('project:rangeForCommit', { repo, hash }),
-  analyze: (repo, range) => ipcRenderer.invoke('project:analyze', { repo, range }),
-  openMap: (repo, mapPath, title) => ipcRenderer.invoke('map:open', { repo, mapPath, title }),
+  // args: { repo, range, projectId, kind: 'working'|'commit'|'pr', ref, title }
+  analyze: (args) => ipcRenderer.invoke('project:analyze', args),
   // Progress lines during an analyze; returns an unsubscribe fn.
   onAnalyzeProgress: (cb) => {
     const h = (_e, line) => cb(line)
     ipcRenderer.on('analyze:progress', h)
     return () => ipcRenderer.removeListener('analyze:progress', h)
   },
+
+  // Phase 4 — the analyses index
+  analysesForProject: (projectId) => ipcRenderer.invoke('analyses:forProject', projectId),
+  latestAnalyses: (limit) => ipcRenderer.invoke('analyses:latest', limit),
+  openAnalysis: (id) => ipcRenderer.invoke('analysis:open', id),
+  removeAnalysis: (id) => ipcRenderer.invoke('analysis:remove', id),
 })

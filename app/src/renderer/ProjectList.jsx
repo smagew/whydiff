@@ -1,14 +1,21 @@
 import React, { useEffect, useState } from 'react'
 
 // The project list: add a local folder or a GitHub URL, and open one to review it.
+const refLabel = (a) => a.kind === 'working' ? 'working tree' : a.kind === 'pr' ? a.ref.replace(/^pr:/, 'PR #') : (a.ref || '').slice(0, 8)
+
 export default function ProjectList({ onOpen }) {
   const [projects, setProjects] = useState([])
+  const [latest, setLatest] = useState([])
   const [url, setUrl] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
-  const refresh = async () => setProjects(await window.api.listProjects())
+  const refresh = async () => {
+    setProjects(await window.api.listProjects())
+    setLatest(await window.api.latestAnalyses(8))
+  }
   useEffect(() => { refresh() }, [])
+  const openAnalysis = async (id) => { setError(''); try { await window.api.openAnalysis(id) } catch (e) { setError(e?.message || String(e)) } }
 
   const guard = async (fn) => {
     setError(''); setBusy(true)
@@ -55,6 +62,24 @@ export default function ProjectList({ onOpen }) {
           ))
         )}
       </section>
+
+      {latest.length > 0 && (
+        <>
+          <div className="sec-title">Latest analyses</div>
+          <section className="list">
+            {latest.map((a) => (
+              <div className="row" key={a.id}>
+                <span className={`tag ${a.kind === 'working' ? 'local' : ''}`}>{a.kind}</span>
+                <div className="meta">
+                  <div className="name">{a.projectName}</div>
+                  <div className="loc">{a.title || refLabel(a)} · {a.created_at.slice(0, 16).replace('T', ' ')}</div>
+                </div>
+                <button className="btn" onClick={() => openAnalysis(a.id)}>View</button>
+              </div>
+            ))}
+          </section>
+        </>
+      )}
     </>
   )
 }
