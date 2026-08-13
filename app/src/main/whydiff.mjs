@@ -50,7 +50,7 @@ export function serveMap(repo, mapPath, { serveScript, node = 'node', port, star
     const args = [script, mapPath, '--repo', repo]
     if (port) args.push('--port', String(port))
     const child = spawn(node, args, { stdio: ['ignore', 'pipe', 'pipe'] })
-    let out = '', done = false
+    let out = '', err = '', done = false
     const stop = () => { try { child.kill('SIGKILL') } catch {} }
     const t = setTimeout(() => { if (!done) { stop(); reject(new Error('the map server did not start in time')) } }, startTimeout)
     child.stdout.on('data', (d) => {
@@ -58,7 +58,8 @@ export function serveMap(repo, mapPath, { serveScript, node = 'node', port, star
       const m = out.match(/https?:\/\/127\.0\.0\.1:\d+\//)
       if (m && !done) { done = true; clearTimeout(t); resolveP({ url: m[0], stop }) }
     })
+    child.stderr.on('data', (d) => { err = (err + d).slice(-2000) })
     child.on('error', (e) => { if (!done) { clearTimeout(t); reject(new Error(`could not start the map server: ${e.message}`)) } })
-    child.on('close', (code) => { if (!done) { clearTimeout(t); reject(new Error(`the map server exited (${code}) before it was ready`)) } })
+    child.on('close', (code) => { if (!done) { clearTimeout(t); reject(new Error(`the map server exited (${code}) before it was ready${err ? `: ${err.trim().split('\n').pop()}` : ''}`)) } })
   })
 }
