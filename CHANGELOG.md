@@ -4,6 +4,11 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.21.2] — 2026-08-13
+
+### Changed
+- assemble degrades a missing embedFull file to a plain drill-down instead of failing, so serve can re-assemble a saved map (desktop app live mode) even when the repo moved
+
 ## [0.21.1] — 2026-08-13
 
 ### Changed
