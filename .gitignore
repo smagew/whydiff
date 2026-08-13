@@ -5,3 +5,5 @@ examples/**/*.html
 .DS_Store
 examples-private/
 .fixtures/
+coverage/
+.nyc_output/
