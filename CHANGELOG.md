@@ -4,6 +4,11 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.21.1] — 2026-08-13
+
+### Changed
+- run.mjs runs its sub-steps with process.execPath (not a literal node), so a packaged host running it under Electron's node works
+
 ## [0.21.0] — 2026-08-13
 
 ### Changed

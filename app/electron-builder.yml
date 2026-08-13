@@ -1,0 +1,45 @@
+appId: com.whydiff.desktop
+productName: whydiff
+directories:
+  output: release
+  buildResources: build
+
+# The renderer/main/preload are built by electron-vite into out/.
+files:
+  - out/**
+  - package.json
+
+# The app shells out to the whydiff plugin's own scripts, so the plugin has to ride
+# inside the packaged app (in dev it uses the repo root instead). We ship the pieces
+# a run needs — its scripts, the viewer template, the agents/skills/hooks the plugin
+# loads, the schema, and mermaid for the assembler. `claude`, `git` and the model
+# come from the user's machine (whydiff needs Claude Code installed anyway).
+extraResources:
+  - from: ../scripts
+    to: whydiff-plugin/scripts
+  - from: ../templates
+    to: whydiff-plugin/templates
+  - from: ../agents
+    to: whydiff-plugin/agents
+  - from: ../skills
+    to: whydiff-plugin/skills
+  - from: ../schema
+    to: whydiff-plugin/schema
+  - from: ../hooks
+    to: whydiff-plugin/hooks
+  - from: ../.claude-plugin
+    to: whydiff-plugin/.claude-plugin
+  - from: ../node_modules/mermaid
+    to: whydiff-plugin/node_modules/mermaid
+
+# Unsigned across the board (see docs/desktop-app.md, Phase 6): no cost, Gatekeeper /
+# SmartScreen warn once. Signing + notarisation + auto-update come later.
+mac:
+  target: [dmg, zip]
+  category: public.app-category.developer-tools
+linux:
+  target: [AppImage, deb]
+  category: Development
+  maintainer: whydiff
+win:
+  target: [nsis]

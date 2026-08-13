@@ -1,0 +1,48 @@
+name: desktop
+
+# Build the desktop app (app/) for macOS, Linux and Windows on their own runners —
+# the reliable way to get all three, since they can't be cross-built from one OS.
+# Unsigned (see docs/desktop-app.md, Phase 6): the artifacts open with a one-time
+# "unidentified developer" / SmartScreen warning. Manual, or on an `app-v*` tag.
+on:
+  workflow_dispatch:
+  push:
+    tags: ['app-v*']
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            flag: --mac
+          - os: ubuntu-latest
+            flag: --linux
+          - os: windows-latest
+            flag: --win
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      # Root deps provide mermaid, which the app bundles for the assembler.
+      - run: npm install
+      - run: npm ci
+        working-directory: app
+      - name: build + package (unsigned)
+        working-directory: app
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false' # never try to sign
+        run: npx electron-vite build && npx electron-builder ${{ matrix.flag }} --publish never
+      - uses: actions/upload-artifact@v4
+        with:
+          name: whydiff-${{ matrix.os }}
+          path: |
+            app/release/*.dmg
+            app/release/*.zip
+            app/release/*.AppImage
+            app/release/*.deb
+            app/release/*.exe
+          if-no-files-found: warn

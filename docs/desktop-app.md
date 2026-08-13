@@ -201,14 +201,32 @@ interactive Claude Code agent?** The skill today is driven by the main agent.
   verified by tests; the live GitHub calls + a real PR run are exercised in the running
   app via `npm run dev`.
 
-### Phase 6 — Packaging & cross-OS polish
+### Phase 6 — Packaging & cross-OS polish — 🚧 built (unsigned) (2026-08-13)
 
-- **Goal:** signed/notarised builds — macOS (`.dmg`, **Apple notarisation needs a paid
-  developer account** — a real gate), Linux (AppImage/deb), Windows (installer +
-  signing); auto-update.
-- **Depends on:** a working app.
-- **Decisions:** code-signing certificates (cost/time), auto-update infra, and the
-  Tauri revisit if size/memory matter by then.
+- **Goal:** installable builds for macOS / Linux / Windows.
+- **Decision (user's):** **unsigned, all three OSes** — no cost; the artifacts open
+  with a one-time "unidentified developer" / SmartScreen warning. Signing +
+  notarisation + auto-update are deferred (macOS needs an Apple Developer account
+  $99/yr, Windows a code-signing cert; auto-update is coupled to signing).
+- **Built:** electron-builder config (`app/electron-builder.yml`) → dmg/zip (mac),
+  AppImage/deb (linux), nsis (win). The plugin rides inside the app as
+  `extraResources` (`whydiff-plugin/`: scripts, templates, agents, skills, schema,
+  hooks, `.claude-plugin`, mermaid), and at runtime the app points
+  `WHYDIFF_PLUGIN_DIR` there, runs the plugin's scripts with **Electron's own node**
+  (`ELECTRON_RUN_AS_NODE`, so no separate node is needed), and **widens `PATH`** (via
+  the login shell) so `claude`/`git` resolve when launched from Finder. `run.mjs` uses
+  `process.execPath` for its sub-steps so it works under that Electron node too.
+- **Verified here:** the mac `.app` builds and bundles the whole plugin; the bundled
+  `assemble.mjs`, run through the app's Electron-as-node against the bundled mermaid,
+  produces a full map. The **GUI launch + a real analysis** are the user's to confirm.
+- **CI:** `.github/workflows/desktop.yml` builds all three on their own runners
+  (unsigned) and uploads the artifacts — the reliable way to get Linux/Windows, which
+  can't be cross-built from a Mac. Manual (`workflow_dispatch`) or on an `app-v*` tag.
+- **App icon:** the brand giraffe — `build/icon.svg` (source) rendered to a
+  1024×1024 `build/icon.png`; electron-builder generates the mac `.icns` / win `.ico`
+  / linux png from it (the mac `.app` ships `icon.icns`, not the default).
+- **Left:** signing/notarisation + auto-update when distributing publicly; the Tauri
+  revisit if size/memory matter.
 
 ## Cross-cutting questions to settle
 
