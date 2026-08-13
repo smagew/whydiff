@@ -21,8 +21,9 @@ jobs:
         include:
           - os: macos-latest
             flag: --mac
-          - os: ubuntu-latest
-            flag: --linux
+          - os: ubuntu-22.04 # not ubuntu-latest (24.04): electron-builder's AppImage
+            flag: --linux     # tooling needs libfuse2, which 24.04 no longer ships
+
           - os: windows-latest
             flag: --win
     runs-on: ${{ matrix.os }}
@@ -62,9 +63,11 @@ jobs:
           if-no-files-found: warn
 
   # On a tag, gather every OS's installers and publish them in one GitHub Release.
+  # always() so a single OS build failing doesn't block the release of the others —
+  # download-artifact + fail_on_unmatched_files:false publish whatever did build.
   release:
     needs: build
-    if: startsWith(github.ref, 'refs/tags/app-v')
+    if: ${{ always() && startsWith(github.ref, 'refs/tags/app-v') }}
     runs-on: ubuntu-latest
     permissions:
       contents: write # create the release + upload assets (uses the default GITHUB_TOKEN)
