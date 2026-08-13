@@ -158,15 +158,26 @@ interactive Claude Code agent?** The skill today is driven by the main agent.
   here (module tests + compiling build); the GUI + a real analysis are run locally
   with `npm run dev`.
 
-### Phase 4 — Analyses index + history
+### Phase 4 — Analyses index + history — 🚧 built (2026-08-12)
 
 - **Goal:** save analyses; mark commits that already have one with an icon; a **latest
   analyses** list; re-open a saved analysis.
 - **Depends on:** Phase 3.
-- **Decisions:** canonical store — per-repo `.whydiff/` (portable) with SQLite as an
-  index/cache over it (assumed); keying (repo + range hash); stale detection when the
-  tree moved.
-- **Done when:** relaunch shows prior analyses and which commits carry one.
+- **Decisions settled:** each analysis's map (+ HTML) is copied to an **app-owned**
+  store, `userData/analyses/<id>/`, and indexed in the store (JSON) by
+  `{projectId, kind, ref, created_at}` — so a saved analysis re-opens even if the
+  repo's own `.whydiff/` was cleaned or a clone is gone. `ref` is the commit hash /
+  range / `""` (working tree) / `pr:N`. **SQLite stays deferred** — JSON handles this
+  scale fine (a "does this commit have a map" lookup is an array scan), and it keeps
+  the app native-dependency-free.
+- **Built:** the store gained the analyses index (add/list newest-first/`analysisForRef`/
+  remove, tested + persisted); `project:analyze` now saves + records; new IPC
+  `analyses:forProject` / `analyses:latest` / `analysis:open` / `analysis:remove`. The
+  UI marks commits that have a map (● + **View** / **Re-run**), lists a project's
+  **Recent analyses**, and a **Latest analyses** list on the home screen. `npm test` +
+  build green.
+- **Done when:** relaunch shows prior analyses and which commits carry one — verified
+  by the store test + build; exercised in the running app via `npm run dev`.
 
 ### Phase 5 — Remotes: PR/MR + GitHub-URL projects
 

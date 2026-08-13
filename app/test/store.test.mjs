@@ -38,4 +38,23 @@ threw = false
 try { s.addProject({ kind: 'bogus', path: '/x', name: 'x' }) } catch { threw = true }
 ok(threw, 'an unknown kind is refused')
 
-console.log('OK: store (add local/github, dedup by path/url, list newest-first, get, remove, guards)')
+// ── analyses index ───────────────────────────────────────────────────────────
+const proj = s.addProject({ kind: 'local', path: '/tmp/bar', name: 'bar' })
+const an1 = s.addAnalysis({ projectId: proj.id, kind: 'commit', ref: 'abc123', title: 't1' })
+ok(an1.id && an1.projectId === proj.id && an1.ref === 'abc123', 'added a commit analysis')
+const an2 = s.addAnalysis({ projectId: proj.id, kind: 'working', ref: '', title: 'wt' })
+ok(s.listAnalyses({ projectId: proj.id }).length === 2, 'two analyses for the project')
+ok(s.listAnalyses({ projectId: proj.id })[0].id === an2.id, 'analyses are newest-first')
+ok(s.analysisForRef(proj.id, 'abc123')?.id === an1.id, 'analysisForRef finds a commit map')
+ok(s.analysisForRef(proj.id, 'nope') === null, 'analysisForRef is null when none match')
+ok(s.getAnalysis(an1.id)?.title === 't1', 'getAnalysis by id')
+ok(s.listAnalyses({ limit: 1 }).length === 1, 'listAnalyses honours limit')
+let threwA = false
+try { s.addAnalysis({ projectId: 999999, kind: 'commit', ref: 'x' }) } catch { threwA = true }
+ok(threwA, 'an analysis for an unknown project is refused')
+ok(s.removeAnalysis(an1.id) === true, 'removeAnalysis')
+ok(s.listAnalyses({ projectId: proj.id }).length === 1, 'one analysis left after remove')
+// a reopened store keeps analyses (persistence)
+ok(openStore(db).listAnalyses({ projectId: proj.id }).length === 1, 'analyses persist across reopen')
+
+console.log('OK: store (projects: add/dedup/list/remove; analyses: add/list newest-first/forRef/limit/remove/persist; guards)')
