@@ -16,13 +16,13 @@ export const pluginDir = () => process.env.WHYDIFF_PLUGIN_DIR || resolve(here, '
  * streams which pass is running to stderr; each line is handed to `onProgress`. On
  * success the map is at <repo>/.whydiff/review-map.json.
  */
-export function runAnalysis(repo, range, { onProgress, runScript, node = 'node', timeout = 1_800_000, full = false } = {}) {
+export function runAnalysis(repo, range, { onProgress, runScript, node = 'node', env, timeout = 1_800_000, full = false } = {}) {
   return new Promise((resolveP, reject) => {
     const script = runScript || join(pluginDir(), 'scripts', 'run.mjs')
     // No range → the working tree (whydiff's default); pass only the repo then.
     const args = range ? [script, repo, range] : [script, repo]
     if (full) args.push('--full') // generate every section, not just the core passes
-    const child = spawn(node, args, { stdio: ['ignore', 'pipe', 'pipe'] })
+    const child = spawn(node, args, { stdio: ['ignore', 'pipe', 'pipe'], env: env || process.env })
     const kill = setTimeout(() => { child.kill('SIGKILL'); reject(new Error(`analysis timed out after ${Math.round(timeout / 1000)}s`)) }, timeout)
     let out = '', errTail = '', ebuf = ''
     child.stderr.on('data', (d) => {
@@ -46,12 +46,12 @@ export function runAnalysis(repo, range, { onProgress, runScript, node = 'node',
  * app loads that in a window) plus a `stop()` to end the server. The server prints
  * `whydiff serve: http://127.0.0.1:<port>/` on startup; we resolve on that line.
  */
-export function serveMap(repo, mapPath, { serveScript, node = 'node', port, startTimeout = 20000 } = {}) {
+export function serveMap(repo, mapPath, { serveScript, node = 'node', env, port, startTimeout = 20000 } = {}) {
   return new Promise((resolveP, reject) => {
     const script = serveScript || join(pluginDir(), 'scripts', 'serve.mjs')
     const args = [script, mapPath, '--repo', repo]
     if (port) args.push('--port', String(port))
-    const child = spawn(node, args, { stdio: ['ignore', 'pipe', 'pipe'] })
+    const child = spawn(node, args, { stdio: ['ignore', 'pipe', 'pipe'], env: env || process.env })
     let out = '', err = '', done = false
     const stop = () => { try { child.kill('SIGKILL') } catch {} }
     const t = setTimeout(() => { if (!done) { stop(); reject(new Error('the map server did not start in time')) } }, startTimeout)

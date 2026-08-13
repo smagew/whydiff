@@ -97,7 +97,10 @@ const runPipeline = () => new Promise((ok, no) => {
   })
 })
 
-const node = (script, ...a) => execFileSync('node', [join(rootDir, 'scripts', script), ...a], { stdio: ['ignore', 'inherit', 'inherit'] })
+// Use the SAME runtime that is executing this script (process.execPath) for the
+// sub-steps, not a literal `node` — a packaged host may run us with Electron's node
+// (ELECTRON_RUN_AS_NODE, inherited via env), where no separate `node` is on PATH.
+const node = (script, ...a) => execFileSync(process.execPath, [join(rootDir, 'scripts', script), ...a], { stdio: ['ignore', 'inherit', 'inherit'], env: process.env })
 
 try {
   log(`whydiff: ${range || 'working tree'} in ${repoAbs}`)

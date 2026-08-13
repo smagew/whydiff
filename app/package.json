@@ -9,12 +9,16 @@
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "start": "electron-vite preview",
-    "test": "node test/store.test.mjs && node test/git.test.mjs && node test/whydiff.test.mjs && node test/github.test.mjs"
+    "test": "node test/store.test.mjs && node test/git.test.mjs && node test/whydiff.test.mjs && node test/github.test.mjs",
+    "dist:mac": "electron-vite build && electron-builder --mac",
+    "dist:linux": "electron-vite build && electron-builder --linux",
+    "dist:win": "electron-vite build && electron-builder --win",
+    "dist": "electron-vite build && electron-builder -mwl"
   },
-  "dependencies": {},
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.4",
     "electron": "^33.2.1",
+    "electron-builder": "^25.1.8",
     "electron-vite": "^2.3.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

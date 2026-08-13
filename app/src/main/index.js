@@ -5,10 +5,18 @@ import { openStore, repoNameFromUrl } from './store.mjs'
 import { gitState, rangeForCommit, clone, fetchPrRange } from './git.mjs'
 import { fetchPRs, parseRepo } from './github.mjs'
 import { runAnalysis, serveMap } from './whydiff.mjs'
+import { resolvedPath } from './pathenv.mjs'
 
 let store
 // Map windows and their servers, so closing a map window stops its `serve.mjs`.
 const mapServers = new Set()
+
+// How to run the plugin's node scripts. Packaged, there is no separate `node`, so run
+// them with Electron's own node (ELECTRON_RUN_AS_NODE); in dev, plain `node`. The
+// child inherits process.env, whose PATH we widen at startup so `claude`/`git`
+// resolve even when the app was launched from Finder.
+const nodeCmd = () => (app.isPackaged ? process.execPath : 'node')
+const nodeEnv = () => (app.isPackaged ? { ...process.env, ELECTRON_RUN_AS_NODE: '1' } : process.env)
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -36,6 +44,11 @@ function createWindow() {
 const isGithubUrl = (u) => /^(https?:\/\/github\.com\/|git@github\.com:)[^/:]+\/[^/]+/.test(String(u).trim())
 
 app.whenReady().then(() => {
+  // Widen PATH so `claude`/`git` are found when launched from Finder, and point the
+  // runner at the plugin bundled inside the app (in dev it uses the repo root).
+  process.env.PATH = resolvedPath()
+  if (app.isPackaged) process.env.WHYDIFF_PLUGIN_DIR = join(process.resourcesPath, 'whydiff-plugin')
+
   store = openStore(join(app.getPath('userData'), 'projects.json'))
 
   ipcMain.handle('projects:list', () => store.listProjects())
@@ -79,7 +92,7 @@ app.whenReady().then(() => {
     if (existsSync(html)) {
       win.loadFile(html)
     } else if (existsSync(json)) {
-      const { url, stop } = await serveMap(project?.path || dir, json)
+      const { url, stop } = await serveMap(project?.path || dir, json, { node: nodeCmd(), env: nodeEnv() })
       mapServers.add(stop)
       win.loadURL(url)
       win.on('closed', () => { mapServers.delete(stop); stop() })
@@ -98,7 +111,7 @@ app.whenReady().then(() => {
   // stored record.
   ipcMain.handle('project:analyze', async (e, { repo, range, projectId, kind, ref, title, full }) => {
     const onProgress = (line) => { if (!e.sender.isDestroyed()) e.sender.send('analyze:progress', line) }
-    const { mapPath } = await runAnalysis(repo, range || '', { onProgress, full: full !== false })
+    const { mapPath } = await runAnalysis(repo, range || '', { onProgress, full: full !== false, node: nodeCmd(), env: nodeEnv() })
     const rec = store.addAnalysis({ projectId, kind, ref: ref || '', title: title || '' })
     const dir = join(analysesDir, String(rec.id))
     mkdirSync(dir, { recursive: true })
