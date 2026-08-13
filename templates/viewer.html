@@ -1103,6 +1103,7 @@ const I18N = {
       tests: { title: 'Tests', what: 'What the tests now pin down, and — more usefully — what this change leaves uncovered. Generate to add this pass.' },
     },
     diagramsHint: 'A node is marked the way a diff line is: added takes the fill, removed the dashed outline, changed a heavier edge. Diagrams exist only where a control or data flow changed. Nodes tied to a changed file are clickable — details open in the inspector.',
+    diagramsEmpty: 'No diagrams: this change altered no control or data flow, so there is nothing to draw. See the Code map for the files it touched.',
     fixedTitle: 'Fixed by tests', gapsTitle: 'Not covered',
     envTitle: 'Env vars', migrTitle: 'Migrations', deployTitle: 'Deploy',
     envNone: 'No env changes', migrNone: 'No migrations',
@@ -1246,6 +1247,7 @@ const I18N = {
       tests: { title: 'Тесты', what: 'Что теперь фиксируют тесты и — важнее — что это изменение оставляет без покрытия. Нажми, чтобы добавить проход.' },
     },
     diagramsHint: 'Нода помечена так же, как строка диффа: добавленное берёт заливку, удалённое — пунктирный контур, изменённое — усиленную рамку. Диаграммы есть только там, где меняется поток управления или данных. Ноды изменённых файлов кликабельны — детали откроются в инспекторе.',
+    diagramsEmpty: 'Диаграмм нет: это изменение не затронуло поток управления или данных — рисовать нечего. Что затронуто, смотри на вкладке «Карта кода».',
     fixedTitle: 'Зафиксировано', gapsTitle: 'Не покрыто',
     envTitle: 'Env-переменные', migrTitle: 'Миграции', deployTitle: 'Деплой',
     envNone: 'Env-переменные не менялись', migrNone: 'Миграций нет',
@@ -1499,7 +1501,9 @@ let scopeFilter = null
 }
 
 // ── static chrome strings ────────────────────────────────────────────────────
-document.getElementById('diagramsHint').textContent = L.diagramsHint
+// The hint explains how to read diagrams; with none, say there is nothing to draw
+// (diagrams are a core pass, so empty means the change altered no flow — not lazy).
+document.getElementById('diagramsHint').textContent = (RM.diagrams || []).length ? L.diagramsHint : L.diagramsEmpty
 document.getElementById('fixedTitle').textContent = L.fixedTitle
 document.getElementById('gapsTitle').textContent = L.gapsTitle
 document.getElementById('blastTitle').textContent = L.blastTitle

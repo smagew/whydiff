@@ -17,6 +17,7 @@ export default function ProjectView({ project, onBack }) {
   const [analyzing, setAnalyzing] = useState(false)
   const [progress, setProgress] = useState('')
   const [error, setError] = useState('')
+  const [fullReport, setFullReport] = useState(true) // generate every section, not just the core map
 
   const latestByRef = new Map()
   for (const a of analyses) if (!latestByRef.has(a.ref)) latestByRef.set(a.ref, a)
@@ -47,7 +48,7 @@ export default function ProjectView({ project, onBack }) {
     setError(''); setAnalyzing(true); setProgress('starting the analysis…')
     const unsub = window.api.onAnalyzeProgress(setProgress)
     try {
-      const { analysis } = await window.api.analyze({ repo, range, projectId: project.id, kind, ref, title })
+      const { analysis } = await window.api.analyze({ repo, range, projectId: project.id, kind, ref, title, full: fullReport })
       await refreshAnalyses()
       setProgress('opening the map…')
       await window.api.openAnalysis(analysis.id)
@@ -77,6 +78,11 @@ export default function ProjectView({ project, onBack }) {
           <div className="loc">{isLocal ? project.path : project.url}{state?.branch ? ` · ${state.branch}` : ''}</div>
         </div>
       </header>
+
+      <label className="opt-full">
+        <input type="checkbox" checked={fullReport} onChange={(e) => setFullReport(e.target.checked)} disabled={analyzing} />
+        <span>Full report <span className="hint">— also Summary, user stories, standards &amp; tests (slower, more tokens)</span></span>
+      </label>
 
       {(analyzing || cloning) && <div className="run"><span className="spin" /> <span className="run-txt">{cloning ? (cloneMsg || 'cloning…') : (progress || 'working…')}</span></div>}
       {error ? <div className="err">{error}</div> : null}

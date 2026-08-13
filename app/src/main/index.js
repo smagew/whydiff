@@ -96,9 +96,9 @@ app.whenReady().then(() => {
   // Run whydiff for a range (empty = the working tree), streaming progress to the
   // window that asked, then save the map into the analyses index and return the
   // stored record.
-  ipcMain.handle('project:analyze', async (e, { repo, range, projectId, kind, ref, title }) => {
+  ipcMain.handle('project:analyze', async (e, { repo, range, projectId, kind, ref, title, full }) => {
     const onProgress = (line) => { if (!e.sender.isDestroyed()) e.sender.send('analyze:progress', line) }
-    const { mapPath } = await runAnalysis(repo, range || '', { onProgress })
+    const { mapPath } = await runAnalysis(repo, range || '', { onProgress, full: full !== false })
     const rec = store.addAnalysis({ projectId, kind, ref: ref || '', title: title || '' })
     const dir = join(analysesDir, String(rec.id))
     mkdirSync(dir, { recursive: true })

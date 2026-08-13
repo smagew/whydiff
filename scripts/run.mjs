@@ -27,7 +27,7 @@ import { fileURLToPath } from 'node:url'
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), '..')
 const argv = process.argv.slice(2)
 const VALUE = new Set(['--plugin-dir', '--claude-cmd', '--timeout'])
-const BOOL = new Set(['--no-assemble', '--quiet'])
+const BOOL = new Set(['--no-assemble', '--quiet', '--full'])
 const opts = {}
 const positional = []
 for (let i = 0; i < argv.length; i++) {
@@ -39,7 +39,7 @@ for (let i = 0; i < argv.length; i++) {
 }
 function die(code, msg) {
   console.error(msg)
-  if (code === 2) console.error('usage: run.mjs <repo> [<base..head>] [--plugin-dir <path>] [--claude-cmd <cmd>] [--timeout <ms>] [--no-assemble] [--quiet]')
+  if (code === 2) console.error('usage: run.mjs <repo> [<base..head>] [--full] [--plugin-dir <path>] [--claude-cmd <cmd>] [--timeout <ms>] [--no-assemble] [--quiet]')
   process.exit(code)
 }
 
@@ -62,7 +62,9 @@ const log = (s) => { if (!quiet) process.stderr.write(s + '\n') }
 // tool calls run without a prompt; nothing here bypasses permissions.
 const runPipeline = () => new Promise((ok, no) => {
   const child = spawn(claudeCmd, [
-    '-p', range ? `/whydiff ${range}` : '/whydiff',
+    // "full" tells the skill to generate the optional passes (Summary, user stories,
+    // standards, tests) up front, not leave them behind a Generate button.
+    '-p', `/whydiff${range ? ` ${range}` : ''}${opts['--full'] ? ' full' : ''}`,
     '--plugin-dir', pluginDir,
     '--output-format', 'stream-json', '--verbose',
   ], { cwd: repoAbs, stdio: ['ignore', 'pipe', 'pipe'] })
