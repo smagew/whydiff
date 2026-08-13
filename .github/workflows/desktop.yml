@@ -3,7 +3,11 @@ name: desktop
 # Build the desktop app (app/) for macOS, Linux and Windows on their own runners —
 # the reliable way to get all three, since they can't be cross-built from one OS.
 # Unsigned (see docs/desktop-app.md, Phase 6): the artifacts open with a one-time
-# "unidentified developer" / SmartScreen warning. Manual, or on an `app-v*` tag.
+# "unidentified developer" / SmartScreen warning.
+#
+# Push a tag `app-vX.Y.Z` → build all three AND publish a GitHub Release with the
+# installers attached. A manual run just builds + uploads them as run artifacts (no
+# release), for testing.
 on:
   workflow_dispatch:
   push:
@@ -46,3 +50,28 @@ jobs:
             app/release/*.deb
             app/release/*.exe
           if-no-files-found: warn
+
+  # On a tag, gather every OS's installers and publish them in one GitHub Release.
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/app-v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create the release + upload assets (uses the default GITHUB_TOKEN)
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist # each build job's artifact lands under dist/<name>/
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/**/*
+          fail_on_unmatched_files: false
+          name: whydiff desktop ${{ github.ref_name }}
+          body: |
+            Unsigned desktop builds of whydiff.
+
+            - **macOS**: `.dmg` (or `.zip`). First launch: right-click the app → **Open** (Gatekeeper, because it is unsigned).
+            - **Windows**: the `.exe` installer. SmartScreen may warn ("unknown publisher") — **More info → Run anyway**.
+            - **Linux**: `.AppImage` (portable, `chmod +x` then run) or `.deb`.
+
+            Requires Claude Code (`claude`) and `git` installed — the app drives them to produce the map.

@@ -219,9 +219,12 @@ interactive Claude Code agent?** The skill today is driven by the main agent.
 - **Verified here:** the mac `.app` builds and bundles the whole plugin; the bundled
   `assemble.mjs`, run through the app's Electron-as-node against the bundled mermaid,
   produces a full map. The **GUI launch + a real analysis** are the user's to confirm.
-- **CI:** `.github/workflows/desktop.yml` builds all three on their own runners
-  (unsigned) and uploads the artifacts — the reliable way to get Linux/Windows, which
-  can't be cross-built from a Mac. Manual (`workflow_dispatch`) or on an `app-v*` tag.
+- **CI + releases:** `.github/workflows/desktop.yml` builds all three on their own
+  runners (unsigned) — the reliable way to get Linux/Windows, which can't be
+  cross-built from a Mac. A manual run uploads them as run artifacts (for testing);
+  **pushing a tag `app-vX.Y.Z` also publishes a GitHub Release** with every OS's
+  installer attached (a `release` job gathers the per-OS artifacts and uploads them
+  via the default `GITHUB_TOKEN`, `contents: write`).
 - **App icon:** the brand giraffe — `build/icon.svg` (source) rendered to a
   1024×1024 `build/icon.png`; electron-builder generates the mac `.icns` / win `.ico`
   / linux png from it (the mac `.app` ships `icon.icns`, not the default).
