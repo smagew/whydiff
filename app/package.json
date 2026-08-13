@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "description": "Desktop host for whydiff — pick a project, browse its changes, run a review map. (Phase 2: shell + project list.)",
-  "author": "whydiff <11990509+smagew@users.noreply.github.com>",
+  "author": "whydiff <ag@coding.lt>",
+  "homepage": "https://whydiff.com",
   "main": "out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",

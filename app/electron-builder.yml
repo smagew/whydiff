@@ -40,8 +40,7 @@ mac:
 linux:
   target: [AppImage, deb]
   category: Development
-  # The .deb target needs a maintainer with an email; the GitHub noreply address
-  # keeps a real personal address out of shipped files.
-  maintainer: whydiff <11990509+smagew@users.noreply.github.com>
+  # The .deb target needs a maintainer with an email.
+  maintainer: whydiff <ag@coding.lt>
 win:
   target: [nsis]
