@@ -92,6 +92,19 @@ passes up front ONLY when the user asked for a **full** report (words like "full
 "everything", "all sections", or a `--full`/`full` argument to the skill). When in
 doubt, run core and say the rest are one click away.
 
+**A subset of optional passes: `sections:<ids>`.** When the skill is invoked with a
+`sections:<comma-list>` argument (e.g. `sections:story,standards`), spawn exactly the
+named optional passes alongside core — no more, no fewer — and leave the rest lazy.
+`full` is the shorthand for all four; a bare `sections:` with no valid id is a
+core-only run. The ids map to the optional agents:
+
+| id | optional agent | section |
+|---|---|---|
+| `story` | `whydiff:summariser` | Summary |
+| `standards` | `whydiff:standards-reviewer` | Standards (+ blast radius) |
+| `tests` | `whydiff:tests-analyst` | Tests |
+| `stories` | `whydiff:story-writer` | User stories |
+
 Spawn the chosen agents IN ONE MESSAGE (they are independent), logging
 `timing.mjs log agents_spawned --repo <repo>` right before the spawn message and
 `timing.mjs log agents_done --repo <repo>` in your first tool call after they all

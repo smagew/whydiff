@@ -4,6 +4,20 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.22.0] — 2026-08-13
+
+### Added
+- **Choose which optional sections to generate up front.** Alongside `--full` (all
+  optional passes), `run.mjs --sections <ids>` and a `sections:<ids>` argument to the
+  skill generate just a subset — ids `story`, `standards`, `tests`, `stories` — while
+  the core passes (Code map, Diagrams, Ops) always run and the rest stay one click
+  away in the viewer. `--sections` and `--full` are mutually exclusive; neither means
+  a core-only run.
+- **Structured run progress.** `run.mjs --progress-json` emits one `@stage {…}` line
+  per stage transition (prepare, each pass, merge, assemble; start/done), so a host UI
+  can show which passes are planned, running and done. Off by default — the plain CLI
+  output is unchanged.
+
 ## [0.21.2] — 2026-08-13
 
 ### Changed
