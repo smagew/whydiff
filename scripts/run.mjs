@@ -14,6 +14,11 @@
 //   --plugin-dir <path>   where the whydiff plugin lives (default: this repo)
 //   --claude-cmd <cmd>    the claude binary (default: claude)
 //   --timeout <ms>        kill the run after this long (default: 900000)
+//   --full                generate every optional section up front
+//   --sections <list>     generate only these optional sections up front (comma-
+//                         separated ids: story, standards, tests, stories). The core
+//                         passes (Code map, Diagrams, Ops) always run. Mutually
+//                         exclusive with --full; omit both for a core-only run.
 //   --no-assemble         skip producing the standalone review-map.html
 //   --quiet               don't print per-step progress
 //
@@ -26,8 +31,10 @@ import { fileURLToPath } from 'node:url'
 
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), '..')
 const argv = process.argv.slice(2)
-const VALUE = new Set(['--plugin-dir', '--claude-cmd', '--timeout'])
-const BOOL = new Set(['--no-assemble', '--quiet', '--full'])
+const VALUE = new Set(['--plugin-dir', '--claude-cmd', '--timeout', '--sections'])
+const BOOL = new Set(['--no-assemble', '--quiet', '--full', '--progress-json'])
+// The optional passes a caller may ask for by id (core passes always run).
+const OPTIONAL_SECTIONS = new Set(['story', 'standards', 'tests', 'stories'])
 const opts = {}
 const positional = []
 for (let i = 0; i < argv.length; i++) {
@@ -39,8 +46,19 @@ for (let i = 0; i < argv.length; i++) {
 }
 function die(code, msg) {
   console.error(msg)
-  if (code === 2) console.error('usage: run.mjs <repo> [<base..head>] [--full] [--plugin-dir <path>] [--claude-cmd <cmd>] [--timeout <ms>] [--no-assemble] [--quiet]')
+  if (code === 2) console.error('usage: run.mjs <repo> [<base..head>] [--full | --sections <ids>] [--plugin-dir <path>] [--claude-cmd <cmd>] [--timeout <ms>] [--no-assemble] [--quiet]')
   process.exit(code)
+}
+
+// The optional sections requested up front, as a clean list of known ids. --full is
+// the shorthand for all of them; --sections names a subset. The skill reads this from
+// the prompt and spawns exactly those optional passes (plus the always-on core).
+let sections = []
+if (opts['--sections']) {
+  if (opts['--full']) die(2, '--sections and --full are mutually exclusive')
+  sections = opts['--sections'].split(',').map(s => s.trim()).filter(Boolean)
+  const bad = sections.filter(s => !OPTIONAL_SECTIONS.has(s))
+  if (bad.length) die(2, `unknown section(s): ${bad.join(', ')} (valid: ${[...OPTIONAL_SECTIONS].join(', ')})`)
 }
 
 const repo = positional[0]
@@ -56,20 +74,35 @@ const timeout = Number(opts['--timeout'] || 900000)
 const quiet = !!opts['--quiet']
 const log = (s) => { if (!quiet) process.stderr.write(s + '\n') }
 
+// Structured stage progress for a host UI (the desktop app renders a bar from these).
+// Off by default so CLI output stays the human `· step` stream; the app opts in with
+// --progress-json. One line per transition: `@stage {"stage":"…","status":"start|done"}`.
+// Stage ids are the pass names (classifier, diagrammer, summariser, …) plus prepare,
+// merge and assemble — so the host shows exactly the passes this run actually spawned.
+const progressJson = !!opts['--progress-json']
+const stage = (name, status) => { if (progressJson) process.stderr.write(`@stage ${JSON.stringify({ stage: name, status })}\n`) }
+
 // ── drive the pipeline through `claude -p` ───────────────────────────────────
 // Stream-json so we can show which pass is running rather than a silent wait on
 // something that spends money. The plugin's own hook is what makes the pipeline's
 // tool calls run without a prompt; nothing here bypasses permissions.
 const runPipeline = () => new Promise((ok, no) => {
+  // Tell the skill which optional passes to generate up front: "full" = all of them;
+  // "sections:<ids>" = just those; neither = core only (the rest stay one click away).
+  const want = opts['--full'] ? ' full' : sections.length ? ` sections:${sections.join(',')}` : ''
   const child = spawn(claudeCmd, [
-    // "full" tells the skill to generate the optional passes (Summary, user stories,
-    // standards, tests) up front, not leave them behind a Generate button.
-    '-p', `/whydiff${range ? ` ${range}` : ''}${opts['--full'] ? ' full' : ''}`,
+    '-p', `/whydiff${range ? ` ${range}` : ''}${want}`,
     '--plugin-dir', pluginDir,
     '--output-format', 'stream-json', '--verbose',
   ], { cwd: repoAbs, stdio: ['ignore', 'pipe', 'pipe'] })
   const kill = setTimeout(() => { child.kill('SIGKILL'); no(new Error(`timed out after ${Math.round(timeout / 1000)}s`)) }, timeout)
   let buf = '', err = '', result = null, isError = false
+  // Preparation (gather + reading the diff) runs before the first pass is spawned;
+  // close it out when the first agent Task appears. `inflight` maps a tool_use id to
+  // the stage it started, so its tool_result closes that stage.
+  stage('prepare', 'start')
+  let prepareDone = false
+  const inflight = new Map()
   child.stderr.on('data', (d) => { err += d })
   child.stdout.on('data', (d) => {
     buf += d
@@ -82,6 +115,21 @@ const runPipeline = () => new Promise((ok, no) => {
           if (c.type !== 'tool_use') continue
           const hint = c.input?.subagent_type || c.input?.description || c.input?.command || c.input?.file_path || ''
           log(`  · ${c.name}${hint ? ` ${String(hint).replace(/\s+/g, ' ').slice(0, 70)}` : ''}`)
+          // A pass (a Task subagent) or the merge step — the stages a host UI shows.
+          let name = null
+          if (c.name === 'Task') name = String(c.input?.subagent_type || 'analyze').replace(/^whydiff:/, '')
+          else if (c.name === 'Bash' && /\bmerge\.mjs\b/.test(String(c.input?.command || ''))) name = 'merge'
+          if (name) {
+            if (!prepareDone) { stage('prepare', 'done'); prepareDone = true }
+            stage(name, 'start')
+            if (c.id) inflight.set(c.id, name)
+          }
+        }
+      } else if (j.type === 'user') {
+        // Tool results close the stage that opened them (agents run in parallel, so
+        // several can be in flight at once).
+        for (const c of j.message?.content || []) {
+          if (c.type === 'tool_result' && inflight.has(c.tool_use_id)) { stage(inflight.get(c.tool_use_id), 'done'); inflight.delete(c.tool_use_id) }
         }
       } else if (j.type === 'result') {
         result = String(j.result ?? '')
@@ -114,7 +162,11 @@ try {
   node('validate.mjs', mapPath, '--repo', repoAbs, ...(range ? ['--ref', range] : []))
 
   // The portable, shareable artifact (mermaid inlined) — what a host would hand on.
-  if (!opts['--no-assemble']) node('assemble.mjs', mapPath, '--repo', repoAbs)
+  if (!opts['--no-assemble']) {
+    stage('assemble', 'start')
+    node('assemble.mjs', mapPath, '--repo', repoAbs)
+    stage('assemble', 'done')
+  }
 
   const m = JSON.parse(readFileSync(mapPath, 'utf8'))
   const html = mapPath.replace(/\.json$/, '.html')

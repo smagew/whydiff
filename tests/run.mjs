@@ -105,6 +105,30 @@ const run = (args) => spawnSync('node', [join(root, 'scripts', 'run.mjs'), ...ar
   ok(noFull.status === 1, 'without --full the prompt should not say "full", so the full stub fails the run')
 }
 
+// ── --sections asks the skill for exactly those optional passes ──────────────
+{
+  // A stub that only succeeds when the prompt carries "sections:story,standards".
+  const secStub = mkStub(`
+import { writeFileSync, mkdirSync } from 'node:fs'
+const a = process.argv.slice(2)
+const prompt = a[a.indexOf('-p') + 1] || ''
+if (!/sections:story,standards(\\s|$)/.test(prompt)) { console.error('prompt lacks sections: ' + prompt); process.exit(9) }
+mkdirSync('.whydiff', { recursive: true })
+writeFileSync('.whydiff/review-map.json', ${JSON.stringify(JSON.stringify(MAP))})
+process.stdout.write(JSON.stringify({ type: 'result', subtype: 'success', result: 'sections' }) + '\\n')
+`)
+  execFileSync('rm', ['-rf', join(repo, '.whydiff')])
+  const r = run([repo, 'HEAD~1..HEAD', '--sections', 'story,standards', '--claude-cmd', secStub, '--plugin-dir', root, '--no-assemble', '--quiet'])
+  ok(r.status === 0, `--sections run should carry sections:story,standards, exited ${r.status}: ${r.stderr}`)
+  // core-only (no --sections/--full) must NOT carry a sections: token → the stub rejects it
+  execFileSync('rm', ['-rf', join(repo, '.whydiff')])
+  const bare = run([repo, 'HEAD~1..HEAD', '--claude-cmd', secStub, '--plugin-dir', root, '--quiet'])
+  ok(bare.status === 1, 'a core-only run should not carry a sections: token')
+  // validation: an unknown id and the --full/--sections clash are usage errors
+  ok(run([repo, '--sections', 'bogus', '--plugin-dir', root]).status === 2, 'an unknown section id should exit 2')
+  ok(run([repo, '--sections', 'story', '--full', '--plugin-dir', root]).status === 2, '--sections with --full should exit 2')
+}
+
 // ── --no-assemble skips the HTML but still validates ─────────────────────────
 {
   execFileSync('rm', ['-rf', join(repo, '.whydiff')])

@@ -16,12 +16,16 @@ export const pluginDir = () => process.env.WHYDIFF_PLUGIN_DIR || resolve(here, '
  * streams which pass is running to stderr; each line is handed to `onProgress`. On
  * success the map is at <repo>/.whydiff/review-map.json.
  */
-export function runAnalysis(repo, range, { onProgress, runScript, node = 'node', env, timeout = 1_800_000, full = false } = {}) {
+export function runAnalysis(repo, range, { onProgress, runScript, node = 'node', env, timeout = 1_800_000, full = false, sections, progressJson = false } = {}) {
   return new Promise((resolveP, reject) => {
     const script = runScript || join(pluginDir(), 'scripts', 'run.mjs')
     // No range → the working tree (whydiff's default); pass only the repo then.
     const args = range ? [script, repo, range] : [script, repo]
-    if (full) args.push('--full') // generate every section, not just the core passes
+    // Which optional passes to generate up front: full = all; a non-empty sections
+    // list = just those; neither = core only (the rest stay one click away).
+    if (full) args.push('--full')
+    else if (sections && sections.length) args.push('--sections', sections.join(','))
+    if (progressJson) args.push('--progress-json') // emit @stage markers for a host progress UI
     const child = spawn(node, args, { stdio: ['ignore', 'pipe', 'pipe'], env: env || process.env })
     const kill = setTimeout(() => { child.kill('SIGKILL'); reject(new Error(`analysis timed out after ${Math.round(timeout / 1000)}s`)) }, timeout)
     let out = '', errTail = '', ebuf = ''

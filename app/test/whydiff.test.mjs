@@ -37,6 +37,32 @@ let failed = false
 try { await runAnalysis(repo, 'HEAD~1..HEAD', { runScript: runFail }) } catch { failed = true }
 ok(failed, 'a failing runner should reject')
 
+// runAnalysis forwards the section selection + progress flag to run.mjs. A stub
+// records its argv so both directions are checked.
+const argvFile = join(dir, 'run-argv.json')
+const runArgs = mkScript('run-argv.mjs', `
+import { mkdirSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+const [repo] = process.argv.slice(2)
+writeFileSync(${JSON.stringify(argvFile)}, JSON.stringify(process.argv.slice(2)))
+mkdirSync(join(repo, '.whydiff'), { recursive: true })
+writeFileSync(join(repo, '.whydiff', 'review-map.json'), JSON.stringify({ ok: true }))
+process.stdout.write('OK\\n')
+`)
+await runAnalysis(repo, '', { runScript: runArgs, sections: ['story', 'standards'], progressJson: true })
+let av = JSON.parse(readFileSync(argvFile, 'utf8'))
+ok(av.includes('--sections') && av[av.indexOf('--sections') + 1] === 'story,standards', `sections not forwarded: ${JSON.stringify(av)}`)
+ok(av.includes('--progress-json'), 'progressJson not forwarded')
+ok(!av.includes('--full'), 'a sections run must not pass --full')
+
+await runAnalysis(repo, '', { runScript: runArgs, full: true })
+av = JSON.parse(readFileSync(argvFile, 'utf8'))
+ok(av.includes('--full') && !av.includes('--sections'), `full run should pass --full only: ${JSON.stringify(av)}`)
+
+await runAnalysis(repo, '', { runScript: runArgs })
+av = JSON.parse(readFileSync(argvFile, 'utf8'))
+ok(!av.includes('--full') && !av.includes('--sections'), `a quick run passes neither: ${JSON.stringify(av)}`)
+
 // A stub server: prints the startup URL line and stays alive until killed.
 const serveOk = mkScript('serve-ok.mjs', `
 process.stdout.write('whydiff serve: http://127.0.0.1:8123/\\n')

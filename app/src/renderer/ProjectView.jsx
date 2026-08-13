@@ -2,6 +2,67 @@ import React, { useEffect, useState } from 'react'
 
 const refLabel = (a) => a.kind === 'working' ? 'working tree' : a.kind === 'pr' ? a.ref.replace(/^pr:/, 'PR #') : (a.ref || '').slice(0, 8)
 
+// The optional passes the user can pick at order time (core always runs). `id` is the
+// section id the skill understands; `agent` is the pass name run.mjs reports progress
+// under, so the progress bar can name the stage.
+const OPTIONAL = [
+  { id: 'story', label: 'Summary', agent: 'summariser' },
+  { id: 'stories', label: 'User stories', agent: 'story-writer' },
+  { id: 'standards', label: 'Standards', agent: 'standards-reviewer' },
+  { id: 'tests', label: 'Tests', agent: 'tests-analyst' },
+]
+const AGENT_OF = Object.fromEntries(OPTIONAL.map((o) => [o.id, o.agent]))
+// Human labels for every stage run.mjs emits (@stage markers).
+const STAGE_LABEL = {
+  prepare: 'Prepare', classifier: 'Code map', diagrammer: 'Diagrams',
+  summariser: 'Summary', 'story-writer': 'User stories', 'standards-reviewer': 'Standards', 'tests-analyst': 'Tests',
+  merge: 'Merge', assemble: 'Assemble',
+}
+
+// The stages a run WILL go through, given the chosen sections — so the bar can show
+// what's planned before anything starts. Core passes always run.
+const plannedStages = (sections) => {
+  const optional = sections.map((id) => AGENT_OF[id]).filter(Boolean)
+  return ['prepare', 'classifier', 'diagrammer', ...optional, 'merge', 'assemble']
+    .map((name) => ({ name, label: STAGE_LABEL[name] || name, started: 0, finished: 0 }))
+}
+// A pass is done when every start it announced has finished; running once any start
+// arrives (agents run in parallel, and a sharded classifier starts several times).
+const statusOf = (s) => (s.started > 0 && s.finished >= s.started ? 'done' : s.started > 0 ? 'running' : 'pending')
+const applyStageEvent = (stages, { stage, status }) => {
+  const next = stages.map((s) => ({ ...s }))
+  let s = next.find((x) => x.name === stage)
+  if (!s) { s = { name: stage, label: STAGE_LABEL[stage] || stage, started: 0, finished: 0 }; next.push(s) }
+  if (status === 'start') s.started++
+  else if (status === 'done') s.finished++
+  return next
+}
+
+function StageProgress({ stages, text }) {
+  if (!stages || !stages.length) {
+    return <div className="run"><span className="spin" /> <span className="run-txt">{text || 'working…'}</span></div>
+  }
+  const done = stages.filter((s) => statusOf(s) === 'done').length
+  const pct = Math.round((done / stages.length) * 100)
+  return (
+    <div className="prog">
+      <div className="prog-bar"><span style={{ width: `${pct}%` }} /></div>
+      <div className="prog-stages">
+        {stages.map((s) => {
+          const st = statusOf(s)
+          return (
+            <span className={`pstage ${st}`} key={s.name}>
+              <span className="pdot">{st === 'done' ? '✓' : st === 'running' ? <span className="spin sm" /> : ''}</span>
+              {s.label}
+            </span>
+          )
+        })}
+      </div>
+      {text ? <div className="run-txt">{text}</div> : null}
+    </div>
+  )
+}
+
 // A selected project: resolve where its git lives (a local folder, or a GitHub clone),
 // show its state, and the ways to run a review — the working tree, a commit, or a pull
 // request. Anything with a saved map is marked and re-opens without re-running.
@@ -16,13 +77,19 @@ export default function ProjectView({ project, onBack }) {
   const [cloneMsg, setCloneMsg] = useState('')
   const [analyzing, setAnalyzing] = useState(false)
   const [progress, setProgress] = useState('')
+  const [stages, setStages] = useState(null) // live @stage progress during a run
   const [error, setError] = useState('')
-  const [fullReport, setFullReport] = useState(false) // opt-in: the extra passes cost time + tokens, so off by default
-  const [edits, setEdits] = useState(false) // opt-in: open maps in a mode that can run a fix in a worktree (uses tokens)
+  // What to generate: 'quick' = core only (cheapest, default), 'full' = every section,
+  // 'custom' = the optional passes the user ticks. Opt-in by design — the extra passes
+  // cost time and tokens.
+  const [mode, setMode] = useState('quick')
+  const [custom, setCustom] = useState({ story: false, stories: false, standards: false, tests: false })
+  const [edits, setEdits] = useState(false) // opt-in: open maps able to run a fix in a worktree (uses tokens)
 
   const latestByRef = new Map()
   for (const a of analyses) if (!latestByRef.has(a.ref)) latestByRef.set(a.ref, a)
   const repo = resolved?.repo
+  const sectionsFor = () => (mode === 'custom' ? OPTIONAL.filter((o) => custom[o.id]).map((o) => o.id) : [])
 
   const refreshAnalyses = async () => setAnalyses(await window.api.analysesForProject(project.id))
   const loadRepo = (r) => {
@@ -46,15 +113,26 @@ export default function ProjectView({ project, onBack }) {
   }
 
   const analyze = async ({ range, kind, ref, title }) => {
+    const sections = sectionsFor()
+    const full = mode === 'full'
     setError(''); setAnalyzing(true); setProgress('starting the analysis…')
-    const unsub = window.api.onAnalyzeProgress(setProgress)
+    setStages(plannedStages(full ? OPTIONAL.map((o) => o.id) : sections))
+    // Route progress: @stage markers drive the bar, everything else is the ticker text.
+    const unsub = window.api.onAnalyzeProgress((line) => {
+      if (line.startsWith('@stage ')) {
+        try { const evt = JSON.parse(line.slice(7)); setStages((prev) => (prev ? applyStageEvent(prev, evt) : prev)) } catch {}
+      } else if (!line.startsWith('whydiff:')) {
+        setProgress(line)
+      }
+    })
     try {
-      const { analysis } = await window.api.analyze({ repo, range, projectId: project.id, kind, ref, title, full: fullReport })
+      const { analysis } = await window.api.analyze({ repo, range, projectId: project.id, kind, ref, title, full, sections })
       await refreshAnalyses()
+      setStages((prev) => (prev ? prev.map((s) => ({ ...s, finished: Math.max(s.finished, s.started || 1), started: s.started || 1 })) : prev))
       setProgress('opening the map…')
       await window.api.openAnalysis(analysis.id, { work: edits })
       setProgress('')
-    } catch (e) { setError(e?.message || String(e)) } finally { unsub(); setAnalyzing(false) }
+    } catch (e) { setError(e?.message || String(e)) } finally { unsub(); setAnalyzing(false); setStages(null) }
   }
   const analyzeCommit = async (c) => analyze({ range: await window.api.rangeForCommit(repo, c.hash), kind: 'commit', ref: c.hash, title: `${project.name} · ${c.short}` })
   const analyzePr = async (pr) => {
@@ -80,18 +158,40 @@ export default function ProjectView({ project, onBack }) {
         </div>
       </header>
 
-      <div className="opts">
-        <label className="opt-full">
-          <input type="checkbox" checked={fullReport} onChange={(e) => setFullReport(e.target.checked)} disabled={analyzing} />
-          <span>Full report <span className="hint">— also Summary, user stories, standards &amp; tests (slower, more tokens)</span></span>
-        </label>
+      <div className="order">
+        <div className="order-row">
+          <span className="order-label">Report</span>
+          <div className="seg" role="tablist">
+            {[['quick', 'Quick'], ['full', 'Full'], ['custom', 'Custom']].map(([v, label]) => (
+              <button key={v} role="tab" aria-selected={mode === v} className={`seg-btn ${mode === v ? 'on' : ''}`} disabled={analyzing} onClick={() => setMode(v)}>{label}</button>
+            ))}
+          </div>
+          <span className="hint">
+            {mode === 'quick' ? 'Diagrams, Code map & Ops — fast, cheapest'
+              : mode === 'full' ? 'every section — slower, more tokens'
+              : 'core plus the sections you pick'}
+          </span>
+        </div>
+        {mode === 'custom' && (
+          <div className="order-sections">
+            <span className="core-note">Always: Diagrams · Code map · Ops</span>
+            {OPTIONAL.map((o) => (
+              <label className="opt-sec" key={o.id}>
+                <input type="checkbox" checked={custom[o.id]} disabled={analyzing} onChange={(e) => setCustom((c) => ({ ...c, [o.id]: e.target.checked }))} />
+                <span>{o.label}</span>
+              </label>
+            ))}
+          </div>
+        )}
         <label className="opt-full">
           <input type="checkbox" checked={edits} onChange={(e) => setEdits(e.target.checked)} disabled={analyzing} />
           <span>Allow edits in the map <span className="hint">— a task can be worked in a throwaway worktree (runs Claude, uses tokens)</span></span>
         </label>
       </div>
 
-      {(analyzing || cloning) && <div className="run"><span className="spin" /> <span className="run-txt">{cloning ? (cloneMsg || 'cloning…') : (progress || 'working…')}</span></div>}
+      {analyzing ? <StageProgress stages={stages} text={progress} />
+        : cloning ? <div className="run"><span className="spin" /> <span className="run-txt">{cloneMsg || 'cloning…'}</span></div>
+        : null}
       {error ? <div className="err">{error}</div> : null}
 
       {needsClone ? (
