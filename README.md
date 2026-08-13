@@ -76,6 +76,22 @@ opening the built map. Commands with chaining or substitution
 goes through the normal permission flow (see `scripts/approve.mjs` — it is
 deliberately short and reviewable).
 
+## Desktop app
+
+whydiff also ships as a **desktop app** (macOS · Windows · Linux): pick a project
+— a local folder or a GitHub repo — browse its commits and pull requests, and run
+a review map from a window, with a stage-by-stage progress bar and the
+ask / instruct / Generate panel built in. It reuses this plugin's pipeline
+(`scripts/run.mjs` + `serve.mjs`) and needs Claude Code (`claude`) and `git`
+installed.
+
+Download the installers from the [latest release](https://github.com/smagew/whydiff/releases)
+(`app-vX.Y.Z` tags — separate from the plugin's `vX.Y.Z` releases). The builds are
+**unsigned**: macOS (Apple Silicon) shows a one-time "cannot verify developer"
+prompt — allow it once via **System Settings → Privacy & Security → Open Anyway**;
+Windows SmartScreen → **More info → Run anyway**. Design and phases:
+[docs/desktop-app.md](docs/desktop-app.md).
+
 ## Development loop (no push required)
 
 Installing from a marketplace copies the plugin into
@@ -130,19 +146,22 @@ the `version-guard` check enforces the bump. See `RELEASING.md`.
 .claude-plugin/plugin.json   # plugin manifest
 skills/whydiff/SKILL.md      # the /whydiff pipeline (orchestration)
 skills/whydiff-work/SKILL.md # /whydiff-work: do the tasks agreed in a review
-agents/                      # parallel analysis passes
-  classifier.md              #   groups, story, files, edges, ops
-  diagrammer.md              #   diff-marked mermaid diagrams
-  standards-reviewer.md      #   project-convention findings + blast radius
-  tests-analyst.md           #   fixed behaviors + gap analysis
-  story-writer.md            #   user stories + a verdict on each
+agents/                      # analysis passes: 2 core (always) + 4 optional (on demand)
+  classifier.md              #   core: intent, groups, files, edges, ops
+  diagrammer.md              #   core: diff-marked mermaid diagrams
+  summariser.md              #   optional: the Summary (causal walkthrough / story)
+  standards-reviewer.md      #   optional: project-convention findings + blast radius
+  tests-analyst.md           #   optional: fixed behaviors + gap analysis
+  story-writer.md            #   optional: user stories + a verdict on each
 hooks/hooks.json             # PreToolUse hook wiring (see Permissions)
 scripts/
+  gather.mjs                 # step 1: manifest + diff.patch + timing, in one command
   manifest.mjs               # deterministic diff manifest from git
   shards.mjs                 # balances the classifier split against a time budget
   merge.mjs                  # agent output files → review-map.json
   validate.mjs               # structure + manifest-vs-git cross-check
   assemble.mjs               # review-map.json + viewer template → HTML
+  run.mjs                    # standalone headless runner (drives claude -p, validates, assembles)
   serve.mjs                  # optional: serve the map + answer questions via claude -p
   timing.mjs                 # per-run timing log + timing-report.md
   approve.mjs                # auto-approves only this pipeline's own calls
@@ -158,7 +177,14 @@ tests/smoke.mjs              # assemble + headless-browser check of the viewer
 tests/serve.mjs              # serve contract: token gating, ask/instruct/options, Tasks tab
 tests/review.mjs             # review journal: refusals, task states, coverage, migration
 tests/work.mjs               # serve --work: worktree isolation, patch, apply gate
+tests/work-harden.mjs        # serve --work: reclaim/prune worktrees, moved-on vs applied
+tests/work-rerun.mjs         # serve --work: re-run a moved-on patch, rebase, apply
+tests/notes.mjs              # notes on the map (a bare remark pins an annotation)
+tests/diagram-notes.mjs      # diagram annotations: click-to-ask, persisted badges/regions
 tests/rebind.mjs             # rebinding: moved / stale / revived, and idempotence
+tests/run.mjs                # run.mjs: drives claude -p, validates, assembles, exit codes
+tests/assemble-degrade.mjs   # assemble degrades a missing embedFull file (serve stays up)
+tests/approve.mjs            # approve hook: only the pipeline's own calls
 tests/design.mjs             # design system: tokens, contrast band, shadows, measure
 ```
 
@@ -166,7 +192,7 @@ tests/design.mjs             # design system: tokens, contrast band, shadows, me
 
 | Question | Where it lands |
 |---|---|
-| What decisions were made, and why this one led to the next? | **Logic** — causal story, each block linked by a *why* |
+| What decisions were made, and why this one led to the next? | **Summary** — causal story, each block linked by a *why* (an optional pass; Generate it, or ask for it at run time) |
 | What changed for the people using this, and did it actually land? | **User stories** — one story per outside-visible capability, each with a `delivered` / `partial` / `broken` / `regressed` verdict read off the code |
 | Which flows / data shapes actually changed? | **Diagrams** — one diff-marked graph per changed flow; `er-diff` for schema migrations |
 | Which parts of the project are touched? | Scope tags + language dots above the tabs |
@@ -174,7 +200,7 @@ tests/design.mjs             # design system: tokens, contrast band, shadows, me
 | What is now guaranteed, and what is still uncovered? | **Tests** — fixed behaviors vs gap analysis |
 | What do I do at deploy time? | **Ops & risks** — env/migrations/deploy + blast radius |
 | Was anything left unexplained? | **Files** — N of N manifest, proven by `validate.mjs` |
-| I have a question about *this* bit | `serve.mjs` — select a story, Logic block(s), a diagram node or any text and ask; answered by `claude -p` against the real repo. Local-only, see below |
+| I have a question about *this* bit | `serve.mjs` — select a story, Summary block(s), a diagram node or any text and ask; answered by `claude -p` against the real repo. Local-only, see below |
 | This bit should change | `serve.mjs` — the same panel, switched to **Instruct**: Claude replies with a *plan* (files, what proves it done, blast radius, open questions) that you agree to or turn down. Agreeing opens a task in the review journal; nothing is edited |
 | What are my options for this problem? | **Options** — the third panel mode, offered only on a problem the map found: two or three ways to deal with it that differ in *kind* (point fix / at the root / pin it instead), each with cost, risk, blast radius and the criterion it would be judged by. Choosing one opens the task |
 | Can I merge this yet? | **Tasks** — the verdict line says what still blocks, grouped by where the problem came from, with unanswered questions in the same list. One button copies the agreed queue as a prompt for your session |
@@ -189,7 +215,7 @@ own. `scripts/serve.mjs` trades that self-containment for a live answer:
 node scripts/serve.mjs .whydiff/review-map.json --repo . --port 7777
 ```
 
-Anchors are a user-story card, a Logic block (⌘/Ctrl-click several to ask about the
+Anchors are a user-story card, a Summary block (⌘/Ctrl-click several to ask about the
 set), a diagram (Alt-click a single node), or any text selection. Answers land in
 `.whydiff/review.log.jsonl` — the review journal — and come back on the next serve.
 
@@ -271,13 +297,19 @@ regenerating the map and seeing it flip, `manual` by the reviewer.
 
 ## Pipeline (what /whydiff does)
 
-1. `manifest.mjs` — deterministic file list from git (incl. untracked).
+1. `gather.mjs` — one command: a deterministic manifest + `diff.patch` from git
+   (incl. untracked), with timing. (Wraps `manifest.mjs`.)
 2. The main model reads the diff and writes a briefing for the agents.
 3. `shards.mjs` — splits the classifier's file list so the slowest shard fits a
    wall-clock budget. A shard's runtime is set by how many bytes it writes and
    nothing else, so the split is arithmetic, not judgment.
-4. Four plugin agents run in parallel; **each writes its own JSON file** and
-   returns one line. Nobody retypes an agent's answer.
+4. The analysis passes run in parallel; **each writes its own JSON file** and
+   returns one line (nobody retypes an agent's answer). Two are **core** and always
+   run — `classifier` and `diagrammer` (Code map, Diagrams, Ops). The four
+   **optional** passes — `summariser` (Summary), `story-writer` (user stories),
+   `standards-reviewer`, `tests-analyst` — run only when asked for: up front
+   (`/whydiff … full`, or a chosen subset) or later from the viewer's **Generate**
+   button. A default run stays lean.
 5. `merge.mjs` — combines those files into `review-map.json`. Anything a script can
    know comes from the script: line counts and new-file flags from git, code
    fragments from the patch. The model supplies only what it alone can — the
@@ -317,6 +349,7 @@ whydiff-hosted link or third-party host in the loop.
 
 - [CONTRIBUTING.md](CONTRIBUTING.md) — scope, conventions, how a change lands
 - [ROADMAP.md](ROADMAP.md) — where whydiff is going (one core, many hosts)
+- [docs/desktop-app.md](docs/desktop-app.md) — the desktop app: design, stack, phases
 - [SECURITY.md](SECURITY.md) — what runs locally, and how to report a vulnerability
 - [RELEASING.md](RELEASING.md) — versioning and the auto-release flow
 - [CHANGELOG.md](CHANGELOG.md) — per-version notes
