@@ -10,6 +10,10 @@ import { resolvedPath } from './pathenv.mjs'
 let store
 // Map windows and their servers, so closing a map window stops its `serve.mjs`.
 const mapServers = new Set()
+// A fresh loopback port per live map window (serve.mjs binds a fixed port); closing
+// the window frees it, and we never reuse within a session.
+let servePortSeq = 7800
+const nextServePort = () => ++servePortSeq
 
 // How to run the plugin's node scripts. Packaged, there is no separate `node`, so run
 // them with Electron's own node (ELECTRON_RUN_AS_NODE); in dev, plain `node`. The
@@ -76,11 +80,11 @@ app.whenReady().then(() => {
   // even if the repo's own .whydiff was cleaned.
   const analysesDir = join(app.getPath('userData'), 'analyses')
 
-  // Open a saved analysis in its own window. The saved `review-map.html` is fully
-  // self-contained, so we load it directly — no re-assembly, no server, no port; it
-  // renders even if the repo has moved. (Serving via serve.mjs would re-read the
-  // repo's files for the live ask/instruct panel and fail when they aren't there;
-  // it stays as a fallback only when the HTML is somehow missing.)
+  // Open a saved analysis in its own window — LIVE: serve the map through serve.mjs
+  // so the ask / instruct / options panel works against the repo. If serve can't
+  // start (repo gone, port trouble, …) fall back to the saved self-contained HTML,
+  // which always renders but has an inert ask UI. (assemble/serve now degrade a
+  // missing embed-file to a plain drill-down instead of crashing.)
   const openAnalysisWindow = async (id) => {
     const a = store.getAnalysis(id)
     if (!a) throw new Error('that analysis is gone')
@@ -88,18 +92,29 @@ app.whenReady().then(() => {
     const html = join(dir, 'review-map.html')
     const json = join(dir, 'review-map.json')
     const project = store.getProject(a.projectId)
+    const repo = project?.path || dir
     const win = new BrowserWindow({ width: 1400, height: 900, backgroundColor: '#14161a', title: a.title || project?.name || 'whydiff', autoHideMenuBar: true })
-    if (existsSync(html)) {
-      win.loadFile(html)
-    } else if (existsSync(json)) {
-      const { url, stop } = await serveMap(project?.path || dir, json, { node: nodeCmd(), env: nodeEnv() })
-      mapServers.add(stop)
-      win.loadURL(url)
-      win.on('closed', () => { mapServers.delete(stop); stop() })
-    } else {
-      win.destroy()
-      throw new Error('the saved map file is missing')
+
+    const loadStatic = () => {
+      if (existsSync(html)) { win.loadFile(html); return true }
+      return false
     }
+    if (existsSync(json)) {
+      try {
+        const { url, stop } = await serveMap(repo, json, { node: nodeCmd(), env: nodeEnv(), port: nextServePort() })
+        mapServers.add(stop)
+        win.on('closed', () => { mapServers.delete(stop); stop() })
+        win.loadURL(url)
+        return
+      } catch (e) {
+        if (loadStatic()) return // live failed — show the static map rather than nothing
+        win.destroy()
+        throw e
+      }
+    }
+    if (loadStatic()) return
+    win.destroy()
+    throw new Error('the saved map is missing')
   }
 
   // ── Phase 3: a local project's git state ────────────────────────────────────

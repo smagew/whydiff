@@ -228,6 +228,26 @@ interactive Claude Code agent?** The skill today is driven by the main agent.
 - **Left:** signing/notarisation + auto-update when distributing publicly; the Tauri
   revisit if size/memory matter.
 
+### Phase 7 — Live mode (in-app ask / instruct / options) — 🚧 built (2026-08-13)
+
+- **Goal (the original interactive vision):** the map isn't just viewed in the app —
+  it's **live**. Opening an analysis serves it through `serve.mjs`, so the ask panel
+  works: ask a question about a block, instruct a change, choose between options —
+  answered by the model against the repo, right in the window.
+- **Blocker fixed:** `serve` re-assembles the saved map on open and used to crash when
+  an `embedFull` file wasn't readable at its path (a commit range that renamed/deleted
+  it, or a moved repo) — which is why the first cut fell back to a static file.
+  `assemble.mjs` now **degrades** a missing embed to a plain drill-down (warn, don't
+  fail), so serve always starts (regression test: `tests/assemble-degrade.mjs`).
+- **Built:** opening a saved analysis now serves it live (`serveMap`, a fresh loopback
+  port per window, `--repo` = the project/clone) and loads that URL; if serve can't
+  start it falls back to the static self-contained HTML (inert ask UI) rather than
+  nothing. The token serve injects rides in the served page, so `/api` calls are
+  authorised.
+- **Left / next:** worktree "Do it" (serve `--work`) as an opt-in so a proposed change
+  can be applied from the window; per-analysis journal location; run live confirmation
+  in the GUI (`npm run dev`).
+
 ## Cross-cutting questions to settle
 
 1. **How the model is driven** — (A) shell the skill vs (B) orchestrate passes vs API

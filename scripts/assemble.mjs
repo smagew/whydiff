@@ -40,7 +40,17 @@ rm.fullFiles = rm.fullFiles || {}
 for (const [path, f] of Object.entries(rm.files)) {
   if (!f.embedFull) continue
   if (!repo) { console.error(`embedFull is set for ${path}, but --repo was not given`); process.exit(1) }
-  rm.fullFiles[path] = readFileSync(resolve(repo, path), 'utf8')
+  try {
+    rm.fullFiles[path] = readFileSync(resolve(repo, path), 'utf8')
+  } catch {
+    // The file the map wants to embed isn't readable at that path in this repo — a
+    // commit range where it was renamed/deleted, or a relocated repo. Degrade to a
+    // drill-down without the full text rather than failing the whole assemble (which
+    // would also take down `serve` re-assembling a saved map for the desktop app).
+    delete rm.fullFiles[path]
+    f.embedFull = false
+    console.warn(`warning: could not read ${path} to embed — its drill-down will omit the full file`)
+  }
 }
 
 // ── static diagram HTML + inlined mermaid bundle ─────────────────────────────
