@@ -1,6 +1,9 @@
 # whydiff
 
 [![validate](https://github.com/smagew/whydiff/actions/workflows/validate.yml/badge.svg)](https://github.com/smagew/whydiff/actions/workflows/validate.yml)
+[![Claude Code plugin](https://img.shields.io/badge/Claude_Code-plugin-D97757)](https://docs.claude.com/en/docs/claude-code)
+[![desktop: Windows | macOS | Linux](https://img.shields.io/badge/desktop-Windows_%7C_macOS_%7C_Linux-1f6feb)](https://github.com/smagew/whydiff/releases)
+[![coverage](https://img.shields.io/badge/coverage-~95%25_lines-3fb950)](https://github.com/smagew/whydiff/actions/workflows/validate.yml)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 **Follow the meaning of a change — the architectural and logical decisions
@@ -101,6 +104,7 @@ installed copy of the same plugin for that session:
 
 ```bash
 make check              # contract + viewer + manifest checks, no LLM (~20s)
+make coverage           # run the suite under c8 + print scripts/ coverage
 make preview            # assemble the reference example and open it
 make fixtures           # list the fixture projects
 make run-synthetic      # build a fixture and open Claude with THIS working tree

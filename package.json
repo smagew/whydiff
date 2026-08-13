@@ -7,7 +7,8 @@
     "example": "examples"
   },
   "scripts": {
-    "test": "node tests/merge.mjs && node tests/shards.mjs && node tests/review.mjs && node tests/rebind.mjs && node tests/work.mjs && node tests/work-harden.mjs && node tests/work-rerun.mjs && node tests/notes.mjs && node tests/diagram-notes.mjs && node tests/run.mjs && node tests/assemble-degrade.mjs && node tests/approve.mjs && node tests/design.mjs && node tests/smoke.mjs && node tests/serve.mjs"
+    "test": "node tests/merge.mjs && node tests/shards.mjs && node tests/review.mjs && node tests/rebind.mjs && node tests/work.mjs && node tests/work-harden.mjs && node tests/work-rerun.mjs && node tests/notes.mjs && node tests/diagram-notes.mjs && node tests/run.mjs && node tests/assemble-degrade.mjs && node tests/approve.mjs && node tests/design.mjs && node tests/smoke.mjs && node tests/serve.mjs",
+    "coverage": "c8 --include='scripts/**' --check-coverage --lines 92 --functions 90 --branches 60 --reporter=text-summary --reporter=text npm test"
   },
   "keywords": [],
   "author": "",
@@ -17,6 +18,7 @@
     "mermaid": "^11.16.0"
   },
   "devDependencies": {
+    "c8": "^11.0.0",
     "playwright": "^1.62.1"
   }
 }

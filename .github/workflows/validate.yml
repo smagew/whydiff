@@ -25,7 +25,7 @@ jobs:
       - name: Validate the reference example against the schema contract
         run: node scripts/validate.mjs examples/rate-limit/review-map.json
 
-      - name: Browser smoke test (assemble + clickable diagrams)
+      - name: Browser smoke test + coverage gate (assemble + clickable diagrams)
         run: |
           npx playwright install --with-deps chromium
-          npm test
+          npm run coverage   # runs the full suite under c8 and fails below the floor
