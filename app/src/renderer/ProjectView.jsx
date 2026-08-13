@@ -17,7 +17,8 @@ export default function ProjectView({ project, onBack }) {
   const [analyzing, setAnalyzing] = useState(false)
   const [progress, setProgress] = useState('')
   const [error, setError] = useState('')
-  const [fullReport, setFullReport] = useState(true) // generate every section, not just the core map
+  const [fullReport, setFullReport] = useState(false) // opt-in: the extra passes cost time + tokens, so off by default
+  const [edits, setEdits] = useState(false) // opt-in: open maps in a mode that can run a fix in a worktree (uses tokens)
 
   const latestByRef = new Map()
   for (const a of analyses) if (!latestByRef.has(a.ref)) latestByRef.set(a.ref, a)
@@ -51,7 +52,7 @@ export default function ProjectView({ project, onBack }) {
       const { analysis } = await window.api.analyze({ repo, range, projectId: project.id, kind, ref, title, full: fullReport })
       await refreshAnalyses()
       setProgress('opening the map…')
-      await window.api.openAnalysis(analysis.id)
+      await window.api.openAnalysis(analysis.id, { work: edits })
       setProgress('')
     } catch (e) { setError(e?.message || String(e)) } finally { unsub(); setAnalyzing(false) }
   }
@@ -63,7 +64,7 @@ export default function ProjectView({ project, onBack }) {
       await analyze({ range, kind: 'pr', ref: `pr:${pr.number}`, title: `${project.name} · PR #${pr.number}` })
     } catch (e) { setError(e?.message || String(e)); setAnalyzing(false) }
   }
-  const open = async (id) => { setError(''); try { await window.api.openAnalysis(id) } catch (e) { setError(e?.message || String(e)) } }
+  const open = async (id) => { setError(''); try { await window.api.openAnalysis(id, { work: edits }) } catch (e) { setError(e?.message || String(e)) } }
   const drop = async (id) => { try { await window.api.removeAnalysis(id); await refreshAnalyses() } catch (e) { setError(e?.message || String(e)) } }
 
   const working = latestByRef.get('')
@@ -79,10 +80,16 @@ export default function ProjectView({ project, onBack }) {
         </div>
       </header>
 
-      <label className="opt-full">
-        <input type="checkbox" checked={fullReport} onChange={(e) => setFullReport(e.target.checked)} disabled={analyzing} />
-        <span>Full report <span className="hint">— also Summary, user stories, standards &amp; tests (slower, more tokens)</span></span>
-      </label>
+      <div className="opts">
+        <label className="opt-full">
+          <input type="checkbox" checked={fullReport} onChange={(e) => setFullReport(e.target.checked)} disabled={analyzing} />
+          <span>Full report <span className="hint">— also Summary, user stories, standards &amp; tests (slower, more tokens)</span></span>
+        </label>
+        <label className="opt-full">
+          <input type="checkbox" checked={edits} onChange={(e) => setEdits(e.target.checked)} disabled={analyzing} />
+          <span>Allow edits in the map <span className="hint">— a task can be worked in a throwaway worktree (runs Claude, uses tokens)</span></span>
+        </label>
+      </div>
 
       {(analyzing || cloning) && <div className="run"><span className="spin" /> <span className="run-txt">{cloning ? (cloneMsg || 'cloning…') : (progress || 'working…')}</span></div>}
       {error ? <div className="err">{error}</div> : null}

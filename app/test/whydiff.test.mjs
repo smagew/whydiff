@@ -47,4 +47,20 @@ ok(/^http:\/\/127\.0\.0\.1:8123\/$/.test(s.url), `serveMap did not surface the U
 ok(typeof s.stop === 'function', 'serveMap did not return a stop()')
 s.stop()
 
-console.log('OK: whydiff bridge (runAnalysis streams progress + returns the map path + rejects on failure; serveMap surfaces the localhost URL and a stop())')
+// serveMap forwards --work only when asked (the opt-in worktree "Do it"). A stub
+// records its argv so we can assert both directions.
+const argsFile = join(dir, 'serve-args.json')
+const serveArgs = mkScript('serve-args.mjs', `
+import { writeFileSync } from 'node:fs'
+writeFileSync(${JSON.stringify(argsFile)}, JSON.stringify(process.argv.slice(2)))
+process.stdout.write('http://127.0.0.1:8124/\\n')
+setInterval(() => {}, 1000)
+`)
+const s2 = await serveMap(repo, res.mapPath, { serveScript: serveArgs, work: true })
+ok(JSON.parse(readFileSync(argsFile, 'utf8')).includes('--work'), 'serveMap should pass --work when work:true')
+s2.stop()
+const s3 = await serveMap(repo, res.mapPath, { serveScript: serveArgs })
+ok(!JSON.parse(readFileSync(argsFile, 'utf8')).includes('--work'), 'serveMap should NOT pass --work by default')
+s3.stop()
+
+console.log('OK: whydiff bridge (runAnalysis streams progress + returns the map path + rejects on failure; serveMap surfaces the localhost URL and a stop(); --work is opt-in)')

@@ -118,7 +118,20 @@ body {
 .btn.ghost { background: none; color: var(--muted); }
 .btn.ghost:hover:not(:disabled) { color: var(--accent); }
 
-/* full-report toggle */
+/* full-report + allow-edits toggles */
+.opts { display: flex; flex-direction: column; gap: 6px; margin: 0 0 16px; }
+.opts .opt-full { margin: 0; }
 .opt-full { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 16px; color: var(--ink-2); font-size: 13px; cursor: pointer; user-select: none; }
 .opt-full input { accent-color: var(--accent); cursor: pointer; }
 .opt-full .hint { color: var(--muted); }
+.opt-full.sm { margin: 0; font-size: 12.5px; }
+
+/* section header with a right-aligned control */
+.sec-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+
+/* GitHub token settings */
+.settings { margin: 0 0 18px; }
+.set-row { display: flex; align-items: center; gap: 12px; color: var(--ink-2); font-size: 13px; }
+.set-label { color: var(--ink); }
+.set-state { color: var(--muted); flex: 1; }
+.settings .gh { margin-top: 8px; }
