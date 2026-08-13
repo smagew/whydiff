@@ -179,14 +179,27 @@ interactive Claude Code agent?** The skill today is driven by the main agent.
 - **Done when:** relaunch shows prior analyses and which commits carry one — verified
   by the store test + build; exercised in the running app via `npm run dev`.
 
-### Phase 5 — Remotes: PR/MR + GitHub-URL projects
+### Phase 5 — Remotes: PR/MR + GitHub-URL projects — 🚧 built (2026-08-12)
 
-- **Goal:** list a repo's PRs (Octokit); GitHub-URL projects (shallow clone + PR
-  browse); click a PR → run.
+- **Goal:** GitHub-URL projects (clone + PR browse); click a PR → run.
 - **Depends on:** Phase 3 (+ 4 for marking).
-- **Decisions:** **GitHub auth + token storage in the OS keychain** (the real one
-  here); private repos; GitLab parity (later).
-- **Done when:** add a repo by URL, list PRs, analyse one.
+- **Decisions settled:** the GitHub API is called with the built-in **`fetch`** — no
+  Octokit dependency (`github.mjs`). A GitHub project **clones on demand** into
+  `userData/clones/<owner>__<repo>/`; once cloned it reuses the whole local path
+  (commits, working tree, analyze). A PR is fetched (`pull/N/head`) and analysed over
+  its `base...head` range, saved as `kind:'pr'`, `ref:'pr:N'`. **Auth:** unauthenticated
+  for public repos (rate-limited); an optional `GITHUB_TOKEN` env lifts the limit and
+  reaches private repos. Storing a token in the **OS keychain is still to do** — a UI
+  refinement, not a blocker.
+- **Built:** `github.mjs` (parseRepo, mapPRs, fetchPRs) and `git.mjs` clone +
+  `fetchPrRange`; IPC `project:resolve` / `project:clone` (streams progress) /
+  `github:prs` / `project:rangeForPr`; `ProjectView` now resolves a project's repo
+  (local or clone), offers **Clone repo** for an un-cloned GitHub project, and lists
+  **Pull requests** with mark / View / Re-run. Tests cover the pure helpers and a real
+  clone (of a local repo); `npm test` + build green.
+- **Done when:** add a repo by URL, clone it, list PRs, analyse one — pure/clone parts
+  verified by tests; the live GitHub calls + a real PR run are exercised in the running
+  app via `npm run dev`.
 
 ### Phase 6 — Packaging & cross-OS polish
 

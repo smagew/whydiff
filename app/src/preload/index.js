@@ -25,4 +25,15 @@ contextBridge.exposeInMainWorld('api', {
   latestAnalyses: (limit) => ipcRenderer.invoke('analyses:latest', limit),
   openAnalysis: (id) => ipcRenderer.invoke('analysis:open', id),
   removeAnalysis: (id) => ipcRenderer.invoke('analysis:remove', id),
+
+  // Phase 5 — GitHub
+  resolveProject: (project) => ipcRenderer.invoke('project:resolve', project),
+  cloneProject: (project) => ipcRenderer.invoke('project:clone', project),
+  listPRs: (project) => ipcRenderer.invoke('github:prs', project),
+  rangeForPr: (repo, number, baseRef) => ipcRenderer.invoke('project:rangeForPr', { repo, number, baseRef }),
+  onCloneProgress: (cb) => {
+    const h = (_e, line) => cb(line)
+    ipcRenderer.on('clone:progress', h)
+    return () => ipcRenderer.removeListener('clone:progress', h)
+  },
 })
