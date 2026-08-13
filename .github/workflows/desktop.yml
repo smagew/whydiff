@@ -35,6 +35,16 @@ jobs:
       - run: npm install
       - run: npm ci
         working-directory: app
+      # On a release tag, stamp app/package.json with the tag's version so the
+      # installer filenames (whydiff-X.Y.Z.*) match the GitHub Release.
+      - name: sync app version to the tag
+        if: startsWith(github.ref, 'refs/tags/app-v')
+        shell: bash
+        working-directory: app
+        run: |
+          V="${GITHUB_REF_NAME#app-v}"
+          node -e "const fs=require('fs'),p=require('./package.json');p.version=process.argv[1];fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n')" "$V"
+          echo "app version → $V"
       - name: build + package (unsigned)
         working-directory: app
         env:

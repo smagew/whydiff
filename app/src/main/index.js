@@ -1,13 +1,15 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, safeStorage } from 'electron'
 import { join, basename, dirname } from 'node:path'
 import { existsSync, statSync, mkdirSync, copyFileSync, rmSync } from 'node:fs'
 import { openStore, repoNameFromUrl } from './store.mjs'
+import { openSettings } from './settings.mjs'
 import { gitState, rangeForCommit, clone, fetchPrRange } from './git.mjs'
 import { fetchPRs, parseRepo } from './github.mjs'
 import { runAnalysis, serveMap } from './whydiff.mjs'
 import { resolvedPath } from './pathenv.mjs'
 
 let store
+let settings
 // Map windows and their servers, so closing a map window stops its `serve.mjs`.
 const mapServers = new Set()
 // A fresh loopback port per live map window (serve.mjs binds a fixed port); closing
@@ -54,6 +56,16 @@ app.whenReady().then(() => {
   if (app.isPackaged) process.env.WHYDIFF_PLUGIN_DIR = join(process.resourcesPath, 'whydiff-plugin')
 
   store = openStore(join(app.getPath('userData'), 'projects.json'))
+  settings = openSettings(join(app.getPath('userData'), 'settings.json'), safeStorage)
+
+  // Where a project's git actually lives: a local folder is itself; a GitHub project
+  // is its on-demand clone under userData/clones/. Used for both live-mode serving
+  // and the worktree "Do it".
+  const clonesDir = join(app.getPath('userData'), 'clones')
+  const cloneSlug = (url) => { const r = parseRepo(url); return (r ? `${r.owner}__${r.repo}` : url).replace(/[^a-zA-Z0-9._-]/g, '_') }
+  const clonePathFor = (project) => join(clonesDir, cloneSlug(project.url))
+  const repoForProject = (project) => (project?.kind === 'local' ? project.path : project ? clonePathFor(project) : null)
+  const isGitRepo = (dir) => !!dir && existsSync(join(dir, '.git'))
 
   ipcMain.handle('projects:list', () => store.listProjects())
   ipcMain.handle('projects:remove', (_e, id) => store.removeProject(id))
@@ -85,14 +97,21 @@ app.whenReady().then(() => {
   // start (repo gone, port trouble, …) fall back to the saved self-contained HTML,
   // which always renders but has an inert ask UI. (assemble/serve now degrade a
   // missing embed-file to a plain drill-down instead of crashing.)
-  const openAnalysisWindow = async (id) => {
+  const openAnalysisWindow = async (id, { work = false } = {}) => {
     const a = store.getAnalysis(id)
     if (!a) throw new Error('that analysis is gone')
     const dir = join(analysesDir, String(id))
     const html = join(dir, 'review-map.html')
     const json = join(dir, 'review-map.json')
     const project = store.getProject(a.projectId)
-    const repo = project?.path || dir
+    // Serve against the project's real git repo (local folder or GitHub clone) when it
+    // is available; the saved analysis dir is the fallback. The journal (review.log.jsonl)
+    // lands next to the map — i.e. in this per-analysis dir — so notes persist per analysis.
+    const resolved = repoForProject(project)
+    const repo = resolved && existsSync(resolved) ? resolved : dir
+    // --work needs a real git repo to spin up the throwaway worktree; only honour the
+    // opt-in when we actually have one, otherwise serve read-only.
+    const canWork = work && isGitRepo(repo)
     const win = new BrowserWindow({ width: 1400, height: 900, backgroundColor: '#14161a', title: a.title || project?.name || 'whydiff', autoHideMenuBar: true })
 
     const loadStatic = () => {
@@ -101,7 +120,7 @@ app.whenReady().then(() => {
     }
     if (existsSync(json)) {
       try {
-        const { url, stop } = await serveMap(repo, json, { node: nodeCmd(), env: nodeEnv(), port: nextServePort() })
+        const { url, stop } = await serveMap(repo, json, { node: nodeCmd(), env: nodeEnv(), port: nextServePort(), work: canWork })
         mapServers.add(stop)
         win.on('closed', () => { mapServers.delete(stop); stop() })
         win.loadURL(url)
@@ -142,18 +161,22 @@ app.whenReady().then(() => {
   ipcMain.handle('analyses:latest', (_e, limit = 8) => {
     return store.listAnalyses({ limit }).map(a => ({ ...a, projectName: store.getProject(a.projectId)?.name || '?' }))
   })
-  ipcMain.handle('analysis:open', async (_e, id) => { await openAnalysisWindow(id); return true })
+  ipcMain.handle('analysis:open', async (_e, id, opts) => { await openAnalysisWindow(id, opts || {}); return true })
   ipcMain.handle('analysis:remove', (_e, id) => {
     const ok = store.removeAnalysis(id)
     if (ok) rmSync(join(analysesDir, String(id)), { recursive: true, force: true })
     return ok
   })
 
-  // ── Phase 5: GitHub — clone on demand, list PRs, analyze one ─────────────────
-  const clonesDir = join(app.getPath('userData'), 'clones')
-  const cloneSlug = (url) => { const r = parseRepo(url); return (r ? `${r.owner}__${r.repo}` : url).replace(/[^a-zA-Z0-9._-]/g, '_') }
-  const clonePathFor = (project) => join(clonesDir, cloneSlug(project.url))
+  // ── Settings: a GitHub token in the OS keychain ─────────────────────────────
+  // The renderer only learns whether a token is stored and whether the keychain works
+  // — never the value. github:prs prefers the stored token over the env fallback.
+  const githubToken = () => settings.getToken() || process.env.GITHUB_TOKEN || undefined
+  ipcMain.handle('settings:tokenStatus', () => settings.tokenStatus())
+  ipcMain.handle('settings:setToken', (_e, token) => settings.setToken(token))
+  ipcMain.handle('settings:clearToken', () => settings.clearToken())
 
+  // ── Phase 5: GitHub — clone on demand, list PRs, analyze one ─────────────────
   // Where a project's git actually lives, and whether it is ready. A local project
   // is itself; a GitHub one is its clone, once cloned.
   ipcMain.handle('project:resolve', (_e, project) => {
@@ -172,7 +195,7 @@ app.whenReady().then(() => {
     return { repo: dest, state: await gitState(dest) }
   })
 
-  ipcMain.handle('github:prs', (_e, project) => fetchPRs(project.url))
+  ipcMain.handle('github:prs', (_e, project) => fetchPRs(project.url, { token: githubToken() }))
   ipcMain.handle('project:rangeForPr', (_e, { repo, number, baseRef }) => fetchPrRange(repo, number, baseRef))
 
   createWindow()

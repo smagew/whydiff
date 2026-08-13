@@ -46,11 +46,14 @@ export function runAnalysis(repo, range, { onProgress, runScript, node = 'node',
  * app loads that in a window) plus a `stop()` to end the server. The server prints
  * `whydiff serve: http://127.0.0.1:<port>/` on startup; we resolve on that line.
  */
-export function serveMap(repo, mapPath, { serveScript, node = 'node', env, port, startTimeout = 20000 } = {}) {
+export function serveMap(repo, mapPath, { serveScript, node = 'node', env, port, work = false, startTimeout = 20000 } = {}) {
   return new Promise((resolveP, reject) => {
     const script = serveScript || join(pluginDir(), 'scripts', 'serve.mjs')
     const args = [script, mapPath, '--repo', repo]
     if (port) args.push('--port', String(port))
+    // Opt-in: --work lets the map window work a task in a throwaway git worktree
+    // (a real Claude run — tokens). The caller only asks for it when the user did.
+    if (work) args.push('--work')
     const child = spawn(node, args, { stdio: ['ignore', 'pipe', 'pipe'], env: env || process.env })
     let out = '', err = '', done = false
     const stop = () => { try { child.kill('SIGKILL') } catch {} }

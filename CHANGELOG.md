@@ -7,7 +7,12 @@ to receive an update.
 ## [0.21.2] — 2026-08-13
 
 ### Changed
-- assemble degrades a missing embedFull file to a plain drill-down instead of failing, so serve can re-assemble a saved map (desktop app live mode) even when the repo moved
+- **A map still assembles (and serves) when an embedded file is unreadable.** With
+  `embedFull`, `assemble.mjs` reads each such file from the repo; if it isn't there —
+  a commit range that renamed/deleted it, or a relocated repo — it now degrades that
+  file to a plain drill-down (a warning) instead of aborting. This is what lets
+  `serve.mjs` re-assemble a saved map for the desktop app's live mode without
+  crashing. Regression test: `tests/assemble-degrade.mjs`.
 
 ## [0.21.1] — 2026-08-13
 

@@ -247,9 +247,27 @@ interactive Claude Code agent?** The skill today is driven by the main agent.
   start it falls back to the static self-contained HTML (inert ask UI) rather than
   nothing. The token serve injects rides in the served page, so `/api` calls are
   authorised.
-- **Left / next:** worktree "Do it" (serve `--work`) as an opt-in so a proposed change
-  can be applied from the window; per-analysis journal location; run live confirmation
-  in the GUI (`npm run dev`).
+- **Built:** worktree "Do it" is wired as an **opt-in**. `serveMap` takes `work: true`
+  → `serve --work`, exposed as an off-by-default "Allow edits in the map" checkbox that
+  states plainly it runs Claude in a throwaway worktree (tokens). Only honoured when the
+  resolved repo is a real git repo; otherwise the map serves read-only. The apply-gate
+  and the Tasks-tab "Do it / Apply / Re-run" UI are the plugin's existing `serve --work`
+  path — nothing new plugin-side.
+- **Built (per-analysis journal):** no code needed — `serve.mjs` writes
+  `review.log.jsonl` next to the map, and the app serves `userData/analyses/<id>/review-map.json`,
+  so notes/questions land in that per-analysis dir and persist there; `analysis:remove`
+  wipes the dir (journal included). Live mode resolves the project's real repo (local
+  folder or GitHub clone) so the journal and `--work` target the right tree.
+- **Built (GitHub token → keychain):** `settings.mjs` keeps the token encrypted with
+  the OS keychain (Electron `safeStorage`); only the ciphertext is on disk and the
+  renderer never receives the value (it sees "stored / not set / keychain unavailable"
+  and can set/clear). `github:prs` prefers the stored token over env `GITHUB_TOKEN`. If
+  the keychain is unavailable the store refuses to write plaintext and points at the env
+  var. Test: `app/test/settings.test.mjs`.
+- **Built (version = tag):** the release CI stamps `app/package.json` from the `app-v*`
+  tag before building, so installer filenames match the GitHub Release.
+- **Fixed (opt-in default):** "Full report" now defaults **off** — the extra passes cost
+  time and tokens, so they're opt-in (it had regressed to on).
 
 ## Cross-cutting questions to settle
 
@@ -257,7 +275,7 @@ interactive Claude Code agent?** The skill today is driven by the main agent.
    key/SDK. *Blocks Phase 0/1. The most important one.*
 2. **Does whydiff run headlessly today**, and with what dependencies (Claude Code +
    plugin installed)? *Phase 0 spike.*
-3. **GitHub auth** — token in the OS keychain. *Phase 5.*
+3. **GitHub auth** — token in the OS keychain. *Done (Electron `safeStorage`, see above).*
 4. **Canonical analyses store** — `.whydiff/` + SQLite index. *Phase 4.*
 5. **Packaging/signing** — Apple developer account, Windows cert. *Phase 6, has lead
    time and cost — worth deciding early even though it lands late.*

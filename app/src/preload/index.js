@@ -23,8 +23,15 @@ contextBridge.exposeInMainWorld('api', {
   // Phase 4 — the analyses index
   analysesForProject: (projectId) => ipcRenderer.invoke('analyses:forProject', projectId),
   latestAnalyses: (limit) => ipcRenderer.invoke('analyses:latest', limit),
-  openAnalysis: (id) => ipcRenderer.invoke('analysis:open', id),
+  // opts: { work } — work:true opens the map able to run a fix in a worktree (opt-in)
+  openAnalysis: (id, opts) => ipcRenderer.invoke('analysis:open', id, opts),
   removeAnalysis: (id) => ipcRenderer.invoke('analysis:remove', id),
+
+  // Settings — a GitHub token kept in the OS keychain. The renderer never sees the
+  // value: it can set/clear it and read whether one is stored.
+  tokenStatus: () => ipcRenderer.invoke('settings:tokenStatus'),
+  setToken: (token) => ipcRenderer.invoke('settings:setToken', token),
+  clearToken: () => ipcRenderer.invoke('settings:clearToken'),
 
   // Phase 5 — GitHub
   resolveProject: (project) => ipcRenderer.invoke('project:resolve', project),

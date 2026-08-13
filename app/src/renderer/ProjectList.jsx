@@ -9,13 +9,20 @@ export default function ProjectList({ onOpen }) {
   const [url, setUrl] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [edits, setEdits] = useState(false) // opt-in: open maps able to work a fix in a worktree
+  const [token, setToken] = useState(null) // { stored, available } — never the value
+  const [tokenInput, setTokenInput] = useState('')
+  const [showToken, setShowToken] = useState(false)
 
   const refresh = async () => {
     setProjects(await window.api.listProjects())
     setLatest(await window.api.latestAnalyses(8))
+    setToken(await window.api.tokenStatus())
   }
   useEffect(() => { refresh() }, [])
-  const openAnalysis = async (id) => { setError(''); try { await window.api.openAnalysis(id) } catch (e) { setError(e?.message || String(e)) } }
+  const openAnalysis = async (id) => { setError(''); try { await window.api.openAnalysis(id, { work: edits }) } catch (e) { setError(e?.message || String(e)) } }
+  const saveToken = () => guard(async () => { setToken(await window.api.setToken(tokenInput.trim())); setTokenInput(''); setShowToken(false) })
+  const clearToken = () => guard(async () => { setToken(await window.api.clearToken()) })
 
   const guard = async (fn) => {
     setError(''); setBusy(true)
@@ -44,6 +51,28 @@ export default function ProjectList({ onOpen }) {
         </form>
       </section>
 
+      <section className="settings">
+        <div className="set-row">
+          <span className="set-label">GitHub token</span>
+          <span className="set-state">
+            {token == null ? '…'
+              : token.stored ? 'stored in your keychain'
+              : token.available ? 'not set — public repos only'
+              : 'keychain unavailable — use the GITHUB_TOKEN env var'}
+          </span>
+          {token?.stored
+            ? <button className="btn ghost" disabled={busy} onClick={clearToken}>Clear</button>
+            : token?.available ? <button className="btn ghost" disabled={busy} onClick={() => setShowToken((v) => !v)}>{showToken ? 'Cancel' : 'Set token'}</button>
+            : null}
+        </div>
+        {showToken && !token?.stored && (
+          <form className="gh" onSubmit={(e) => { e.preventDefault(); saveToken() }}>
+            <input className="in" type="password" placeholder="ghp_… (a fine-grained or classic PAT)" value={tokenInput} onChange={(e) => setTokenInput(e.target.value)} spellCheck={false} autoFocus />
+            <button className="btn" type="submit" disabled={busy || !tokenInput.trim()}>Save</button>
+          </form>
+        )}
+      </section>
+
       {error ? <div className="err">{error}</div> : null}
 
       <section className="list">
@@ -65,7 +94,13 @@ export default function ProjectList({ onOpen }) {
 
       {latest.length > 0 && (
         <>
-          <div className="sec-title">Latest analyses</div>
+          <div className="sec-head">
+            <div className="sec-title">Latest analyses</div>
+            <label className="opt-full sm">
+              <input type="checkbox" checked={edits} onChange={(e) => setEdits(e.target.checked)} />
+              <span>Allow edits <span className="hint">— work a fix in a worktree (uses tokens)</span></span>
+            </label>
+          </div>
           <section className="list">
             {latest.map((a) => (
               <div className="row" key={a.id}>
