@@ -4,6 +4,15 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.23.1] — 2026-08-14
+
+### Changed
+- **Code-map file cards use the full width.** The cards were fixed at 320px and the
+  code preview capped at 292px, so rows left empty space and a card left alone on its
+  row stayed half-width. Cards now grow to fill the row (a one-file group, or the last
+  of an odd count, takes the whole width) and the preview uses the card's width — so
+  more of each changed line is visible.
+
 ## [0.23.0] — 2026-08-14
 
 ### Changed
