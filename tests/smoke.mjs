@@ -86,6 +86,18 @@ const shownInPop = await popup.evaluate(() => [...document.querySelectorAll('#pa
 if (shownInPop !== 1) fail(`pop-out should show exactly one diagram, showed ${shownInPop}`)
 await popup.close()
 
+// A sidebar action re-opens a manually collapsed aside — otherwise the click lands in
+// a force-hidden column and looks like nothing happened.
+await page.locator('#tabs .tab[data-pane="files"]').click()
+await page.waitForTimeout(150)
+await page.locator('#asideToggle').click()
+await page.waitForTimeout(100)
+const asideCollapsed = () => page.evaluate(() => document.querySelector('.layout').classList.contains('aside-collapsed'))
+if (!(await asideCollapsed())) fail('the aside did not collapse on the toggle')
+await page.locator('#pane-files .node').first().click()
+await page.waitForTimeout(200)
+if (await asideCollapsed()) fail('a code-map drill-down did not re-open the collapsed aside')
+
 // ── second pass: the user-stories tab ────────────────────────────────────────
 // Tabs are addressed by data-pane, not by index, so adding a tab cannot silently
 // repoint these assertions at a neighbour.

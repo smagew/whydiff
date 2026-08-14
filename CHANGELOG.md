@@ -4,6 +4,21 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.25.3] — 2026-08-14
+
+### Fixed
+- **A collapsed aside re-opens itself for a sidebar action.** After collapsing the
+  aside, a click or selection that needs it (a Code-map/diagram file drill-down, an
+  ask/note) went into a force-hidden column and looked like nothing happened. Any such
+  action now un-collapses the aside first (`revealAside`), so the drill-down or panel
+  appears without reopening it by hand.
+
+### Changed
+- **The Options tab is hidden when there are no options.** Options is only meaningful
+  on a problem the map found (a finding, a test gap, a broken/partial story); elsewhere
+  it was shown disabled, which read as broken. It's now hidden where it doesn't apply
+  and appears only where it does.
+
 ## [0.25.2] — 2026-08-14
 
 ### Fixed
