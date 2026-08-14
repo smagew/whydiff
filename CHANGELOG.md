@@ -4,6 +4,21 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.23.0] — 2026-08-14
+
+### Changed
+- **An unrenderable diagram no longer shows mermaid's "Syntax error" bomb.** The
+  generator can emit invalid mermaid; the viewer now validates each diagram
+  (`mermaid.parse`) before rendering and, on failure, shows a readable fallback —
+  a short message, the diagram source (collapsible), a **Copy source** button, and,
+  when served, a **Regenerate diagrams** button — in place of mermaid's built-in error
+  graphic. Valid diagrams render exactly as before.
+
+### Added
+- **Regenerate diagrams on demand (served).** `serve.mjs` exposes the diagrammer as a
+  section through `/api/generate`, so the fallback's **Regenerate diagrams** button
+  re-runs that pass against the same diff and replaces the map's diagrams in place.
+
 ## [0.22.0] — 2026-08-13
 
 ### Added
