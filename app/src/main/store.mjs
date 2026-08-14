@@ -76,6 +76,14 @@ export function openStore(filePath) {
       return row
     },
     getAnalysis(id) { return data.analyses.find(a => a.id === id) || null },
+    // Re-generating an analysis in place: keep its id/ref/title, just stamp it as
+    // freshly produced (so it sorts to the top). The caller overwrites its files.
+    touchAnalysis(id) {
+      const a = data.analyses.find(x => x.id === id)
+      if (!a) return null
+      a.created_at = nowISO()
+      save(); return a
+    },
     removeAnalysis(id) {
       const before = data.analyses.length
       data.analyses = data.analyses.filter(a => a.id !== id)
