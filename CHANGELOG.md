@@ -4,6 +4,20 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.25.2] — 2026-08-14
+
+### Fixed
+- **Diagram annotation marks follow a panel resize.** The badges and region frames on a
+  diagram stayed pinned to their old positions when the ask/note panel was resized —
+  the diagram reflowed under them but they didn't move. Dragging the `rc-grip` now
+  refits the diagram and redraws the marks from the live node positions, so they stay
+  put on the right blocks.
+
+### Changed
+- **A diagram annotation badge is always visible.** The badge glyph is now the accent
+  colour at rest (so an annotated place reads at a glance, not only on hover); hovering
+  the badge highlights its border instead.
+
 ## [0.25.1] — 2026-08-14
 
 ### Changed
