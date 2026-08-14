@@ -65,7 +65,10 @@ export default function ProjectList({ onOpen }) {
         <div className="update-banner">
           <span>A new version <b>{upd.latest}</b> is available (you have {upd.current}).</span>
           <span className="ub-acts">
-            <button className="btn" onClick={() => window.api.openRelease(upd.url)}>Download</button>
+            {/* Download the installer for this OS/arch directly; when we don't build one
+                for it (assetUrl null), fall back to the release page. */}
+            <button className="btn" title={upd.assetUrl ? 'Download the installer for this computer' : 'Open the release page'} onClick={() => window.api.openRelease(upd.assetUrl || upd.url)}>Download</button>
+            {upd.assetUrl && <button className="btn ghost" title="All downloads" onClick={() => window.api.openRelease(upd.url)}>All files</button>}
             <span className="x" title="Dismiss" onClick={dismissUpd}>✕</span>
           </span>
         </div>
