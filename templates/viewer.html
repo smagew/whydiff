@@ -457,6 +457,11 @@
   .toggle input { accent-color: var(--accent); cursor: pointer; }
   .files-hint { display: flex; gap: 14px; align-items: baseline; flex-wrap: wrap; margin: 0 0 12px; }
   .nodes { display: flex; flex-wrap: wrap; gap: 10px; }
+  /* File cards grow to fill the row instead of sitting at a fixed 320px: a row of two
+     splits the width, and a card left alone on its row (a one-file group, or the last
+     of an odd count) takes the whole width — so the code preview uses the space and
+     reads better. min-width:0 lets the preview truncate instead of overflowing. */
+  .groups .node { flex: 1 1 300px; max-width: none; min-width: 0; }
   .node { display: flex; flex-direction: column; gap: 3px; align-items: stretch; background: var(--surface); border: 1px solid var(--line); border-radius: 3px; padding: 9px 12px 10px; cursor: pointer; font: inherit; color: inherit; text-align: left; max-width: 320px; transition: border-color var(--t), transform var(--t); }
   /* Scoped to .groups: a mermaid diagram node is ALSO `.node`, and a CSS transform
      on an SVG <g> overrides its positioning `transform` attribute — the node jumps
@@ -482,7 +487,7 @@
   .nlink:hover { border-color: var(--sc); color: var(--ink-2); }
   .nlink .dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--sc); }
   .fprev { margin-top: 5px; border-radius: 3px; background: var(--code-bg); border: 1px solid var(--line); padding: 4px 0; overflow: hidden; }
-  .fprev .cl { font-size: 13px; line-height: 1.5; padding: 0 8px; overflow: hidden; text-overflow: ellipsis; max-width: 292px; }
+  .fprev .cl { font-size: 13px; line-height: 1.5; padding: 0 8px; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 
   .manifest { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 10px; }
   .manifest summary { cursor: pointer; font-size: 13px; font-weight: 500; color: var(--muted); }
