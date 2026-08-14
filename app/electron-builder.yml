@@ -31,6 +31,8 @@ extraResources:
     to: whydiff-plugin/.claude-plugin
   - from: ../node_modules/mermaid
     to: whydiff-plugin/node_modules/mermaid
+  - from: ../node_modules/@highlightjs/cdn-assets
+    to: whydiff-plugin/node_modules/@highlightjs/cdn-assets
 
 # Unsigned across the board (see docs/desktop-app.md, Phase 6): no cost, Gatekeeper /
 # SmartScreen warn once. Signing + notarisation + auto-update come later.
