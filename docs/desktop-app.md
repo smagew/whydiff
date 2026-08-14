@@ -236,8 +236,14 @@ interactive Claude Code agent?** The skill today is driven by the main agent.
 - **App icon:** the brand giraffe — `build/icon.svg` (source) rendered to a
   1024×1024 `build/icon.png`; electron-builder generates the mac `.icns` / win `.ico`
   / linux png from it (the mac `.app` ships `icon.icns`, not the default).
-- **Left:** signing/notarisation + auto-update when distributing publicly; the Tauri
-  revisit if size/memory matter.
+- **Update notifier (built):** on launch the app checks GitHub Releases for a newer
+  `app-v*` build and shows a banner with a download link (`src/main/updates.mjs`,
+  packaged-only). Deliberately NOT electron-updater auto-install: Squirrel.Mac refuses
+  to apply an update to an unsigned/ad-hoc app, so auto-install can't work on macOS
+  until it's signed. The notifier works on every platform.
+- **Left:** signing/notarisation (unlocks true auto-install, incl. macOS via
+  electron-updater) when distributing publicly; the Tauri revisit if size/memory
+  matter.
 
 ### Phase 7 — Live mode (in-app ask / instruct / options) — 🚧 built (2026-08-13)
 

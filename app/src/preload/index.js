@@ -33,6 +33,10 @@ contextBridge.exposeInMainWorld('api', {
   setToken: (token) => ipcRenderer.invoke('settings:setToken', token),
   clearToken: () => ipcRenderer.invoke('settings:clearToken'),
 
+  // Update notifier — is there a newer app release? and open its download page.
+  checkUpdate: () => ipcRenderer.invoke('updates:check'),
+  openRelease: (url) => ipcRenderer.invoke('updates:open', url),
+
   // Phase 5 — GitHub
   resolveProject: (project) => ipcRenderer.invoke('project:resolve', project),
   cloneProject: (project) => ipcRenderer.invoke('project:clone', project),

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, safeStorage } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, safeStorage, shell } from 'electron'
 import { join, basename, dirname } from 'node:path'
 import { existsSync, statSync, mkdirSync, copyFileSync, rmSync } from 'node:fs'
 import { openStore, repoNameFromUrl } from './store.mjs'
@@ -6,6 +6,7 @@ import { openSettings } from './settings.mjs'
 import { gitState, rangeForCommit, clone, fetchPrRange } from './git.mjs'
 import { fetchPRs, parseRepo } from './github.mjs'
 import { runAnalysis, serveMap } from './whydiff.mjs'
+import { checkForUpdate } from './updates.mjs'
 import { resolvedPath } from './pathenv.mjs'
 
 let store
@@ -57,6 +58,15 @@ app.whenReady().then(() => {
 
   store = openStore(join(app.getPath('userData'), 'projects.json'))
   settings = openSettings(join(app.getPath('userData'), 'settings.json'), safeStorage)
+
+  // Update notifier: check GitHub Releases for a newer app-v* build and let the
+  // renderer show a banner. Only in a packaged build — in dev app.getVersion() is the
+  // source package.json and every release looks newer. No auto-install (see updates.mjs).
+  ipcMain.handle('updates:check', () => (app.isPackaged ? checkForUpdate({ currentVersion: app.getVersion() }) : null))
+  ipcMain.handle('updates:open', (_e, url) => {
+    // Only ever open this repo's own release pages — never an arbitrary URL.
+    if (/^https:\/\/github\.com\/smagew\/whydiff\/releases\//.test(String(url || ''))) shell.openExternal(String(url))
+  })
 
   // Where a project's git actually lives: a local folder is itself; a GitHub project
   // is its on-demand clone under userData/clones/. Used for both live-mode serving

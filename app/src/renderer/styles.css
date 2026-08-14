@@ -154,6 +154,10 @@ body {
 /* section header with a right-aligned control */
 .sec-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 
+/* update notifier banner */
+.update-banner { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 0 0 18px; padding: 10px 14px; background: var(--accent-bg); border: 1px solid var(--accent); border-radius: 8px; color: var(--ink); font-size: 13px; }
+.update-banner .ub-acts { display: flex; align-items: center; gap: 10px; flex: none; }
+
 /* GitHub token settings */
 .settings { margin: 0 0 18px; }
 .set-row { display: flex; align-items: center; gap: 12px; color: var(--ink-2); font-size: 13px; }
