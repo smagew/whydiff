@@ -178,6 +178,7 @@ examples/rate-limit/         # hand-authored reference sample (synthetic project
 tests/merge.mjs              # merge contract: git wins over the model
 tests/shards.mjs             # shard planner: balance, coverage, budget overflow
 tests/smoke.mjs              # assemble + headless-browser check of the viewer
+tests/diagram-fallback.mjs   # an invalid diagram shows the fallback, not mermaid's bomb
 tests/serve.mjs              # serve contract: token gating, ask/instruct/options, Tasks tab
 tests/review.mjs             # review journal: refusals, task states, coverage, migration
 tests/work.mjs               # serve --work: worktree isolation, patch, apply gate

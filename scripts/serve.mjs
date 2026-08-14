@@ -659,6 +659,10 @@ const SECTIONS = {
   standards: { agent: 'standards-reviewer', keys: ['standards', 'blastRadius'] },
   tests: { agent: 'tests-analyst', keys: ['tests'] },
   stories: { agent: 'story-writer', keys: ['userStories'] },
+  // Diagrams are a core pass, but they can be re-run on demand: when the generated
+  // mermaid doesn't parse, the viewer offers "Regenerate diagrams", which re-runs the
+  // diagrammer through this same endpoint and replaces the map's diagrams.
+  diagrams: { agent: 'diagrammer', keys: ['diagrams'] },
 }
 const buildSectionPrompt = (section, lang) => {
   const { agent, keys } = SECTIONS[section]

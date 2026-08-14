@@ -779,6 +779,18 @@
   .lazy-gen:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .lazy-steps { font-family: var(--mono); font-size: 13px; color: var(--ink-3); margin-top: 10px; }
   .lazy-err { color: var(--flag); font-size: 13px; margin-top: 10px; }
+  /* Fallback shown in place of an unrenderable diagram (invalid generated source). */
+  .mermaid-box.broken { cursor: default; }
+  .dg-broken { max-width: 62ch; padding: 8px 0; }
+  .dg-broken-msg { color: var(--ink-2); font-size: 14px; margin: 0 0 10px; }
+  .dg-broken-src { margin: 0 0 12px; }
+  .dg-broken-src summary { color: var(--muted); font-size: 13px; cursor: pointer; }
+  .dg-broken-src pre { font-family: var(--mono); font-size: 13px; color: var(--ink-3); overflow-x: auto; margin: 8px 0 0; white-space: pre-wrap; }
+  .dg-broken-acts { display: flex; gap: 10px; align-items: center; }
+  .dg-broken-copy { font: inherit; font-size: 13px; cursor: pointer; color: var(--ink-2); background: none; border: 1px solid var(--line); border-radius: 5px; padding: 6px 12px; transition: border-color var(--t), color var(--t); }
+  .dg-broken-copy:hover { border-color: var(--accent); color: var(--accent); }
+  .dg-broken-steps { font-family: var(--mono); font-size: 13px; color: var(--ink-3); margin-top: 10px; }
+  .dg-broken-err { color: var(--flag); font-size: 13px; margin-top: 10px; }
   .lazy-inline { padding: 0; }
   .lazy-inline .lazy-what { margin: 0 0 10px; font-size: 13px; }
   .brow { border: 1px solid var(--line); border-radius: 3px; padding: 10px 14px; margin: 0 0 10px; background: var(--surface); font-size: 13px; }
@@ -1137,6 +1149,9 @@ const I18N = {
     askSend: 'Ask', askThinking: 'asking Claude…', askFailed: 'Could not answer',
     askAboutSelection: 'Ask about this text', askAboutDiagram: 'Ask about this whole diagram (click a block, or drag a region, for part of it)',
     dgBadgeChat: 'A discussion is pinned here — open it', dgBadgeNote: 'A note is pinned here — open it',
+    dgBrokenMsg: "This diagram couldn't be drawn — the generated diagram source is invalid.",
+    dgBrokenSource: 'Show diagram source', dgBrokenCopy: 'Copy source', dgBrokenRegen: 'Regenerate diagrams',
+    dgRegenRunning: 'Regenerating…', copied: 'Copied',
     askSelected: 'Ask about these blocks', askClear: 'clear',
     askPickedN: (n) => `${n} block${n === 1 ? '' : 's'} selected`,
     askInspector: '◧ file', askShowInspector: 'Hand the column back to the file inspector',
@@ -1281,6 +1296,9 @@ const I18N = {
     askSend: 'Спросить', askThinking: 'спрашиваю Claude…', askFailed: 'Не удалось ответить',
     askAboutSelection: 'Спросить про этот текст', askAboutDiagram: 'Вопрос по всей диаграмме (клик по блоку или выделение области — по части)',
     dgBadgeChat: 'Здесь закреплена дискуссия — открыть', dgBadgeNote: 'Здесь закреплена заметка — открыть',
+    dgBrokenMsg: 'Эту диаграмму не удалось построить — сгенерированный исходник диаграммы невалиден.',
+    dgBrokenSource: 'Показать исходник', dgBrokenCopy: 'Скопировать исходник', dgBrokenRegen: 'Перегенерировать диаграммы',
+    dgRegenRunning: 'Перегенерирую…', copied: 'Скопировано',
     askSelected: 'Спросить про эти блоки', askClear: 'сбросить',
     askPickedN: (n) => `Выбрано блоков: ${n}`,
     askInspector: '◧ файл', askShowInspector: 'Вернуть колонку инспектору файлов',
@@ -1635,16 +1653,30 @@ const mermaidTheme = () => ({
 // has run, and it can change again afterwards. mermaid consumes the source node
 // it renders into, so the original text is kept on the element and put back
 // before a re-run — that is the only way to re-theme an existing diagram.
-function runDiagrams() {
+async function runDiagrams() {
   if (!window.mermaid) return
-  const nodes = [...document.querySelectorAll('#pane-diagrams pre.mermaid')]
-  if (!nodes.length) return
-  for (const n of nodes) {
-    n.textContent = n.dataset.src ?? n.textContent
-    n.removeAttribute('data-processed')
-  }
+  const pres = [...document.querySelectorAll('#pane-diagrams pre.mermaid')]
+  if (!pres.length) return
   mermaid.initialize(mermaidTheme())
-  mermaid.run({ nodes })
+  // Validate each diagram before rendering. An invalid one (the generator can emit
+  // bad mermaid) would otherwise make mermaid inject its "Syntax error" graphic into
+  // the page; instead we show a readable fallback and render only what parses.
+  const good = []
+  for (const n of pres) {
+    const src = n.dataset.src ?? n.textContent
+    n.dataset.src = src
+    let ok = true
+    try { ok = await mermaid.parse(src, { suppressErrors: true }) } catch { ok = false }
+    if (ok) {
+      n.textContent = src
+      n.removeAttribute('data-processed')
+      good.push(n)
+    } else {
+      const box = n.closest('.mermaid-box')
+      if (box) renderBrokenDiagram(box, src)
+    }
+  }
+  if (good.length) mermaid.run({ nodes: good })
 }
 
 // ── story ────────────────────────────────────────────────────────────────────
@@ -1731,7 +1763,70 @@ async function generate(section, btn) {
 }
 document.addEventListener('click', (e) => {
   const b = e.target.closest('.lazy-gen')
-  if (b) generate(b.dataset.section, b)
+  if (b && b.dataset.section) generate(b.dataset.section, b)
+})
+
+// A diagram whose generated source does not parse gets a readable fallback — the
+// source, a copy button, and (when served) a button to regenerate the diagrams —
+// in place of mermaid's built-in "Syntax error" graphic. Function declarations so
+// they are hoisted past the TDZ (runDiagrams, above, calls renderBrokenDiagram).
+function renderBrokenDiagram(box, src) {
+  box.classList.add('broken')
+  box.innerHTML = `<div class="dg-broken">
+    <p class="dg-broken-msg">${esc(L.dgBrokenMsg)}</p>
+    <details class="dg-broken-src"><summary>${esc(L.dgBrokenSource)}</summary><pre></pre></details>
+    <div class="dg-broken-acts">
+      <button type="button" class="dg-broken-copy">${esc(L.dgBrokenCopy)}</button>
+      ${canGenerate() ? `<button type="button" class="dg-broken-regen lazy-gen">${esc(L.dgBrokenRegen)}</button>` : ''}
+    </div>
+    <div class="dg-broken-steps" hidden></div><div class="dg-broken-err" hidden></div>
+  </div>`
+  box.querySelector('.dg-broken-src pre').textContent = src // textContent: never parse the bad source as HTML
+}
+async function regenerateDiagrams(btn) {
+  const wrap = btn.closest('.dg-broken')
+  const stepsEl = wrap?.querySelector('.dg-broken-steps'), errEl = wrap?.querySelector('.dg-broken-err')
+  btn.disabled = true; btn.textContent = L.dgRegenRunning
+  if (errEl) { errEl.hidden = true; errEl.textContent = '' }
+  if (stepsEl) stepsEl.hidden = false
+  try {
+    const res = await fetch('/api/generate', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-whydiff-token': window.__WHYDIFF_SERVE__.token },
+      body: JSON.stringify({ section: 'diagrams' }),
+    })
+    if (res.headers.get('content-type')?.includes('application/json')) { const j = await res.json(); throw new Error(j.error || `HTTP ${res.status}`) }
+    const reader = res.body.getReader(), dec = new TextDecoder(); let buf = ''
+    for (;;) {
+      const { value, done } = await reader.read(); if (done) break
+      buf += dec.decode(value, { stream: true })
+      const lines = buf.split('\n'); buf = lines.pop()
+      for (const ln of lines) {
+        if (!ln.trim()) continue
+        let ev; try { ev = JSON.parse(ln) } catch { continue }
+        if (ev.kind === 'step' && stepsEl) stepsEl.textContent = ev.text
+        else if (ev.kind === 'error') throw new Error(ev.error)
+        else if (ev.kind === 'done') { SESSION.set('flashTab', 'diagrams'); return location.reload() }
+      }
+    }
+    SESSION.set('flashTab', 'diagrams'); location.reload()
+  } catch (e) {
+    btn.disabled = false; btn.textContent = L.dgBrokenRegen
+    if (stepsEl) stepsEl.hidden = true
+    if (errEl) { errEl.hidden = false; errEl.textContent = `${L.generateFailed}: ${e.message}` }
+  }
+}
+document.addEventListener('click', (e) => {
+  const copyBtn = e.target.closest('.dg-broken-copy')
+  if (copyBtn) {
+    const src = copyBtn.closest('.dg-broken')?.querySelector('.dg-broken-src pre')?.textContent || ''
+    navigator.clipboard?.writeText(src)
+    const was = copyBtn.textContent; copyBtn.textContent = L.copied
+    setTimeout(() => { copyBtn.textContent = was }, 1200)
+    return
+  }
+  const regenBtn = e.target.closest('.dg-broken-regen')
+  if (regenBtn) regenerateDiagrams(regenBtn)
 })
 
 // ── standards ────────────────────────────────────────────────────────────────
