@@ -14,13 +14,16 @@ export default function ProjectList({ onOpen }) {
   const [tokenInput, setTokenInput] = useState('')
   const [showToken, setShowToken] = useState(false)
   const [upd, setUpd] = useState(null) // { available, latest, url } — a newer app release
+  const [ver, setVer] = useState('') // the running app version, for the About footer
+  const [checking, setChecking] = useState(false)
+  const [checkMsg, setCheckMsg] = useState('') // result of a manual "Check for updates"
 
   const refresh = async () => {
     setProjects(await window.api.listProjects())
     setLatest(await window.api.latestAnalyses(8))
     setToken(await window.api.tokenStatus())
   }
-  useEffect(() => { refresh() }, [])
+  useEffect(() => { refresh(); window.api.appVersion?.().then(setVer).catch(() => {}) }, [])
   // Check for a newer app build once, and remember a dismissal per version so the
   // banner doesn't nag — until an even newer one ships.
   useEffect(() => {
@@ -29,6 +32,18 @@ export default function ProjectList({ onOpen }) {
     }).catch(() => {})
   }, [])
   const dismissUpd = () => { if (upd) localStorage.setItem('whydiff.dismissedUpdate', upd.latest); setUpd(null) }
+  // Manual "Check for updates": a newer build shows the banner (clearing any dismissal
+  // so it isn't suppressed); otherwise say so inline.
+  const checkNow = async () => {
+    setChecking(true); setCheckMsg('')
+    try {
+      const r = await window.api.checkUpdate?.()
+      if (r?.available) { localStorage.removeItem('whydiff.dismissedUpdate'); setUpd(r); setCheckMsg('') }
+      else if (r) setCheckMsg("You're on the latest version.")
+      else setCheckMsg("Couldn't check for updates.")
+    } catch { setCheckMsg("Couldn't check for updates.") }
+    finally { setChecking(false) }
+  }
   const openAnalysis = async (id) => { setError(''); try { await window.api.openAnalysis(id, { work: edits }) } catch (e) { setError(e?.message || String(e)) } }
   const saveToken = () => guard(async () => { setToken(await window.api.setToken(tokenInput.trim())); setTokenInput(''); setShowToken(false) })
   const clearToken = () => guard(async () => { setToken(await window.api.clearToken()) })
@@ -134,6 +149,12 @@ export default function ProjectList({ onOpen }) {
           </section>
         </>
       )}
+
+      <footer className="about">
+        <span className="about-ver">whydiff{ver ? ` ${ver}` : ''}</span>
+        <button className="btn ghost" disabled={checking} onClick={checkNow}>{checking ? 'Checking…' : 'Check for updates'}</button>
+        {checkMsg ? <span className="about-msg">{checkMsg}</span> : null}
+      </footer>
     </>
   )
 }

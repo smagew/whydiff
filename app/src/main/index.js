@@ -62,6 +62,7 @@ app.whenReady().then(() => {
   // Update notifier: check GitHub Releases for a newer app-v* build and let the
   // renderer show a banner. Only in a packaged build — in dev app.getVersion() is the
   // source package.json and every release looks newer. No auto-install (see updates.mjs).
+  ipcMain.handle('app:version', () => app.getVersion())
   ipcMain.handle('updates:check', () => (app.isPackaged ? checkForUpdate({ currentVersion: app.getVersion() }) : null))
   ipcMain.handle('updates:open', (_e, url) => {
     // Only ever open this repo's own release pages — never an arbitrary URL.

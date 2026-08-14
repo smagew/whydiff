@@ -154,6 +154,11 @@ body {
 /* section header with a right-aligned control */
 .sec-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 
+/* About footer: version + manual update check */
+.about { display: flex; align-items: center; gap: 12px; margin: 28px 0 0; padding-top: 14px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12.5px; }
+.about-ver { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.about-msg { color: var(--ink-2); }
+
 /* update notifier banner */
 .update-banner { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 0 0 18px; padding: 10px 14px; background: var(--accent-bg); border: 1px solid var(--accent); border-radius: 8px; color: var(--ink); font-size: 13px; }
 .update-banner .ub-acts { display: flex; align-items: center; gap: 10px; flex: none; }
