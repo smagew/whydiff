@@ -33,7 +33,8 @@ contextBridge.exposeInMainWorld('api', {
   setToken: (token) => ipcRenderer.invoke('settings:setToken', token),
   clearToken: () => ipcRenderer.invoke('settings:clearToken'),
 
-  // Update notifier — is there a newer app release? and open its download page.
+  // About / updates — the running version, a manual update check, and opening a release.
+  appVersion: () => ipcRenderer.invoke('app:version'),
   checkUpdate: () => ipcRenderer.invoke('updates:check'),
   openRelease: (url) => ipcRenderer.invoke('updates:open', url),
 
