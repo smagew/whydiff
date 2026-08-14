@@ -1,20 +1,65 @@
 name: desktop
 
-# Build the desktop app (app/) for macOS, Linux and Windows on their own runners —
-# the reliable way to get all three, since they can't be cross-built from one OS.
-# Unsigned (see docs/desktop-app.md, Phase 6): the artifacts open with a one-time
-# "unidentified developer" / SmartScreen warning.
+# Build + release the desktop app (app/) for macOS, Linux and Windows on their own
+# runners — the reliable way to get all three, since they can't be cross-built from
+# one OS. Unsigned (see docs/desktop-app.md, Phase 6): macOS is ad-hoc signed, so it
+# opens with a one-time "cannot verify developer" prompt; Windows SmartScreen warns.
 #
-# Push a tag `app-vX.Y.Z` → build all three AND publish a GitHub Release with the
-# installers attached. A manual run just builds + uploads them as run artifacts (no
-# release), for testing.
+# TWO ways to cut a release — pick whichever is convenient, no local git needed:
+#   1. Actions → "desktop" → Run workflow → choose patch/minor/major. CI computes the
+#      next version from the latest app-v* tag, builds, tags it, and publishes.
+#   2. Push a tag `app-vX.Y.Z` yourself. Same build + release, that exact version.
 on:
   workflow_dispatch:
+    inputs:
+      bump:
+        description: 'Version bump from the latest app-v* tag'
+        type: choice
+        options: [patch, minor, major]
+        default: patch
+      release:
+        description: 'Publish a GitHub Release (off = just build + upload artifacts)'
+        type: boolean
+        default: true
   push:
     tags: ['app-v*']
 
 jobs:
+  # Decide the version + tag once, so every build job stamps the same number and the
+  # release publishes under the matching tag — whether triggered by a tag push or the
+  # Run-workflow button.
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      tag: ${{ steps.v.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - id: v
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            TAG="${GITHUB_REF_NAME}"; VER="${TAG#app-v}"
+          else
+            LATEST=$(git tag -l 'app-v*' | sed 's/^app-v//' | sort -V | tail -1)
+            LATEST="${LATEST:-0.0.0}"
+            IFS=. read -r MA MI PA <<< "$LATEST"
+            case "${{ inputs.bump }}" in
+              major) MA=$((MA+1)); MI=0; PA=0;;
+              minor) MI=$((MI+1)); PA=0;;
+              *)     PA=$((PA+1));;
+            esac
+            VER="$MA.$MI.$PA"; TAG="app-v$VER"
+          fi
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "→ $TAG (version $VER)"
+
   build:
+    needs: plan
     strategy:
       fail-fast: false
       matrix:
@@ -23,7 +68,6 @@ jobs:
             flag: --mac
           - os: ubuntu-22.04 # not ubuntu-latest (24.04): electron-builder's AppImage
             flag: --linux     # tooling needs libfuse2, which 24.04 no longer ships
-
           - os: windows-latest
             flag: --win
     runs-on: ${{ matrix.os }}
@@ -36,22 +80,20 @@ jobs:
       - run: npm install
       - run: npm ci
         working-directory: app
-      # On a release tag, stamp app/package.json with the tag's version so the
-      # installer filenames (whydiff-X.Y.Z.*) match the GitHub Release.
-      - name: sync app version to the tag
-        if: startsWith(github.ref, 'refs/tags/app-v')
+      # Stamp app/package.json with the release version so installer filenames
+      # (whydiff-X.Y.Z.*) match the GitHub Release.
+      - name: sync app version
         shell: bash
         working-directory: app
         run: |
-          V="${GITHUB_REF_NAME#app-v}"
+          V="${{ needs.plan.outputs.version }}"
           node -e "const fs=require('fs'),p=require('./package.json');p.version=process.argv[1];fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n')" "$V"
           echo "app version → $V"
       - name: build + package (ad-hoc signed, not notarised)
         working-directory: app
-        # No Developer ID: mac is ad-hoc signed via electron-builder.yml (identity '-').
+        # No Developer ID: mac is ad-hoc signed via electron-builder.yml (afterPack hook).
         # We deliberately do NOT set CSC_IDENTITY_AUTO_DISCOVERY=false — with it off,
         # electron-builder skips signing entirely and the arm64 app ships "damaged".
-        # There is no real cert on the runner, so ad-hoc is what it uses.
         run: npx electron-vite build && npx electron-builder ${{ matrix.flag }} --publish never
       # always() so a target that builds early (e.g. Linux AppImage) still uploads even
       # if a later target in the same run fails (e.g. deb) — we never lose a good build.
@@ -67,28 +109,30 @@ jobs:
             app/release/*.exe
           if-no-files-found: warn
 
-  # On a tag, gather every OS's installers and publish them in one GitHub Release.
-  # always() so a single OS build failing doesn't block the release of the others —
-  # download-artifact + fail_on_unmatched_files:false publish whatever did build.
+  # Gather every OS's installers and publish them in one GitHub Release under the
+  # planned tag (the action creates the tag at this commit if it doesn't exist yet).
+  # always() so a single OS build failing doesn't block the release of the others.
   release:
-    needs: build
-    if: ${{ always() && startsWith(github.ref, 'refs/tags/app-v') }}
+    needs: [plan, build]
+    if: ${{ always() && (startsWith(github.ref, 'refs/tags/app-v') || (github.event_name == 'workflow_dispatch' && inputs.release)) }}
     runs-on: ubuntu-latest
     permissions:
-      contents: write # create the release + upload assets (uses the default GITHUB_TOKEN)
+      contents: write # create the release + tag + upload assets (default GITHUB_TOKEN)
     steps:
       - uses: actions/download-artifact@v4
         with:
           path: dist # each build job's artifact lands under dist/<name>/
       - uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ needs.plan.outputs.tag }}
+          target_commitish: ${{ github.sha }}
           files: dist/**/*
           fail_on_unmatched_files: false
-          name: whydiff desktop ${{ github.ref_name }}
+          name: whydiff desktop ${{ needs.plan.outputs.tag }}
           body: |
             Unsigned desktop builds of whydiff.
 
-            - **macOS**: `.dmg` (or `.zip`). First launch: right-click the app → **Open** (Gatekeeper, because it is unsigned).
+            - **macOS** (`.dmg` or `.zip`, Apple Silicon): ad-hoc signed, not notarised, so first launch is blocked with "Apple could not verify … malware". Allow it once: **System Settings → Privacy & Security → Open Anyway** (on older macOS, right-click the app → **Open**). No Terminal needed.
             - **Windows**: the `.exe` installer. SmartScreen may warn ("unknown publisher") — **More info → Run anyway**.
             - **Linux**: `.AppImage` (portable, `chmod +x` then run) or `.deb`.
 

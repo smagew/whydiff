@@ -221,10 +221,18 @@ interactive Claude Code agent?** The skill today is driven by the main agent.
   produces a full map. The **GUI launch + a real analysis** are the user's to confirm.
 - **CI + releases:** `.github/workflows/desktop.yml` builds all three on their own
   runners (unsigned) — the reliable way to get Linux/Windows, which can't be
-  cross-built from a Mac. A manual run uploads them as run artifacts (for testing);
-  **pushing a tag `app-vX.Y.Z` also publishes a GitHub Release** with every OS's
-  installer attached (a `release` job gathers the per-OS artifacts and uploads them
-  via the default `GITHUB_TOKEN`, `contents: write`).
+  cross-built from a Mac. A `release` job gathers the per-OS artifacts and publishes
+  one GitHub Release via the default `GITHUB_TOKEN` (`contents: write`), and
+  `always()` so one OS failing doesn't block the others.
+- **Cutting a release (no local git, no bump-by-hand):** two ways, both self-serve:
+  1. **GitHub → Actions → "desktop" → Run workflow** → pick `patch` / `minor` /
+     `major` (and leave "Publish a GitHub Release" on). A `plan` job reads the latest
+     `app-v*` tag, computes the next version, every OS build stamps
+     `app/package.json` to it, and the `release` job publishes under `app-vX.Y.Z`
+     (the tag is created at that commit). Turn the toggle off for a build-only dry run.
+  2. **Push a tag `app-vX.Y.Z`** yourself — same pipeline, that exact version.
+  The app version is derived from the tag, so there is no separate app bump to keep
+  in sync (unlike the plugin's `vX.Y.Z`).
 - **App icon:** the brand giraffe — `build/icon.svg` (source) rendered to a
   1024×1024 `build/icon.png`; electron-builder generates the mac `.icns` / win `.ico`
   / linux png from it (the mac `.app` ships `icon.icns`, not the default).
