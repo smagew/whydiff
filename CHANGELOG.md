@@ -4,6 +4,17 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.25.0] — 2026-08-14
+
+### Changed
+- **"Open in new window" gives the whole diagram view, not a bare picture.** The
+  pop-out (⧉) used to copy just the SVG into a blank window — losing the palette
+  styling (the diff colouring is applied by the viewer's CSS, absent there) and any
+  way to ask or note. It now opens this same page in a new window focused on that one
+  diagram (`#dg=<i>`): a full viewer, so it keeps the palette and the diff colouring,
+  and in served mode the ask / note panel works there too — the whole point of
+  opening a diagram in its own window to read and work with it.
+
 ## [0.24.1] — 2026-08-14
 
 ### Changed

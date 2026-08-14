@@ -72,14 +72,18 @@ await page.waitForTimeout(200)
 const dimmed = await page.locator('.node.dim').count()
 if (dimmed < 1) fail('scope filter did not dim non-matching file nodes')
 
-// Diagram pop-out: opens a standalone window with the rendered SVG.
+// Diagram pop-out: opens the viewer in a new window focused on that one diagram
+// (#dg=<i>) — a full viewer (palette, and ask/note when served), not a bare SVG.
 await page.locator('#tabs .tab[data-pane="diagrams"]').click()
 const [popup] = await Promise.all([
   page.waitForEvent('popup'),
   page.locator('.diagram [data-pop]').first().click(),
 ])
 await popup.waitForLoadState()
-if ((await popup.locator('svg').count()) !== 1) fail('diagram pop-out window has no svg')
+await popup.waitForSelector('#pane-diagrams .diagram.dg-focused svg', { timeout: 15000 })
+if (!(await popup.evaluate(() => document.body.classList.contains('dg-focus')))) fail('pop-out is not in single-diagram focus mode')
+const shownInPop = await popup.evaluate(() => [...document.querySelectorAll('#pane-diagrams .diagram')].filter((d) => d.offsetParent !== null).length)
+if (shownInPop !== 1) fail(`pop-out should show exactly one diagram, showed ${shownInPop}`)
 await popup.close()
 
 // ── second pass: the user-stories tab ────────────────────────────────────────
