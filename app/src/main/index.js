@@ -153,10 +153,12 @@ app.whenReady().then(() => {
   // Run whydiff for a range (empty = the working tree), streaming progress to the
   // window that asked, then save the map into the analyses index and return the
   // stored record.
-  ipcMain.handle('project:analyze', async (e, { repo, range, projectId, kind, ref, title, full, sections }) => {
+  ipcMain.handle('project:analyze', async (e, { repo, range, projectId, kind, ref, title, full, sections, analysisId }) => {
     const onProgress = (line) => { if (!e.sender.isDestroyed()) e.sender.send('analyze:progress', line) }
     const { mapPath } = await runAnalysis(repo, range || '', { onProgress, full: !!full, sections: sections || [], progressJson: true, node: nodeCmd(), env: nodeEnv() })
-    const rec = store.addAnalysis({ projectId, kind, ref: ref || '', title: title || '' })
+    // analysisId → regenerate that analysis in place (same id + dir, files overwritten);
+    // otherwise record a new one. Fall back to a new record if the id is gone.
+    const rec = (analysisId != null && store.touchAnalysis(analysisId)) || store.addAnalysis({ projectId, kind, ref: ref || '', title: title || '' })
     const dir = join(analysesDir, String(rec.id))
     mkdirSync(dir, { recursive: true })
     copyFileSync(mapPath, join(dir, 'review-map.json'))

@@ -48,6 +48,12 @@ ok(s.listAnalyses({ projectId: proj.id })[0].id === an2.id, 'analyses are newest
 ok(s.analysisForRef(proj.id, 'abc123')?.id === an1.id, 'analysisForRef finds a commit map')
 ok(s.analysisForRef(proj.id, 'nope') === null, 'analysisForRef is null when none match')
 ok(s.getAnalysis(an1.id)?.title === 't1', 'getAnalysis by id')
+// touchAnalysis: keeps id/ref/title, restamps created_at so it sorts to the top
+const t0 = s.getAnalysis(an1.id).created_at
+const touched = s.touchAnalysis(an1.id)
+ok(touched?.id === an1.id && touched.ref === 'abc123' && touched.title === 't1', 'touchAnalysis keeps id/ref/title')
+ok(touched.created_at >= t0, 'touchAnalysis restamps created_at')
+ok(s.touchAnalysis(999999) === null, 'touchAnalysis on a missing id is null')
 ok(s.listAnalyses({ limit: 1 }).length === 1, 'listAnalyses honours limit')
 let threwA = false
 try { s.addAnalysis({ projectId: 999999, kind: 'commit', ref: 'x' }) } catch { threwA = true }

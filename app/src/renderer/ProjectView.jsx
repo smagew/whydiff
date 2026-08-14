@@ -112,7 +112,7 @@ export default function ProjectView({ project, onBack }) {
     } catch (e) { setError(e?.message || String(e)) } finally { unsub(); setCloning(false); setCloneMsg('') }
   }
 
-  const analyze = async ({ range, kind, ref, title }) => {
+  const analyze = async ({ range, kind, ref, title, analysisId }) => {
     const sections = sectionsFor()
     const full = mode === 'full'
     setError(''); setAnalyzing(true); setProgress('starting the analysis…')
@@ -126,7 +126,7 @@ export default function ProjectView({ project, onBack }) {
       }
     })
     try {
-      const { analysis } = await window.api.analyze({ repo, range, projectId: project.id, kind, ref, title, full, sections })
+      const { analysis } = await window.api.analyze({ repo, range, projectId: project.id, kind, ref, title, full, sections, analysisId })
       await refreshAnalyses()
       setStages((prev) => (prev ? prev.map((s) => ({ ...s, finished: Math.max(s.finished, s.started || 1), started: s.started || 1 })) : prev))
       setProgress('opening the map…')
@@ -141,6 +141,22 @@ export default function ProjectView({ project, onBack }) {
       const range = await window.api.rangeForPr(repo, pr.number, pr.baseRef)
       await analyze({ range, kind: 'pr', ref: `pr:${pr.number}`, title: `${project.name} · PR #${pr.number}` })
     } catch (e) { setError(e?.message || String(e)); setAnalyzing(false) }
+  }
+  // Regenerate a saved analysis in place (same id + dir, files overwritten), using the
+  // preset selected now. The range is rebuilt from the analysis's ref.
+  const rerun = async (a) => {
+    if (a.kind === 'working') return analyze({ range: '', kind: 'working', ref: '', title: a.title, analysisId: a.id })
+    if (a.kind === 'commit') return analyze({ range: await window.api.rangeForCommit(repo, a.ref), kind: 'commit', ref: a.ref, title: a.title, analysisId: a.id })
+    if (a.kind === 'pr') {
+      const num = Number(String(a.ref).replace(/^pr:/, ''))
+      const pr = (prs || []).find((p) => p.number === num)
+      if (!pr) return setError("Open the pull request below to re-run it — its base branch isn't loaded here.")
+      setError(''); setAnalyzing(true); setProgress(`fetching PR #${num}…`)
+      try {
+        const range = await window.api.rangeForPr(repo, pr.number, pr.baseRef)
+        await analyze({ range, kind: 'pr', ref: a.ref, title: a.title, analysisId: a.id })
+      } catch (e) { setError(e?.message || String(e)); setAnalyzing(false) }
+    }
   }
   const open = async (id) => { setError(''); try { await window.api.openAnalysis(id, { work: edits }) } catch (e) { setError(e?.message || String(e)) } }
   const drop = async (id) => { try { await window.api.removeAnalysis(id); await refreshAnalyses() } catch (e) { setError(e?.message || String(e)) } }
@@ -214,7 +230,8 @@ export default function ProjectView({ project, onBack }) {
                       <div className="name">{a.title || refLabel(a)}</div>
                       <div className="loc">{refLabel(a)} · {a.created_at.slice(0, 16).replace('T', ' ')}</div>
                     </div>
-                    <button className="btn" onClick={() => open(a.id)}>View</button>
+                    <button className="btn" disabled={analyzing} onClick={() => open(a.id)}>View</button>
+                    <button className="btn ghost" disabled={analyzing} title="Regenerate this analysis in place (runs the model again)" onClick={() => rerun(a)}>Re-run</button>
                     <span className="x" title="Remove" onClick={() => drop(a.id)}>✕</span>
                   </div>
                 ))}
