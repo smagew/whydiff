@@ -238,8 +238,11 @@
      permanently empty. (An open ask panel — .chatting.solo below — still claims a column.) */
   .layout.solo { grid-template-columns: minmax(0, 1fr); }
   .layout.solo > .rightcol { display: none; }
-  .layout.chatting { grid-template-columns: minmax(0, 1fr) minmax(430px, 0.92fr); }
-  .layout.chatting.solo { grid-template-columns: minmax(0, 1fr) minmax(430px, 0.92fr); }
+  /* var(--rc) so the rc-grip resizes the diagram↔panel split while asking too (before,
+     the ask panel's width was fixed and the grip did nothing). Floors at 380px so the
+     panel stays usable; defaults to 0.92fr until you drag. */
+  .layout.chatting { grid-template-columns: minmax(0, 1fr) minmax(380px, var(--rc, 0.92fr)); }
+  .layout.chatting.solo { grid-template-columns: minmax(0, 1fr) minmax(380px, var(--rc, 0.92fr)); }
   .layout.chatting.solo > .rightcol { display: block; }
   .layout.chatting > .rightcol > .inspector { display: none; }
   /* .layout sets align-items:start, which would size this column to its content

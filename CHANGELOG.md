@@ -4,6 +4,15 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.25.1] — 2026-08-14
+
+### Changed
+- **The ask/note panel is resizable while you ask.** The drag handle between the
+  reading column and the aside (`rc-grip`) now works when the ask/note panel is open —
+  its width was fixed before, so the grip did nothing. Drag it to widen or narrow the
+  panel (and so the diagram beside it); the width is remembered for the window. Most
+  useful in the single-diagram pop-out, where you read and work with one diagram.
+
 ## [0.25.0] — 2026-08-14
 
 ### Changed
