@@ -1636,7 +1636,15 @@ const layoutEl = document.querySelector('.layout')
 let currentTab = defaultTab
 // Toggling the aside changes the reading column's width, so refit the diagrams to it.
 const applyAside = (id) => { layoutEl.classList.toggle('solo', !ASIDE_TABS.has(id)); requestAnimationFrame(fitDiagrams) }
-const revealAside = () => { layoutEl.classList.remove('solo'); requestAnimationFrame(fitDiagrams) }
+const revealAside = () => {
+  layoutEl.classList.remove('solo')
+  // A sidebar action (a drill-down, an ask/note) must open the aside even if it was
+  // manually collapsed — otherwise the click lands in a force-hidden column and looks
+  // like nothing happened. Un-collapse through setAsideCollapsed so the toggle + the
+  // saved state stay in step.
+  if (layoutEl.classList.contains('aside-collapsed')) setAsideCollapsed(false)
+  requestAnimationFrame(fitDiagrams)
+}
 
 let diagramsRendered = false
 function setTab(id) {
@@ -3497,8 +3505,11 @@ if (SERVE?.token) (() => {
   function openFor(anchor) {
     current = anchor
     const fixable = canPropose(anchor)
-    proposeBtn.disabled = !fixable
-    proposeBtn.title = fixable ? L.modeProposeTitle : L.modeProposeOff
+    // Show the Options tab only where the map found something to weigh options about
+    // (a finding, a test gap, a broken/partial story). A disabled-but-visible tab just
+    // read as broken; hidden elsewhere it stops puzzling people.
+    proposeBtn.hidden = !fixable
+    proposeBtn.title = L.modeProposeTitle
     if (!fixable && mode === 'propose') setMode('ask')
     layoutEl.classList.add('chatting')
     revealAside()
