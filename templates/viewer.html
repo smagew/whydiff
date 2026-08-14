@@ -373,6 +373,17 @@
      bounded; !important beats mermaid's inline style. */
   .diagram .mermaid-box svg { display: block; margin: 0 auto; height: auto !important; max-width: 100% !important; }
   .mermaid-box svg .node, .mermaid-box svg .er.entityBox, .mermaid-box svg g[id^="entity-"] { cursor: pointer; }
+  /* Single-diagram pop-out (#dg=<i>): hide the report chrome and every diagram but the
+     focused one — a clean window that is still a full viewer (palette, and ask/note
+     when served). */
+  body.dg-focus .kicker, body.dg-focus #title, body.dg-focus .sub, body.dg-focus #statbar,
+  body.dg-focus #scopebar, body.dg-focus #consistency, body.dg-focus .modebar,
+  body.dg-focus #tabs, body.dg-focus #diagramsHint, body.dg-focus .footstrip { display: none !important; }
+  body.dg-focus .wrap { max-width: none !important; padding: 12px 16px !important; }
+  body.dg-focus .pane:not(#pane-diagrams) { display: none !important; }
+  body.dg-focus #pane-diagrams .diagram { display: none; }
+  body.dg-focus #pane-diagrams .diagram.dg-focused { display: block; margin: 0; }
+  body.dg-focus .diagram.dg-focused [data-pop] { display: none; }
   /* Drag-select rectangle for asking about a region of a diagram. */
   .dg-select { position: absolute; z-index: 5; pointer-events: none; border: 1.5px dashed var(--accent);
     background: color-mix(in srgb, var(--accent) 12%, transparent); border-radius: 2px; }
@@ -2415,22 +2426,34 @@ document.addEventListener('click', (e) => {
   if (pop) openDiagramWindow(pop.closest('.diagram'))
 })
 
-// A rendered diagram, alone in its own window — no mermaid needed, the SVG is
-// already there; big graphs get the whole viewport instead of a column.
+// Open a diagram alone in its own window. Rather than copy the bare SVG into a blank
+// document (which loses the palette CSS, and the served token that ask/note needs), we
+// open THIS same page again focused on the one diagram (#dg=<i>): the new window is a
+// full viewer instance — same styling, and in served mode the same ask / note — just
+// showing that diagram. See applyDiagramFocus.
 function openDiagramWindow(diagEl) {
-  const svg = diagEl?.querySelector('svg')
-  if (!svg) return
-  const title = diagEl.querySelector('h3')?.textContent || 'diagram'
-  // The pop-out is a separate document, so the canvas token is read from the
-  // live page rather than restated as a literal.
-  const canvas = getComputedStyle(document.documentElement).getPropertyValue('--canvas').trim()
-  const w = window.open('', '_blank')
-  if (!w) return
-  w.document.write(`<!doctype html><title>${esc(title)}</title><style>
-    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: ${canvas}; }
-    svg { width: 96vw; height: auto; max-width: none !important; }
-  </style>${svg.outerHTML}`)
-  w.document.close()
+  const diagrams = [...document.querySelectorAll('#pane-diagrams .diagram')]
+  const i = diagrams.indexOf(diagEl)
+  if (i < 0) return
+  const url = new URL(location.href)
+  url.hash = 'dg=' + i
+  window.open(url.toString(), '_blank', 'width=1100,height=800')
+}
+// When loaded with #dg=<i>, become a single-diagram view: hide the report chrome and
+// every other diagram, and show that one. It is a normal viewer otherwise, so a
+// served pop-out keeps the palette AND the ask/note panel; a standalone file keeps the
+// palette (ask is absent there, as everywhere in a standalone file).
+function applyDiagramFocus() {
+  const m = /(?:^#|&)dg=(\d+)/.exec(location.hash || '')
+  if (!m) return
+  const diagrams = [...document.querySelectorAll('#pane-diagrams .diagram')]
+  const el = diagrams[+m[1]]
+  if (!el) return
+  document.body.classList.add('dg-focus')
+  setTab('diagrams')
+  el.classList.add('dg-focused')
+  document.title = el.querySelector('h3')?.textContent || document.title
+  requestAnimationFrame(() => { runDiagrams(); requestAnimationFrame(fitDiagrams) })
 }
 for (const b of document.querySelectorAll('[data-pop]')) b.title = L.dgNewWindow
 // Mermaid binds `click <id> call whydiffOpen("<path>")` to this global.
@@ -2705,6 +2728,8 @@ refreshSeen()
 // The default-visible pane in the HTML is the first one; sync the reading area to
 // the chosen default tab (Diagrams, or the Code map when there are none).
 setTab(defaultTab)
+// A #dg=<i> pop-out overrides that with a single-diagram view.
+applyDiagramFocus()
 
 // Restore the reader's position, then keep it current.
 if (SESSION.get('focus', false)) document.body.classList.add('focus')
