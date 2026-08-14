@@ -13,6 +13,7 @@ export default function ProjectList({ onOpen }) {
   const [token, setToken] = useState(null) // { stored, available } — never the value
   const [tokenInput, setTokenInput] = useState('')
   const [showToken, setShowToken] = useState(false)
+  const [upd, setUpd] = useState(null) // { available, latest, url } — a newer app release
 
   const refresh = async () => {
     setProjects(await window.api.listProjects())
@@ -20,6 +21,14 @@ export default function ProjectList({ onOpen }) {
     setToken(await window.api.tokenStatus())
   }
   useEffect(() => { refresh() }, [])
+  // Check for a newer app build once, and remember a dismissal per version so the
+  // banner doesn't nag — until an even newer one ships.
+  useEffect(() => {
+    window.api.checkUpdate?.().then((r) => {
+      if (r?.available && localStorage.getItem('whydiff.dismissedUpdate') !== r.latest) setUpd(r)
+    }).catch(() => {})
+  }, [])
+  const dismissUpd = () => { if (upd) localStorage.setItem('whydiff.dismissedUpdate', upd.latest); setUpd(null) }
   const openAnalysis = async (id) => { setError(''); try { await window.api.openAnalysis(id, { work: edits }) } catch (e) { setError(e?.message || String(e)) } }
   const saveToken = () => guard(async () => { setToken(await window.api.setToken(tokenInput.trim())); setTokenInput(''); setShowToken(false) })
   const clearToken = () => guard(async () => { setToken(await window.api.clearToken()) })
@@ -37,6 +46,16 @@ export default function ProjectList({ onOpen }) {
 
   return (
     <>
+      {upd && (
+        <div className="update-banner">
+          <span>A new version <b>{upd.latest}</b> is available (you have {upd.current}).</span>
+          <span className="ub-acts">
+            <button className="btn" onClick={() => window.api.openRelease(upd.url)}>Download</button>
+            <span className="x" title="Dismiss" onClick={dismissUpd}>✕</span>
+          </span>
+        </div>
+      )}
+
       <header className="head">
         <div className="brand">whydiff</div>
         <div className="sub">Pick a project to review — its changes, mapped.</div>
