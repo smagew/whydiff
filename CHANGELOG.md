@@ -4,6 +4,20 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.24.0] — 2026-08-14
+
+### Added
+- **Syntax highlighting for code.** Code in the viewer — the full-file drill-down,
+  the diff fragments, the card previews, and markdown fences — is now syntax-
+  highlighted (highlight.js, inlined like mermaid, so the map stays self-contained
+  and needs no network). The language comes from the file extension, not auto-detect.
+  The theme is a **muted, few-hue set of palette tokens** (per palette), so the
+  highlight follows the active palette and stays within the design system rather than
+  being a fixed rainbow. Diff rows keep their signal — a background tint for
+  added/removed, a strike-through for removed — while the code itself carries the
+  syntax colours. Falls back to plain text when the language is unknown or a line
+  won't parse, so a highlighter-less file still reads.
+
 ## [0.23.1] — 2026-08-14
 
 ### Changed

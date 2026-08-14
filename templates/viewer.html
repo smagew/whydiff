@@ -24,6 +24,8 @@
     --add-bg:#182530; --add-edge:#4F7EA8; --add-ink:#C3D7E8;
     --del-bg:#2B1F1C; --del-edge:#A5634E; --del-ink:#E4C8BC;
     --mark-ink:#14161A;
+    /* syntax highlighting — muted, few-hue, tuned to this palette */
+    --syn-key:#C0A0D0; --syn-str:#9DBE8C; --syn-num:#D6B487; --syn-fn:#8FB6D9; --syn-type:#86C0B4;
   }
   [data-p="slate"] {                 /* slate — monochrome, one signal colour */
     --canvas:#EEF0F2; --panel:#F8F9FA; --sunken:#E4E7EA;
@@ -38,6 +40,7 @@
     --add-bg:#E1E7EE; --add-edge:#3B5F87; --add-ink:#17324D;
     --del-bg:#EFE3E5; --del-edge:#8A2B3D; --del-ink:#4A1620;
     --mark-ink:#F8F9FA;
+    --syn-key:#5B3B87; --syn-str:#3F6B45; --syn-num:#8A5A2B; --syn-fn:#2E5A87; --syn-type:#2E6E63;
   }
   [data-p="bond"] {                  /* neutral near-white, plum */
     --canvas:#FBFBF9; --panel:#FFFFFF; --sunken:#F0F0EE;
@@ -49,6 +52,7 @@
     --add-bg:#EAEFF4; --add-edge:#3E6389; --add-ink:#17324D;
     --del-bg:#F5EAEA; --del-edge:#8F2A2A; --del-ink:#4A1616;
     --mark-ink:#FFFFFF;
+    --syn-key:#6E3E7A; --syn-str:#3F6B45; --syn-num:#8A5A2B; --syn-fn:#2E5A87; --syn-type:#2E6E63;
   }
   /* quiet — what ships. One diff hue, and it sits on the side that was added.
      A removed line is gone: it needs no colour of its own, and a plate behind
@@ -827,10 +831,21 @@
   .codebox { background: var(--code-bg); border: 1px solid var(--line); border-radius: 3px; overflow-x: auto; margin: 0 0 14px; }
   .codebox-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 6px 12px; border-bottom: 1px solid var(--line); font-family: var(--mono); font-size: 13px; color: var(--muted); position: sticky; left: 0; }
   .codebox pre { margin: 0; padding: 10px 0; font-family: var(--mono); font-size: 13px; line-height: 1.6; min-width: max-content; }
-  .cl { display: block; padding: 0 14px; white-space: pre; font-family: var(--mono); }
-  .cl.add { background: var(--add-bg); color: var(--add); }
-  .cl.del { background: var(--del-bg); color: var(--del); text-decoration: line-through; text-decoration-thickness: 1px; }
-  .cl.ctx { color: var(--muted); }
+  .cl { display: block; padding: 0 14px; white-space: pre; font-family: var(--mono); color: var(--ink); }
+  /* Diff rows: a background tint is the add/removed signal, so the code itself is left
+     to the syntax colours below. Removed lines keep the strike-through — it survives
+     every diff mode, including quiet where the tint is transparent. */
+  .cl.add { background: var(--add-bg); }
+  .cl.del { background: var(--del-bg); text-decoration: line-through; text-decoration-thickness: 1px; text-decoration-color: var(--del); }
+  /* highlight.js tokens → the palette's syntax tokens (defined in the token block).
+     Muted and few-hue, so the highlight aids reading without turning into a rainbow. */
+  .hljs-comment, .hljs-quote { color: var(--ink-3); font-style: italic; }
+  .hljs-keyword, .hljs-literal, .hljs-selector-tag, .hljs-name, .hljs-tag, .hljs-meta, .hljs-meta .hljs-keyword { color: var(--syn-key); }
+  .hljs-string, .hljs-regexp, .hljs-symbol, .hljs-char, .hljs-meta .hljs-string, .hljs-addition { color: var(--syn-str); }
+  .hljs-number { color: var(--syn-num); }
+  .hljs-title, .hljs-title.function_, .hljs-section, .hljs-doctag { color: var(--syn-fn); }
+  .hljs-type, .hljs-built_in, .hljs-class, .hljs-title.class_, .hljs-selector-class, .hljs-attr, .hljs-attribute, .hljs-property, .hljs-variable, .hljs-template-variable { color: var(--syn-type); }
+  #modalCode { font-family: var(--mono); color: var(--ink); white-space: pre; }
   .actions { display: flex; gap: 8px; flex-wrap: wrap; }
   .actions-top { margin: 0 0 12px; }
   .btn { font: inherit; font-size: 13px; font-weight: 500; cursor: pointer; border-radius: 3px; padding: 7px 14px; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); transition: background var(--t), border-color var(--t); }
@@ -1054,6 +1069,8 @@
   </div>
   <div class="modal-body"><div id="helpBody"></div></div>
 </dialog>
+
+__HLJS_BUNDLE__
 
 __MERMAID_BUNDLE__
 
@@ -1922,9 +1939,36 @@ const inspector = document.getElementById('inspector')
 const nodeEls = {}, groupEls = {}, headEls = {}
 let activeId = null, hoverId = null
 
-function previewHTML(f) {
+// Syntax highlighting via the inlined highlight.js. Language comes from the file
+// extension (we know it), so no auto-detect. hl() returns safe HTML (hljs escapes the
+// text) with hljs-* spans the theme colours from palette tokens; it falls back to
+// plain escaped text if the bundle is absent, the language is unknown, or a line
+// won't parse — so a self-contained file with no hljs still reads, just uncoloured.
+const HLJS_LANG = {
+  ts: 'typescript', tsx: 'typescript', mts: 'typescript', cts: 'typescript',
+  js: 'javascript', jsx: 'javascript', mjs: 'javascript', cjs: 'javascript',
+  php: 'php', py: 'python', rb: 'ruby', go: 'go', rs: 'rust', java: 'java',
+  kt: 'kotlin', swift: 'swift', c: 'c', h: 'c', cpp: 'cpp', cc: 'cpp', hpp: 'cpp',
+  cs: 'csharp', sql: 'sql', css: 'css', scss: 'scss', less: 'less',
+  html: 'xml', xml: 'xml', vue: 'xml', svelte: 'xml', json: 'json',
+  yml: 'yaml', yaml: 'yaml', toml: 'ini', ini: 'ini', sh: 'bash', bash: 'bash',
+  zsh: 'bash', md: 'markdown', markdown: 'markdown', dockerfile: 'dockerfile',
+}
+function hlLang(path) {
+  if (/(^|\/)dockerfile$/i.test(String(path || ''))) return 'dockerfile'
+  const ext = String(path || '').split('.').pop().toLowerCase()
+  return HLJS_LANG[ext] || null
+}
+function hl(text, lang) {
+  const s = text == null ? '' : String(text)
+  if (!window.hljs || !lang) return esc(s)
+  try { return hljs.highlight(s, { language: lang, ignoreIllegals: true }).value } catch { return esc(s) }
+}
+
+function previewHTML(f, path) {
   if (!f.preview?.length) return ''
-  return `<div class="fprev">${f.preview.map(([c, t]) => `<span class="cl ${c}">${c === 'add' ? '+ ' : '− '}${esc(t)}</span>`).join('')}</div>`
+  const lang = hlLang(path)
+  return `<div class="fprev">${f.preview.map(([c, t]) => `<span class="cl ${c}">${c === 'add' ? '+ ' : '− '}${hl(t, lang)}</span>`).join('')}</div>`
 }
 
 for (const g of RM.groups) {
@@ -1987,7 +2031,7 @@ for (const g of RM.groups) {
     el.innerHTML = `<span class="node-top">${fileIconSVG(path)}<span class="fname">${fnameHTML(path)}</span>
       <span class="fstat"><span class="a">+${f.add}</span> <span class="d">−${f.del}</span></span></span>
       <span class="node-meta">${f.service ? `<span class="svc">${esc(f.service)}</span>` : ''}<span class="frole">${esc(f.role || '')}</span></span>
-      ${previewHTML(f)}${linksHTML}`
+      ${previewHTML(f, path)}${linksHTML}`
     // A chip click jumps to the linked file; let that (delegated) handler run instead
     // of opening this node.
     el.addEventListener('click', (e) => { if (e.target.closest('.nlink')) return; showFile(path) })
@@ -2129,7 +2173,8 @@ for (const [path, add, del, gid, isNew] of RM.manifest) {
 // ── inspector ────────────────────────────────────────────────────────────────
 function codeboxHTML(path, f) {
   if (!f.frag?.length) return ''
-  const lines = f.frag.map(([c, t]) => `<span class="cl ${c}">${c === 'add' ? '+ ' : c === 'del' ? '− ' : '  '}${esc(t)}</span>`).join('')
+  const lang = hlLang(path)
+  const lines = f.frag.map(([c, t]) => `<span class="cl ${c}">${c === 'add' ? '+ ' : c === 'del' ? '− ' : '  '}${hl(t, lang)}</span>`).join('')
   return `<div class="codebox"><div class="codebox-head"><span>${esc(path)}</span><span>${L.fragment}</span></div><pre>${lines}</pre></div>`
 }
 function relsHTML(path) {
@@ -2275,7 +2320,7 @@ function setActive(id) {
 const modal = document.getElementById('fileModal')
 function openFull(path) {
   document.getElementById('modalName').textContent = path
-  document.getElementById('modalCode').textContent = RM.fullFiles?.[path] || ''
+  document.getElementById('modalCode').innerHTML = hl(RM.fullFiles?.[path] || '', hlLang(path))
   modal.showModal()
 }
 document.getElementById('modalClose').addEventListener('click', () => modal.close())
@@ -2664,7 +2709,7 @@ if (SERVE?.token) (() => {
   const mdToHtml = (src) => {
     const fences = []
     let s = String(src == null ? '' : src).replace(/```([a-zA-Z0-9_+-]*)\n?([\s\S]*?)```/g, (_, lang, code) => {
-      fences.push(`<pre><code>${esc(code.replace(/\n$/, ''))}</code></pre>`)
+      fences.push(`<pre><code>${hl(code.replace(/\n$/, ''), lang ? (HLJS_LANG[lang.toLowerCase()] || lang) : null)}</code></pre>`)
       return `F${fences.length - 1}`
     })
     s = esc(s)

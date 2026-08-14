@@ -81,6 +81,21 @@ const diagramsHtml = diagrams.map(d => `
       `<button class="fchip" data-goto="${esc(p)}">${esc(p.split('/').slice(-2).join('/'))}</button>`).join('')}</div>` : ''}
   </div>`).join('\n')
 
+// Inline highlight.js (the prebuilt browser bundle) so the viewer can syntax-highlight
+// code — the full-file drill-down, the diff fragments, the card previews — with no
+// network. Colours come from palette tokens in the template, not from hljs, so the
+// highlight follows the palette and stays within the design system.
+let hljsBundle = ''
+{
+  const hljsPath = join(rootDir, 'node_modules', '@highlightjs', 'cdn-assets', 'highlight.min.js')
+  if (existsSync(hljsPath)) {
+    const src = readFileSync(hljsPath, 'utf8').replace(/<\/script/g, '<\\/script')
+    hljsBundle = '<script>\n' + src + '\n</script>'
+  } else {
+    console.warn('warning: highlight.js bundle not found (npm install @highlightjs/cdn-assets) — code will render unhighlighted')
+  }
+}
+
 let mermaidBundle = ''
 if (diagrams.length) {
   const mermaidPath = join(rootDir, 'node_modules', 'mermaid', 'dist', 'mermaid.min.js')
@@ -108,6 +123,7 @@ const html = template
   .replace('__WHYDIFF_VERSION__', () => esc(version))
   .replace('__DIAGRAMS_HTML__', () => diagramsHtml)
   .replace('__MERMAID_BUNDLE__', () => mermaidBundle)
+  .replace('__HLJS_BUNDLE__', () => hljsBundle)
   .replace('__REVIEW_MAP_JSON__', () => json)
 
 mkdirSync(dirname(resolve(out)), { recursive: true })
