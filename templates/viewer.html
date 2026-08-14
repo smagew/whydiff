@@ -231,9 +231,12 @@
      jumping. Stability wins: the grid is the SAME on every tab, so the reading
      column never changes width; a prose tab leaves the reserved area empty
      rather than growing into it. A chat claims the column on every tab. */
-  /* solo does NOT redefine the columns — it inherits .layout so the reading column
-     keeps its width and the responsive collapse still applies. It only hides the
-     idle right column, leaving that reserved area empty on a prose tab. */
+  /* solo (a non-Code-map tab, no ask panel): reclaim the aside's reserved column so the
+     reading column runs full width — a diagram fills it (prose stays capped at its
+     measure, so it looks the same). A file drill-down (revealAside) drops solo and the
+     aside slides back in, reflowing the column once; using the space beats keeping ~440px
+     permanently empty. (An open ask panel — .chatting.solo below — still claims a column.) */
+  .layout.solo { grid-template-columns: minmax(0, 1fr); }
   .layout.solo > .rightcol { display: none; }
   .layout.chatting { grid-template-columns: minmax(0, 1fr) minmax(430px, 0.92fr); }
   .layout.chatting.solo { grid-template-columns: minmax(0, 1fr) minmax(430px, 0.92fr); }
@@ -363,6 +366,12 @@
      with a pointer to say "click me". Together they make the diagram's two
      affordances legible without a word of instruction. */
   .diagram .mermaid-box { overflow-x: auto; background: var(--surface-2); border-radius: 3px; padding: 10px; position: relative; cursor: crosshair; }
+  /* Centre the diagram and let it use the row. mermaid caps the SVG at its natural
+     width, so a small one sits left with the row empty; fitDiagrams() (JS) sets a
+     width that grows it toward the row but caps the upscale so a tiny diagram doesn't
+     balloon, and a wide one just fits. max-width/height here keep it uniform and
+     bounded; !important beats mermaid's inline style. */
+  .diagram .mermaid-box svg { display: block; margin: 0 auto; height: auto !important; max-width: 100% !important; }
   .mermaid-box svg .node, .mermaid-box svg .er.entityBox, .mermaid-box svg g[id^="entity-"] { cursor: pointer; }
   /* Drag-select rectangle for asking about a region of a diagram. */
   .dg-select { position: absolute; z-index: 5; pointer-events: none; border: 1.5px dashed var(--accent);
@@ -1609,8 +1618,9 @@ tabsEl.appendChild(helpBtn)
 const ASIDE_TABS = new Set(['files'])
 const layoutEl = document.querySelector('.layout')
 let currentTab = defaultTab
-const applyAside = (id) => layoutEl.classList.toggle('solo', !ASIDE_TABS.has(id))
-const revealAside = () => layoutEl.classList.remove('solo')
+// Toggling the aside changes the reading column's width, so refit the diagrams to it.
+const applyAside = (id) => { layoutEl.classList.toggle('solo', !ASIDE_TABS.has(id)); requestAnimationFrame(fitDiagrams) }
+const revealAside = () => { layoutEl.classList.remove('solo'); requestAnimationFrame(fitDiagrams) }
 
 let diagramsRendered = false
 function setTab(id) {
@@ -1698,8 +1708,30 @@ async function runDiagrams() {
       if (box) renderBrokenDiagram(box, src)
     }
   }
-  if (good.length) mermaid.run({ nodes: good })
+  if (good.length) { try { await mermaid.run({ nodes: good }) } catch {} }
+  fitDiagrams()
 }
+
+// Grow each diagram toward the width of its row so it reads more comfortably, but cap
+// the upscale (×1.6) so a tiny diagram doesn't balloon; a diagram wider than the row
+// just fits to it. Re-run after a resize, and redraw the annotation marks because the
+// SVG changed size (badges are placed from live rects).
+const DIAGRAM_MAX_SCALE = 1.6
+function fitDiagrams() {
+  const pane = document.getElementById('pane-diagrams')
+  if (!pane) return
+  for (const box of pane.querySelectorAll('.mermaid-box')) {
+    const svg = box.querySelector('svg')
+    if (!svg) continue
+    const natural = svg.viewBox?.baseVal?.width || 0
+    const avail = box.clientWidth - 20 // minus the box padding
+    if (!natural || avail <= 0) { svg.style.width = ''; continue }
+    svg.style.width = Math.round(Math.min(avail, natural * DIAGRAM_MAX_SCALE)) + 'px'
+  }
+  requestAnimationFrame(() => { try { drawDiagramMarks() } catch {} })
+}
+let fitRAF = 0
+window.addEventListener('resize', () => { cancelAnimationFrame(fitRAF); fitRAF = requestAnimationFrame(fitDiagrams) })
 
 // ── story ────────────────────────────────────────────────────────────────────
 const storyEl = document.getElementById('story')

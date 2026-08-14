@@ -4,6 +4,16 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.24.1] — 2026-08-14
+
+### Changed
+- **Diagrams use the whole row.** They sat left at natural size with the aside's
+  column reserved-but-empty beside them, wasting the width. Now every non-Code-map tab
+  runs the reading column full width (the aside reclaims its space and slides back in
+  only for a file drill-down), and each diagram grows toward that width — centred, the
+  upscale capped at 1.6× so a small diagram doesn't balloon, and a wide one just fits.
+  Re-fits on resize and when the aside opens.
+
 ## [0.24.0] — 2026-08-14
 
 ### Added
