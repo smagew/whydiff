@@ -63,7 +63,7 @@ app.whenReady().then(() => {
   // renderer show a banner. Only in a packaged build — in dev app.getVersion() is the
   // source package.json and every release looks newer. No auto-install (see updates.mjs).
   ipcMain.handle('app:version', () => app.getVersion())
-  ipcMain.handle('updates:check', () => (app.isPackaged ? checkForUpdate({ currentVersion: app.getVersion() }) : null))
+  ipcMain.handle('updates:check', () => (app.isPackaged ? checkForUpdate({ currentVersion: app.getVersion(), platform: process.platform, arch: process.arch }) : null))
   ipcMain.handle('updates:open', (_e, url) => {
     // Only ever open this repo's own release pages — never an arbitrary URL.
     if (/^https:\/\/github\.com\/smagew\/whydiff\/releases\//.test(String(url || ''))) shell.openExternal(String(url))
