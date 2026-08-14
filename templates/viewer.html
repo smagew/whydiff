@@ -398,9 +398,11 @@
      note glyph. Clickable — opens that place's thread. */
   .dg-badges { position: absolute; z-index: 6; display: inline-flex; gap: 3px; }
   .dg-badge { width: 20px; height: 20px; display: grid; place-items: center; padding: 0; cursor: pointer;
-    border: 1px solid var(--line); border-radius: 4px; background: var(--surface); color: var(--ink-2);
+    border: 1px solid var(--line); border-radius: 4px; background: var(--surface); color: var(--accent);
     transition: border-color var(--t), color var(--t); }
-  .dg-badge:hover { border-color: var(--accent); color: var(--accent); }
+  /* The glyph is always the accent colour so an annotated place is visible at a glance;
+     hovering the badge highlights its border. */
+  .dg-badge:hover { border-color: var(--accent); }
   .dg-badge:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .dg-badge svg { width: 13px; height: 13px; }
   pre.mermaid { margin: 0; text-align: center; }
@@ -2516,8 +2518,13 @@ rcGrip.addEventListener('pointerdown', (e) => {
     const w = Math.min(max, Math.max(min, Math.round(rect.right - ev.clientX)))
     layoutEl.classList.remove('wide')       // an explicit drag overrides the default
     layoutEl.style.setProperty('--rc', w + 'px')
-    if (!raf && !document.getElementById('pane-files').hidden) {
-      raf = true; requestAnimationFrame(() => { raf = false; drawEdges() })
+    if (!raf) {
+      raf = true
+      requestAnimationFrame(() => {
+        raf = false
+        if (!document.getElementById('pane-files').hidden) drawEdges()
+        fitDiagrams() // the reading column changed width → refit the diagram and redraw
+      })                //           its annotation marks (badges/frames) to the new size
     }
   }
   const onUp = () => {
@@ -2527,6 +2534,7 @@ rcGrip.addEventListener('pointerdown', (e) => {
     const w = parseInt(layoutEl.style.getPropertyValue('--rc'), 10)
     if (w) SESSION.set('asideW', w)
     if (!document.getElementById('pane-files').hidden) requestAnimationFrame(drawEdges)
+    requestAnimationFrame(fitDiagrams)
   }
   rcGrip.addEventListener('pointermove', onMove)
   rcGrip.addEventListener('pointerup', onUp)
