@@ -41,6 +41,7 @@ await page.waitForTimeout(700)
 
 // ── a block click opens the panel for that block, not the file drill-down ─────
 const node = page.locator('#pane-diagrams .clickable').first()
+await node.scrollIntoViewIfNeeded() // diagrams fill the width now, so a node can sit below the fold
 const nb = await node.boundingBox()
 await page.mouse.click(nb.x + nb.width / 2, nb.y + nb.height / 2)
 await page.waitForTimeout(300)
@@ -67,10 +68,16 @@ await page.waitForTimeout(300)
 ok(await page.locator('.askpanel.on').count(), 'clicking a block badge did not open its thread')
 
 // ── a dragged region opens a region anchor; a note draws a frame + badge ──────
-const box = await page.locator('#pane-diagrams .mermaid-box').first().boundingBox()
+const boxLoc = page.locator('#pane-diagrams .mermaid-box').first()
+await boxLoc.evaluate((el) => el.scrollIntoView({ block: 'start' })) // put the box top near the viewport top
+await page.waitForTimeout(100)
+const box = await boxLoc.boundingBox()
+const vh = page.viewportSize().height
+// Drag a rectangle over the top of the diagram, clamped to the viewport (the diagram
+// can be taller than the screen now that it fills the width).
 await page.mouse.move(box.x + 8, box.y + 8)
 await page.mouse.down()
-await page.mouse.move(box.x + box.width - 8, box.y + box.height / 2, { steps: 8 })
+await page.mouse.move(box.x + box.width - 8, Math.min(box.y + box.height - 8, vh - 8), { steps: 8 })
 await page.mouse.up()
 await page.waitForTimeout(300)
 ok(await page.locator('.askpanel.on').count(), 'dragging a region did not open the ask panel')
