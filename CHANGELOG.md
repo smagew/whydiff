@@ -4,6 +4,17 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.25.4] — 2026-08-14
+
+### Fixed
+- **The "Syntax error" bomb can't slip through any longer.** The 0.23.0 fallback
+  validated with `mermaid.parse`, but a diagram can pass parse and still fail to
+  render — and `mermaid.run` then injects its bomb graphic in place without throwing,
+  so the guard missed it. Each diagram now renders on its own and both failure modes
+  are caught — an exception, or the bomb detected after the run (by its own "mermaid
+  version" text) — and swapped for the readable fallback. Rendering per-diagram also
+  means one bad diagram no longer aborts the render of the good ones beside it.
+
 ## [0.25.3] — 2026-08-14
 
 ### Fixed

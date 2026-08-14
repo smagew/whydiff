@@ -48,12 +48,13 @@ if ((await page.locator('.dg-broken-copy').count()) !== 1) fail('the fallback ha
 if ((await page.locator('.dg-broken-src pre').count()) !== 1) fail('the fallback did not carry the diagram source')
 if ((await page.locator('.dg-broken-regen').count()) !== 0) fail('a standalone file must not offer Regenerate (served-only)')
 
-// mermaid's "Syntax error" bomb must be gone, and the valid diagrams must still be there.
+// mermaid's error graphic (bomb) must be gone — neither its "Syntax error" heading
+// nor its "mermaid version" line (which the post-run check keys on) may reach the page.
 const bodyText = await page.locator('body').innerText()
-if (/Syntax error/i.test(bodyText)) fail('mermaid\'s "Syntax error" graphic reached the page')
+if (/Syntax error|mermaid version/i.test(bodyText)) fail('mermaid\'s "Syntax error" graphic reached the page')
 const svgs = await page.locator('#pane-diagrams .mermaid-box:not(.broken) svg').count()
 if (svgs < validCount) fail(`valid diagrams did not render alongside the broken one (${svgs} < ${validCount})`)
 
 if (errors.length) fail(`page errors: ${errors.join(' | ')}`)
 await browser.close()
-console.log(`OK: diagram fallback (invalid diagram shows Copy + source, no "Syntax error" bomb, ${svgs} valid diagram(s) still rendered, Regenerate absent in a standalone file)`)
+console.log(`OK: diagram fallback (invalid diagram shows Copy + source, no "Syntax error"/"mermaid version" bomb, ${svgs} valid diagram(s) still rendered, Regenerate absent in a standalone file)`)
