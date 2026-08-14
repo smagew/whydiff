@@ -1714,25 +1714,30 @@ async function runDiagrams() {
   const pres = [...document.querySelectorAll('#pane-diagrams pre.mermaid')]
   if (!pres.length) return
   mermaid.initialize(mermaidTheme())
-  // Validate each diagram before rendering. An invalid one (the generator can emit
-  // bad mermaid) would otherwise make mermaid inject its "Syntax error" graphic into
-  // the page; instead we show a readable fallback and render only what parses.
-  const good = []
+  // Render each diagram on its own so a bad one (the generator can emit bad mermaid)
+  // can't take the others down, and never shows mermaid's "Syntax error" bomb: we
+  // validate (parse), then run just this diagram, catching BOTH ways it can fail — an
+  // exception, or the bomb graphic injected in place (parse can pass where render
+  // fails). Any failure becomes the readable fallback instead.
   for (const n of pres) {
     const src = n.dataset.src ?? n.textContent
     n.dataset.src = src
+    const box = n.closest('.mermaid-box')
     let ok = true
     try { ok = await mermaid.parse(src, { suppressErrors: true }) } catch { ok = false }
-    if (ok) {
-      n.textContent = src
-      n.removeAttribute('data-processed')
-      good.push(n)
-    } else {
-      const box = n.closest('.mermaid-box')
+    if (!ok) { if (box) renderBrokenDiagram(box, src); continue }
+    n.textContent = src
+    n.removeAttribute('data-processed')
+    try {
+      await mermaid.run({ nodes: [n] })
+      const svg = box?.querySelector('svg')
+      const bombed = svg && (svg.querySelector('.error-icon, .error-text') || /mermaid version/i.test(svg.textContent || ''))
+      if (bombed) { if (box) renderBrokenDiagram(box, src) }
+      else box?.classList.remove('broken')
+    } catch {
       if (box) renderBrokenDiagram(box, src)
     }
   }
-  if (good.length) { try { await mermaid.run({ nodes: good }) } catch {} }
   fitDiagrams()
 }
 
