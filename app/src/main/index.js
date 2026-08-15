@@ -5,7 +5,7 @@ import { openStore, repoNameFromUrl } from './store.mjs'
 import { openSettings } from './settings.mjs'
 import { gitState, rangeForCommit, clone, fetchPrRange } from './git.mjs'
 import { fetchPRs, parseRepo } from './github.mjs'
-import { runAnalysis, serveMap } from './whydiff.mjs'
+import { runAnalysis, serveMap, reviewCounts } from './whydiff.mjs'
 import { checkForUpdate } from './updates.mjs'
 import { resolvedPath } from './pathenv.mjs'
 
@@ -169,10 +169,13 @@ app.whenReady().then(() => {
   })
 
   // ── Phase 4: the analyses index ─────────────────────────────────────────────
-  ipcMain.handle('analyses:forProject', (_e, projectId) => store.listAnalyses({ projectId }))
+  // Each analysis carries its review counts (notes + discussions from the journal beside
+  // its map) so the lists can show how much conversation a report holds without opening it.
+  const withCounts = (a) => reviewCounts(join(analysesDir, String(a.id))).then((counts) => ({ ...a, counts }))
+  ipcMain.handle('analyses:forProject', (_e, projectId) => Promise.all(store.listAnalyses({ projectId }).map(withCounts)))
   // Latest across everything, each tagged with its project's name for the home list.
   ipcMain.handle('analyses:latest', (_e, limit = 8) => {
-    return store.listAnalyses({ limit }).map(a => ({ ...a, projectName: store.getProject(a.projectId)?.name || '?' }))
+    return Promise.all(store.listAnalyses({ limit }).map(a => withCounts(a).then(x => ({ ...x, projectName: store.getProject(a.projectId)?.name || '?' }))))
   })
   ipcMain.handle('analysis:open', async (_e, id, opts) => { await openAnalysisWindow(id, opts || {}); return true })
   ipcMain.handle('analysis:remove', (_e, id) => {

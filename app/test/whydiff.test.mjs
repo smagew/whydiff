@@ -3,7 +3,7 @@
 import { mkdtempSync, writeFileSync, existsSync, readFileSync, chmodSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { runAnalysis, serveMap } from '../src/main/whydiff.mjs'
+import { runAnalysis, serveMap, reviewCounts } from '../src/main/whydiff.mjs'
 
 const fail = (m) => { console.error(`FAIL: ${m}`); process.exit(1) }
 const ok = (c, m) => { if (!c) fail(m) }
@@ -89,4 +89,25 @@ const s3 = await serveMap(repo, res.mapPath, { serveScript: serveArgs })
 ok(!JSON.parse(readFileSync(argsFile, 'utf8')).includes('--work'), 'serveMap should NOT pass --work by default')
 s3.stop()
 
-console.log('OK: whydiff bridge (runAnalysis streams progress + returns the map path + rejects on failure; serveMap surfaces the localhost URL and a stop(); --work is opt-in)')
+// reviewCounts folds a review journal (via the plugin's own projection) into the
+// list badges: pinned notes, distinct question/task threads, and how many still block.
+const jdir = mkdtempSync(join(tmpdir(), 'wd-journal-'))
+ok(JSON.stringify(await reviewCounts(jdir)) === JSON.stringify({ notes: 0, discussions: 0, blocking: 0 }), 'a dir with no journal should count zero')
+
+const ev = (o) => JSON.stringify({ at: '2026-08-15T00:00:00Z', by: 'ag', ...o })
+writeFileSync(join(jdir, 'review.log.jsonl'), [
+  ev({ type: 'note.added', noteId: 'n1', kind: 'question', anchor: { kind: 'file', key: 'a.js' }, text: 'why here?' }),
+  ev({ type: 'note.added', noteId: 'n2', kind: 'note', anchor: { kind: 'file', key: 'b.js' }, text: 'a plain remark' }),
+  ev({ type: 'task.opened', taskId: 't1', anchor: { kind: 'file', key: 'c.js' }, state: 'open', origin: 'instruction', spec: 'do', acceptance: { kind: 'manual', what: 'x' } }),
+  ev({ type: 'note.added', noteId: 'n3', kind: 'answer', replyTo: 'n1', anchor: { kind: 'file', key: 'a.js' }, text: 'because…' }),
+].join('\n') + '\n')
+
+const c = await reviewCounts(jdir)
+// notes = pinned remarks (kind 'note') only; the question and answer are not "notes".
+ok(c.notes === 1, `expected 1 pinned note, got ${c.notes}`)
+// discussions = distinct threads carrying a question or a task: a.js (Q) + c.js (task).
+ok(c.discussions === 2, `expected 2 discussion threads, got ${c.discussions}`)
+// blocking = the open task; the question was answered so it no longer blocks.
+ok(c.blocking === 1, `expected 1 blocking (open task; question answered), got ${c.blocking}`)
+
+console.log('OK: whydiff bridge (runAnalysis streams progress + returns the map path + rejects on failure; serveMap surfaces the localhost URL and a stop(); --work is opt-in; reviewCounts folds notes/discussions/blocking from the journal)')
