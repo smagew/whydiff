@@ -76,6 +76,18 @@ body {
 }
 .x:hover { color: var(--err); background: rgba(247, 118, 142, 0.12); }
 
+/* Review-activity pills on a saved analysis: discussions + pinned notes. */
+.rvcounts { flex: none; display: flex; align-items: center; gap: 6px; }
+.rvc {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 12px; color: var(--ink-2); background: var(--panel-2);
+  border: 1px solid var(--line); border-radius: 5px; padding: 2px 7px;
+  font-variant-numeric: tabular-nums;
+}
+.rvc-i { width: 13px; height: 13px; flex: none; }
+/* Some of the discussions still need attention (unanswered / open work). */
+.rvc.attn { color: var(--accent); background: var(--accent-bg); border-color: transparent; }
+
 /* ── Phase 3: project view ───────────────────────────────────────────────── */
 .row-btn { width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer; }
 .row-btn:hover { border-color: var(--accent); }

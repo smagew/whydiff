@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { ReviewCounts } from './ProjectList.jsx'
 
 const refLabel = (a) => a.kind === 'working' ? 'working tree' : a.kind === 'pr' ? a.ref.replace(/^pr:/, 'PR #') : (a.ref || '').slice(0, 8)
 
@@ -230,6 +231,7 @@ export default function ProjectView({ project, onBack }) {
                       <div className="name">{a.title || refLabel(a)}</div>
                       <div className="loc">{refLabel(a)} · {a.created_at.slice(0, 16).replace('T', ' ')}</div>
                     </div>
+                    <ReviewCounts counts={a.counts} />
                     <button className="btn" disabled={analyzing} onClick={() => open(a.id)}>View</button>
                     <button className="btn ghost" disabled={analyzing} title="Regenerate this analysis in place (runs the model again)" onClick={() => rerun(a)}>Re-run</button>
                     <span className="x" title="Remove" onClick={() => drop(a.id)}>✕</span>

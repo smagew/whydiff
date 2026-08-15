@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process'
 import { join, resolve, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 // The bridge to whydiff's own scripts — the runner (produces the map) and the server
 // (renders it). The app drives them as child processes and reuses their output, so
@@ -71,4 +71,38 @@ export function serveMap(repo, mapPath, { serveScript, node = 'node', env, port,
     child.on('error', (e) => { if (!done) { clearTimeout(t); reject(new Error(`could not start the map server: ${e.message}`)) } })
     child.on('close', (code) => { if (!done) { clearTimeout(t); reject(new Error(`the map server exited (${code}) before it was ready${err ? `: ${err.trim().split('\n').pop()}` : ''}`)) } })
   })
+}
+
+// The plugin's review projection (scripts/review.mjs), imported lazily and once. It is
+// import-safe — its CLI is guarded — and only uses node builtins, so it loads cleanly
+// as an external ESM module in both dev and a packaged build.
+let _reviewMod
+async function reviewModule() {
+  if (!_reviewMod) {
+    const url = pathToFileURL(join(pluginDir(), 'scripts', 'review.mjs')).href
+    _reviewMod = await import(/* @vite-ignore */ url)
+  }
+  return _reviewMod
+}
+
+/**
+ * How much discussion a saved analysis carries, read from its review journal
+ * (review.log.jsonl beside the map). Returns { notes, discussions, blocking } — pinned
+ * remarks, distinct question/task threads, and how many of those still need attention
+ * (unanswered questions + open or in-progress tasks). Null if the journal can't be read;
+ * all-zero when there is none yet. Reuses the viewer's own projection so the numbers
+ * match the map's Tasks tab exactly.
+ */
+export async function reviewCounts(dir) {
+  try {
+    const { readReview } = await reviewModule()
+    const { state } = readReview(dir)
+    const noteOf = new Map(state.notes.map((n) => [n.noteId, n]))
+    const notes = state.notes.filter((n) => n.kind === 'note').length
+    const discussions = Object.values(state.threads).filter((t) =>
+      t.taskIds.length > 0 || t.noteIds.some((id) => noteOf.get(id)?.kind === 'question')).length
+    return { notes, discussions, blocking: state.counts.blocking }
+  } catch {
+    return null
+  }
 }

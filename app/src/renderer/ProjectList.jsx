@@ -3,6 +3,41 @@ import React, { useEffect, useState } from 'react'
 // The project list: add a local folder or a GitHub URL, and open one to review it.
 const refLabel = (a) => a.kind === 'working' ? 'working tree' : a.kind === 'pr' ? a.ref.replace(/^pr:/, 'PR #') : (a.ref || '').slice(0, 8)
 
+// The same two glyphs the map's diagram badges use (CHAT_ICON / NOTE_ICON in
+// templates/viewer.html), so a report shows one visual language everywhere. They stroke
+// in currentColor, inheriting the pill's colour (accent when something needs attention).
+const ChatIcon = () => (
+  <svg className="rvc-i" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+  </svg>
+)
+const NoteIcon = () => (
+  <svg className="rvc-i" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4z" />
+  </svg>
+)
+
+// Review activity a saved analysis carries — discussions (questions/tasks) and pinned
+// notes, from its journal. The discussions pill flags when some still need attention.
+export function ReviewCounts({ counts }) {
+  if (!counts || (!counts.discussions && !counts.notes)) return null
+  return (
+    <span className="rvcounts">
+      {counts.discussions > 0 && (
+        <span className={`rvc ${counts.blocking > 0 ? 'attn' : ''}`}
+          title={`${counts.discussions} discussion${counts.discussions === 1 ? '' : 's'}${counts.blocking ? ` · ${counts.blocking} still need${counts.blocking === 1 ? 's' : ''} attention` : ''}`}>
+          <ChatIcon />{counts.discussions}
+        </span>
+      )}
+      {counts.notes > 0 && (
+        <span className="rvc" title={`${counts.notes} note${counts.notes === 1 ? '' : 's'}`}>
+          <NoteIcon />{counts.notes}
+        </span>
+      )}
+    </span>
+  )
+}
+
 export default function ProjectList({ onOpen }) {
   const [projects, setProjects] = useState([])
   const [latest, setLatest] = useState([])
@@ -146,6 +181,7 @@ export default function ProjectList({ onOpen }) {
                   <div className="name">{a.projectName}</div>
                   <div className="loc">{a.title || refLabel(a)} · {a.created_at.slice(0, 16).replace('T', ' ')}</div>
                 </div>
+                <ReviewCounts counts={a.counts} />
                 <button className="btn" onClick={() => openAnalysis(a.id)}>View</button>
               </div>
             ))}
