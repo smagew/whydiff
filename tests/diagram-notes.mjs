@@ -78,10 +78,11 @@ await page.waitForTimeout(300)
 ok(await page.locator('.askpanel.on').count(), 'clicking a block badge did not open its thread')
 
 // ── a dragged region opens a region anchor; its frame lands on the dragged area ──
-// Correctness is checked by IDENTITY, not pixels: the set of nodes/actors the frame
-// overlaps must equal the set the drag covered — before and after a reload. This is
-// invariant to the diagram's scale, centring and scroll, all of which change when the
-// ask panel opens and refits the diagram (a pixel/fraction check missed exactly that).
+// Correctness is checked by which nodes the frame COVERS, not by pixels: the frame must
+// cover every node the drag covered — before and after a reload — which is invariant to
+// the diagram's scale, centring and scroll (all of which change when the ask panel opens
+// and refits the diagram; a pixel/fraction check missed exactly that). It is coverage, not
+// exact equality, because the frame's small pad may also catch a close neighbour.
 // The set of DISTINCT element labels a viewport rect overlaps (deduped: a sequence
 // participant has both a top and a bottom `.actor` box, so a tall frame hits each twice).
 const overlap = (sel, x1, y1, x2, y2) => page.evaluate(([sel, x1, y1, x2, y2]) =>
@@ -91,8 +92,12 @@ const overlap = (sel, x1, y1, x2, y2) => page.evaluate(([sel, x1, y1, x2, y2]) =
 // earlier diagram (from a prior region()) would be picked up instead.
 const frameActors = async (dgIndex, sel) => { const f = await page.locator(`#pane-diagrams .diagram[data-anchor="diagram:${dgIndex}"] .dg-region`).first().boundingBox(); return overlap(sel, f.x, f.y, f.x + f.width, f.y + f.height) }
 
-// Drag over a diagram, note it, and assert the frame overlaps the same elements as the
-// drag — immediately, and again after a reload (redrawn from the journal).
+// Drag over a diagram, note it, and assert the frame COVERS the elements the drag covered
+// — immediately, and again after a reload (redrawn from the journal). Coverage (superset),
+// not exact equality: the frame carries a small pad, so it may also catch a neighbour that
+// sits within a few px of the dragged rectangle — legitimate, and layout/DPI dependent. The
+// invariant that matters (and that catches a mis-placed or collapsed frame) is that every
+// dragged node is inside the frame, and that the frame has not ballooned to the whole diagram.
 const region = async (dgIndex, sel, label) => {
   const boxLoc = page.locator('#pane-diagrams .diagram').nth(dgIndex).locator('.mermaid-box')
   await boxLoc.evaluate((el) => el.scrollIntoView({ block: 'start' }))
@@ -101,7 +106,14 @@ const region = async (dgIndex, sel, label) => {
   const vh = page.viewportSize().height
   const drag = { x1: box.x + box.width * 0.28, y1: box.y + 24, x2: box.x + box.width * 0.72, y2: Math.min(box.y + box.height - 12, vh - 12) }
   const draggedOver = await overlap(sel, drag.x1, drag.y1, drag.x2, drag.y2)
+  const allNodes = await overlap(sel, -1e6, -1e6, 1e6, 1e6) // every node in this diagram
   ok(draggedOver.length > 0, `[${label}] test setup: the drag covered no ${sel} to compare against`)
+  ok(draggedOver.length < allNodes.length, `[${label}] test setup: the drag should cover only part of the diagram, not all ${allNodes.length} nodes`)
+  const covers = (frame, when) => {
+    const missing = draggedOver.filter((n) => !frame.includes(n))
+    ok(missing.length === 0, `[${label}] ${when}: the frame missed ${JSON.stringify(missing)} the drag covered (frame: ${JSON.stringify(frame)})`)
+    ok(frame.length < allNodes.length, `[${label}] ${when}: the frame ballooned to the whole diagram (${JSON.stringify(frame)})`)
+  }
   await page.mouse.move(drag.x1, drag.y1); await page.mouse.down(); await page.mouse.move(drag.x2, drag.y2, { steps: 8 }); await page.mouse.up()
   await page.waitForTimeout(300)
   ok(await page.locator('.askpanel.on').count(), `[${label}] dragging a region did not open the ask panel`)
@@ -112,16 +124,14 @@ const region = async (dgIndex, sel, label) => {
   await page.waitForFunction(() => document.querySelector('#pane-diagrams .dg-region'), null, { timeout: 10000 })
     .catch(() => fail(`[${label}] a note on a region did not draw its frame`))
   await page.waitForTimeout(900) // let the panel-open refit + redraws settle before measuring
-  const now = await frameActors(dgIndex, sel)
-  ok(JSON.stringify(now) === JSON.stringify(draggedOver), `[${label}] the frame overlaps ${JSON.stringify(now)} but the drag covered ${JSON.stringify(draggedOver)}`)
+  covers(await frameActors(dgIndex, sel), 'after note')
   await page.reload()
   await page.locator('#tabs .tab[data-pane="diagrams"]').click()
   await page.waitForSelector('#pane-diagrams svg', { timeout: 15000 })
   await page.waitForFunction(() => document.querySelector('#pane-diagrams .dg-region'), null, { timeout: 10000 })
     .catch(() => fail(`[${label}] the region frame did not survive a reload`))
   await page.waitForTimeout(300)
-  const after = await frameActors(dgIndex, sel)
-  ok(JSON.stringify(after) === JSON.stringify(draggedOver), `[${label}] after reload the frame overlaps ${JSON.stringify(after)} but the drag covered ${JSON.stringify(draggedOver)}`)
+  covers(await frameActors(dgIndex, sel), 'after reload')
 }
 
 await region(0, '#pane-diagrams .diagram[data-anchor="diagram:0"] svg .node', 'flowchart')  // flowchart nodes
@@ -130,4 +140,4 @@ await region(2, '#pane-diagrams .diagram[data-anchor="diagram:2"] svg .actor', '
 if (errors.length) fail('page errors:\n' + errors.join('\n'))
 await browser.close()
 proc.kill('SIGKILL')
-console.log('OK: diagram annotations (block click opens the panel not the file; a note pins a badge that survives reload; a region opens without hijacking text; its frame overlaps the same elements it covered — on a flowchart AND a wide sequence diagram — and survives a reload)')
+console.log('OK: diagram annotations (block click opens the panel not the file; a note pins a badge that survives reload; a region opens without hijacking text; its frame covers the elements it was dragged over — on a flowchart AND a wide sequence diagram — and survives a reload)')
