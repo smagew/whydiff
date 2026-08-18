@@ -817,18 +817,18 @@
   .lazy-steps { font-family: var(--mono); font-size: 13px; color: var(--ink-3); margin-top: 10px; }
   .lazy-err { color: var(--flag); font-size: 13px; margin-top: 10px; }
   /* Live progress while a lazy section or a diagram is (re)generated. One open-ended
-     agent does the work, so there is no honest percentage — an indeterminate bar that
-     shows it is alive, the current step, and elapsed seconds, never a faked %. */
+     agent does the work, so the fill is an APPROXIMATE estimate (elapsed time + the
+     read→write transition, set in JS), not an exact %. A determinate bar that actually
+     advances — plus the current step and elapsed seconds. */
   .genprog { margin-top: 10px; }
   .genbar { height: 4px; border-radius: 3px; background: var(--surface-2); overflow: hidden; }
-  .genbar > span { display: block; height: 100%; width: 38%; border-radius: 3px; background: var(--accent);
-    animation: genslide 1.15s ease-in-out infinite; }
-  @keyframes genslide { 0% { transform: translateX(-110%) } 100% { transform: translateX(360%) } }
+  .genbar > span { display: block; height: 100%; width: 2%; border-radius: 3px; background: var(--accent);
+    transition: width .2s linear; }
   .genline { display: flex; justify-content: space-between; gap: 12px; margin-top: 7px;
     font-family: var(--mono); font-size: 13px; color: var(--ink-3); }
   .genstep { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .gentime { flex: none; font-variant-numeric: tabular-nums; }
-  @media (prefers-reduced-motion: reduce) { .genbar > span { animation: none; width: 100% } }
+  @media (prefers-reduced-motion: reduce) { .genbar > span { transition: none } }
   /* Fallback shown in place of an unrenderable diagram (invalid generated source). */
   .mermaid-box.broken { cursor: default; }
   .dg-broken { max-width: 62ch; padding: 8px 0; }
@@ -1825,22 +1825,35 @@ function lazyPane(section) {
       : `<p class="lazy-static">${esc(L.generateStatic)}</p>`}
   </div>`
 }
-// A live progress view for a generate / regenerate stream: an indeterminate bar (the
-// pass is one open-ended agent, so no honest percentage), the current step, and elapsed
-// seconds. Returns { step, stop }; callers reload on done, so stop() is only the error
-// path — it clears the timer and empties the bar. Function declaration: hoisted past the
-// TDZ so generate()/regenerateDiagrams() below can call it.
+// A live progress view for a generate / regenerate stream: an APPROXIMATE progress bar,
+// the current step, and elapsed seconds. The pass is one open-ended agent, so there is no
+// exact percentage — but two real signals make a fair estimate: elapsed time, and the
+// moment the agent stops reading files and starts writing its answer (the server sends a
+// `writing` phase then). The bar eases toward a cap while reading, then toward ~97% once
+// writing, and the caller completes it by reloading on `done`. It never fabricates 100%.
+// Returns { step, writing, done, stop }; function declaration so generate()/
+// regenerateDiagrams() below (which call it) are hoisted past the TDZ.
 function startGenProgress(el) {
-  if (!el) return { step() {}, stop() {} }
+  if (!el) return { step() {}, writing() {}, done() {}, stop() {} }
   el.hidden = false
   el.innerHTML = '<div class="genprog"><div class="genbar"><span></span></div>'
     + '<div class="genline"><span class="genstep"></span><span class="gentime">0s</span></div></div>'
-  const stepEl = el.querySelector('.genstep'), timeEl = el.querySelector('.gentime')
+  const barEl = el.querySelector('.genbar > span'), stepEl = el.querySelector('.genstep'), timeEl = el.querySelector('.gentime')
   const t0 = Date.now()
-  const paint = () => { timeEl.textContent = `${Math.round((Date.now() - t0) / 1000)}s` }
-  const timer = setInterval(paint, 1000)
+  let phase = 'reading', writeAt = 0, p = 0.04, ended = false
+  const tick = () => {
+    const now = Date.now(), elapsed = (now - t0) / 1000
+    timeEl.textContent = `${Math.round(elapsed)}s`
+    if (ended) { p = 1 }
+    else if (phase === 'reading') p = Math.max(p, 0.04 + 0.66 * (1 - Math.exp(-elapsed / 20)))  // creep from the start toward ~70% while it reads
+    else p = Math.max(p, 0.76 + 0.21 * (1 - Math.exp(-(now - writeAt) / 9000)))                  // then toward ~97% while it writes
+    barEl.style.width = (Math.min(p, ended ? 1 : 0.985) * 100).toFixed(1) + '%'
+  }
+  const timer = setInterval(tick, 200); tick()
   return {
     step(text) { if (text) stepEl.textContent = text },
+    writing() { if (phase === 'reading') { phase = 'writing'; writeAt = Date.now() } },
+    done() { ended = true; tick() },
     stop() { clearInterval(timer); el.innerHTML = ''; el.hidden = true },
   }
 }
@@ -1870,11 +1883,12 @@ async function generate(section, btn) {
         if (!ln.trim()) continue
         let ev; try { ev = JSON.parse(ln) } catch { continue }
         if (ev.kind === 'step') prog.step(ev.text)
+        else if (ev.kind === 'phase' && ev.phase === 'writing') prog.writing()
         else if (ev.kind === 'error') throw new Error(ev.error)
-        else if (ev.kind === 'done') { SESSION.set('flashTab', section); return location.reload() }
+        else if (ev.kind === 'done') { prog.done(); SESSION.set('flashTab', section); return location.reload() }
       }
     }
-    SESSION.set('flashTab', section); location.reload()
+    prog.done(); SESSION.set('flashTab', section); location.reload()
   } catch (e) {
     btn.disabled = false; btn.textContent = L.generate
     prog.stop()
@@ -1925,11 +1939,12 @@ async function regenerateDiagrams(btn) {
         if (!ln.trim()) continue
         let ev; try { ev = JSON.parse(ln) } catch { continue }
         if (ev.kind === 'step') prog.step(ev.text)
+        else if (ev.kind === 'phase' && ev.phase === 'writing') prog.writing()
         else if (ev.kind === 'error') throw new Error(ev.error)
-        else if (ev.kind === 'done') { SESSION.set('flashTab', 'diagrams'); return location.reload() }
+        else if (ev.kind === 'done') { prog.done(); SESSION.set('flashTab', 'diagrams'); return location.reload() }
       }
     }
-    SESSION.set('flashTab', 'diagrams'); location.reload()
+    prog.done(); SESSION.set('flashTab', 'diagrams'); location.reload()
   } catch (e) {
     btn.disabled = false; btn.textContent = L.dgBrokenRegen
     prog.stop()

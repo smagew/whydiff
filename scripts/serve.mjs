@@ -701,7 +701,14 @@ const generateSection = async (res, payload) => {
   inFlight++
   process.stdout.write(`  + generate ${section}\n`)
   try {
-    const reply = await run(buildSectionPrompt(section, lang), (ev) => { if (ev.kind === 'step') emit(ev) }, { timeout: genTimeoutMs })
+    // Forward the pass's tool steps, and — once — the moment it stops reading and starts
+    // writing its answer (first text/delta). That read→write transition is the real signal
+    // the viewer uses to advance its progress bar past the exploration phase.
+    let wroteOnce = false
+    const reply = await run(buildSectionPrompt(section, lang), (ev) => {
+      if (ev.kind === 'step') emit(ev)
+      else if (!wroteOnce && (ev.kind === 'text' || ev.kind === 'delta')) { wroteOnce = true; emit({ kind: 'phase', phase: 'writing' }) }
+    }, { timeout: genTimeoutMs })
     const { raw } = tailJSON(reply)
     if (!raw || typeof raw !== 'object') throw new Error('the pass returned no JSON block')
     const { keys } = SECTIONS[section]
