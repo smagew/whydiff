@@ -4,6 +4,16 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.26.0] — 2026-08-18
+
+### Added
+- **A live progress bar when you generate a section from the map.** Clicking
+  Generate on a lazy pane (Summary / User stories / Standards / Tests) — or
+  Regenerate on a broken diagram — now shows a moving bar with the pass's current
+  step and elapsed time, instead of a single line of text. The bar is
+  indeterminate on purpose: one open-ended agent does the work, so there is no
+  honest percentage to show, and it never fakes one.
+
 ## [0.25.4] — 2026-08-14
 
 ### Fixed
