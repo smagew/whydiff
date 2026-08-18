@@ -1032,6 +1032,33 @@
   body.view-only .asksel,
   body.view-only .dk-agree, body.view-only .dk-make, body.view-only .dk-notnow, body.view-only .dk-pick,
   body.view-only .tk-run, body.view-only .tk-apply, body.view-only .tk-reopen, body.view-only .tk-decline { display: none; }
+
+  /* ── Print / PDF ──────────────────────────────────────────────────────────
+     Export a tab to PDF (the print dialog / Cmd-P), or the whole report with
+     body.print-all. Interactive chrome is dropped and the reading column runs full
+     width; only the active pane prints (all panes when print-all). The notes appendix
+     (.printnotes, built from the review threads) prints too, so the discussion travels
+     with the PDF. Colours come from the active palette — the desktop Export-PDF flow
+     switches to a light palette first, for ink on paper. */
+  .printnotes { display: none; }
+  .printnotes .pn-title { font-size: 15px; font-weight: 500; margin: 0 0 12px; }
+  .printnotes .pn-item { border-top: 1px solid var(--line); padding: 10px 0; break-inside: avoid; }
+  .printnotes .pn-anchor { font-family: var(--mono); font-size: 13px; color: var(--muted); margin-bottom: 4px; overflow-wrap: anywhere; }
+  .printnotes .pn-q { font-size: 13.5px; font-weight: 500; }
+  .printnotes .pn-a, .printnotes .pn-note { font-size: 13.5px; margin-top: 4px; }
+  @media print {
+    #tabs, #scopebar, #consistency, .footstrip, .aside-toggle, .help-btn,
+    .askpanel, .askbar, .rail, .rc-grip, .rc-grip-pill, .rightcol, .modebar,
+    #diagramsHint, #blastHint, .dg-actions, [data-pop] { display: none !important; }
+    .wrap { max-width: none; padding: 0; }
+    .board, .layout { display: block; }
+    .main-panel { border: none; padding: 0; }
+    body.print-all .pane[hidden] { display: block !important; }
+    .group, .node, .diagram, .ustory, .finding, .tkcard, .brow, .step { break-inside: avoid; }
+    pre, .codebox, .cl, .diagram .mermaid-box { white-space: pre-wrap; overflow: visible; }
+    .printnotes { display: block; break-before: page; }
+    .printnotes:empty { display: none; }
+  }
 </style>
 
 <div class="wrap">
@@ -1232,6 +1259,7 @@ const I18N = {
     askAboutSelection: 'Ask about this text', askAboutDiagram: 'Ask about this whole diagram (click a block, or drag a region, for part of it)',
     dgBadgeChat: 'A discussion is pinned here — open it', dgBadgeNote: 'A note is pinned here — open it',
     dgRegionArea: 'selected area',
+    printNotesTitle: 'Notes & questions',
     dgBrokenMsg: "This diagram couldn't be drawn — the generated diagram source is invalid.",
     dgBrokenSource: 'Show diagram source', dgBrokenCopy: 'Copy source', dgBrokenRegen: 'Regenerate diagrams',
     dgRegenRunning: 'Regenerating…', copied: 'Copied',
@@ -1380,6 +1408,7 @@ const I18N = {
     askAboutSelection: 'Спросить про этот текст', askAboutDiagram: 'Вопрос по всей диаграмме (клик по блоку или выделение области — по части)',
     dgBadgeChat: 'Здесь закреплена дискуссия — открыть', dgBadgeNote: 'Здесь закреплена заметка — открыть',
     dgRegionArea: 'выделенная область',
+    printNotesTitle: 'Заметки и вопросы',
     dgBrokenMsg: 'Эту диаграмму не удалось построить — сгенерированный исходник диаграммы невалиден.',
     dgBrokenSource: 'Показать исходник', dgBrokenCopy: 'Скопировать исходник', dgBrokenRegen: 'Перегенерировать диаграммы',
     dgRegenRunning: 'Перегенерирую…', copied: 'Скопировано',
@@ -3084,6 +3113,23 @@ if (SERVE?.token || EMBEDDED) (() => {
     if (wrapped.length > 1) wrapped[wrapped.length - 1].dataset.askPinHere = key
   }
 
+  // The print-only "Notes & questions" appendix: the review threads rendered into the page
+  // so they travel into the PDF (the panel itself is chrome and never prints). Built into
+  // .wrap once and refreshed with the marks; hidden on screen, shown by the print CSS.
+  let printNotesEl = null
+  const renderPrintNotes = () => {
+    if (!printNotesEl) { printNotesEl = document.createElement('section'); printNotesEl.className = 'printnotes'; document.querySelector('.wrap')?.appendChild(printNotesEl) }
+    if (!threads.length) { printNotesEl.innerHTML = ''; return }
+    const item = (t) => {
+      const anchor = `<div class="pn-anchor">${esc(`${t.anchor?.kind || ''} · ${t.anchor?.label || t.anchorKey}`.slice(0, 200))}</div>`
+      const body = t.kind === 'note'
+        ? `<div class="pn-note md">${mdToHtml(t.request)}</div>`
+        : `<div class="pn-q">${esc(t.request || L.proposeAsked)}</div>${t.response ? `<div class="pn-a md">${mdToHtml(t.response)}</div>` : ''}`
+      return `<div class="pn-item">${anchor}${body}</div>`
+    }
+    printNotesEl.innerHTML = `<h2 class="pn-title">${esc(L.printNotesTitle)} (${threads.length})</h2>` + threads.map(item).join('')
+  }
+
   // ── markers ────────────────────────────────────────────────────────────────
   const refreshMarks = () => {
     renumber()
@@ -3128,6 +3174,7 @@ if (SERVE?.token || EMBEDDED) (() => {
     }
     layoutRail()
     drawDiagramMarks() // a new question or note may have annotated a diagram place
+    renderPrintNotes() // keep the print appendix in sync with the threads
   }
 
   // ── left rail: bookmarks at the height of their anchor ─────────────────────

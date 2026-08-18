@@ -4,6 +4,24 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.31.0] — 2026-08-18
+
+### Added
+- **Print a tab to PDF — with its notes.** A print stylesheet turns any tab into a
+  clean PDF via the browser/print dialog (Cmd-P): the interactive chrome (tabs, ask
+  panel, rail, aside, footers) drops away, the reading column runs full width, and a
+  **Notes & questions** appendix — built from the review threads — prints at the end, so
+  the discussion travels into the PDF (the panel itself never prints). By default only
+  the active tab prints; `body.print-all` prints the whole report. Colours follow the
+  active palette, so pick a light one for ink on paper. (A one-click "Export PDF" button
+  in the desktop app — which switches to a light palette and prints headlessly — follows.)
+
+### Fixed
+- The diagram-region test asserted the frame overlapped *exactly* the dragged nodes;
+  the frame's small pad can also catch a close neighbour on a denser layout (CI), so it
+  now asserts the frame **covers** the dragged nodes (and hasn't ballooned to the whole
+  diagram) — the honest invariant, robust to layout/DPI. Test-only.
+
 ## [0.30.0] — 2026-08-18
 
 ### Added
