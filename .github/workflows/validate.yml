@@ -29,3 +29,22 @@ jobs:
         run: |
           npx playwright install --with-deps chromium
           npm run coverage   # runs the full suite under c8 and fails below the floor
+
+  # The desktop app has its own package + tests (main-process modules + renderer logic).
+  # They are network-free and need only node + git, so they gate PRs cheaply alongside
+  # the plugin suite. The app is built/released separately in desktop.yml.
+  app-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - name: Install app dependencies
+        run: npm ci
+        working-directory: app
+      - name: Run app tests (main modules + renderer logic)
+        run: npm test
+        working-directory: app
