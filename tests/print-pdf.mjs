@@ -43,8 +43,13 @@ await page.waitForFunction(() => document.querySelector('.printnotes')?.textCont
 const disp = (sel) => page.evaluate((s) => { const e = document.querySelector(s); return e ? getComputedStyle(e).display : 'MISSING' }, sel)
 
 // A visible PDF button in the report header opens the print dialog.
-ok(await page.locator('#tabs .print-btn').count() === 1, 'the report header should show a PDF button')
-const printed = await page.evaluate(() => { let called = false; window.print = () => { called = true }; document.querySelector('#tabs .print-btn').click(); return called })
+ok(await page.locator('.content-pdf').count() === 1, 'the report content should show a PDF button')
+const printed = await page.evaluate(async () => {
+  let called = false; window.print = () => { called = true }
+  document.querySelector('.content-pdf').click()
+  for (let i = 0; i < 80 && !called; i++) await new Promise((r) => setTimeout(r, 50)) // the handler preps the tab first (async)
+  return called
+})
 ok(printed, 'clicking the PDF button did not open the print dialog (window.print)')
 
 // On screen the appendix is hidden; the tab bar is shown.
@@ -67,6 +72,27 @@ ok(await disp(hiddenPane) === 'none', `[print] an inactive pane (${hiddenPane}) 
 await page.evaluate(() => document.body.classList.add('print-all'))
 ok(await disp(hiddenPane) === 'block', `[print] body.print-all should reveal the inactive pane (${hiddenPane})`)
 
+// A wide diagram must FIT the page: mermaid can lay a node out past its own SVG viewBox,
+// which the SVG clips — and printToPDF/page.pdf fires `beforeprint`, so the fix (re-fit the
+// viewBox on beforeprint, without re-rendering, which would reset it) has to survive that
+// event. Prepare the diagrams tab, fire beforeprint like the PDF path does, and assert no
+// node hangs past its SVG's right edge.
+await page.emulateMedia({ media: 'screen' })
+await page.locator('#tabs .tab[data-pane="diagrams"]').click()
+await page.evaluate(() => window.__whydiffPreparePrint({ tab: 'diagrams' }))
+await page.waitForTimeout(500)
+await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')))
+await page.waitForTimeout(200)
+const clipped = await page.evaluate(() => {
+  let n = 0
+  for (const svg of document.querySelectorAll('#pane-diagrams .mermaid-box svg')) {
+    const sr = svg.getBoundingClientRect()
+    n += [...svg.querySelectorAll('.node')].filter((el) => el.getBoundingClientRect().right > sr.right + 2).length
+  }
+  return n
+})
+ok(clipped === 0, `${clipped} diagram node(s) hang past the SVG edge after beforeprint — the PDF would clip them`)
+
 if (errors.length) fail('page errors:\n' + errors.join('\n'))
 await browser.close()
-console.log('OK: print/PDF — chrome dropped, active pane only (print-all reveals the rest), and the Notes & questions appendix prints with the review threads')
+console.log('OK: print/PDF — chrome dropped, active pane only (print-all reveals the rest), the notes appendix prints, and no diagram node clips past its SVG (survives beforeprint)')

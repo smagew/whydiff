@@ -280,9 +280,16 @@
   .help-btn { margin-left: auto; flex: none; width: 28px; height: 28px; align-self: center; border-radius: 3px; border: 1px solid var(--line); background: var(--surface-2); color: var(--muted); font: inherit; font-size: 13px; font-weight: 500; cursor: pointer; transition: border-color var(--t), color var(--t); }
   .help-btn:hover { border-color: var(--accent); color: var(--accent); }
   .help-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-  /* The PDF button sits just left of the help "?"; wider than the square help button so
-     its "PDF" label fits, and it keeps the auto-left margin so the pair hugs the right. */
-  .print-btn { width: auto; padding: 0 10px; margin-right: 6px; }
+  /* PDF button in a right-aligned toolbar at the top of the content, so it reads as "save
+     this section", not "print the page", and reserves its own row (never over content). */
+  .content-tools { display: flex; justify-content: flex-end; margin-bottom: 8px; }
+  .content-pdf { display: inline-flex; align-items: center; gap: 5px;
+    font: inherit; font-size: 13px; font-weight: 500; cursor: pointer; color: var(--muted);
+    border: 1px solid var(--line); background: none; border-radius: 4px; padding: 4px 9px;
+    transition: border-color var(--t), color var(--t); }
+  .content-pdf:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  .content-pdf:disabled { opacity: .6; cursor: default; }
+  .content-pdf svg { width: 14px; height: 14px; flex: none; }
   .glegend { margin: 0 0 14px; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 2px; }
   .gleg-row { display: flex; align-items: baseline; gap: 8px; width: 100%; font: inherit; font-size: 13px; background: none; border: none; padding: 4px 6px; margin: 0 -6px; border-radius: 3px; cursor: pointer; color: inherit; text-align: left; }
   .gleg-row:hover { background: var(--surface-2); }
@@ -1055,7 +1062,7 @@
        (.themepick) and the "show all links" toggle (.toggle), which otherwise land on the
        page as overlapping debris. */
     #tabs, #scopebar, #consistency, .footstrip, .aside-toggle, .help-btn, .themepick, .toggle,
-    .askpanel, .askbar, .rail, .rc-grip, .rc-grip-pill, .rightcol, .modebar,
+    .askpanel, .askbar, .rail, .rc-grip, .rc-grip-pill, .rightcol, .modebar, .content-tools,
     #edges, #elabels, .elabels, .elabel, .dg-badges,
     #diagramsHint, #blastHint, .dg-actions, [data-pop] { display: none !important; }
     /* Clamp the whole reading column to the paper width. The PDF renderer lays out at the
@@ -1703,15 +1710,6 @@ for (const [id, name, cnt] of PANES) {
   b.dataset.pane = id
   tabsEl.appendChild(b)
 }
-// Print the current tab to a PDF (with its notes appendix). Lives in the tab bar, which
-// the print stylesheet hides — so the button never lands in the PDF itself.
-const printBtn = document.createElement('button')
-printBtn.className = 'help-btn print-btn'
-printBtn.textContent = L.printBtn
-printBtn.title = L.printTitle
-printBtn.setAttribute('aria-label', L.printTitle)
-printBtn.addEventListener('click', () => window.print())
-tabsEl.appendChild(printBtn)
 const helpBtn = document.createElement('button')
 helpBtn.className = 'help-btn'
 helpBtn.textContent = '?'
@@ -1719,6 +1717,31 @@ helpBtn.title = L.overviewTitle
 helpBtn.setAttribute('aria-label', L.overviewTitle)
 helpBtn.addEventListener('click', () => helpModal.showModal())
 tabsEl.appendChild(helpBtn)
+
+// A PDF button that belongs to the CONTENT, not the page chrome: it sits at the top-right of
+// the reading column and saves the tab you are looking at (its diagrams rendered light and
+// re-fitted). In the tab bar a PDF button read as "print the whole page"; here it is clearly
+// "save this section". Hidden by the print stylesheet, so it never lands in the PDF.
+const contentPdf = document.createElement('button')
+contentPdf.className = 'content-pdf'
+contentPdf.title = L.printTitle
+contentPdf.setAttribute('aria-label', L.printTitle)
+contentPdf.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg><span>' + esc(L.printBtn) + '</span>'
+contentPdf.addEventListener('click', async () => {
+  // Prep the ACTIVE tab for a clean PDF (light palette, diagrams light + re-fitted), then
+  // open the print dialog. preparePrint and its helpers are hoisted function declarations.
+  const tab = document.querySelector('#tabs .tab.active')?.dataset.pane || null
+  contentPdf.disabled = true
+  try { await preparePrint({ tab }) } catch {}
+  contentPdf.disabled = false
+  window.print()
+})
+// A right-aligned toolbar at the top of the content, so the button reserves its own row and
+// never overlaps a story's ask button or a node the way an absolute corner button would.
+const contentTools = document.createElement('div')
+contentTools.className = 'content-tools'
+contentTools.appendChild(contentPdf)
+document.querySelector('.main-panel')?.prepend(contentTools)
 
 // Tabs whose content actually feeds the inspector. Standards and Tests do carry
 // [data-goto] links into it, so collapsing must be reversible: a file click from
@@ -2740,19 +2763,45 @@ const applyPalette = (v) => {
   if (diagramsRendered) runDiagrams()
 }
 
+// Remember the on-screen palette once, so however print starts (the PDF button, or a raw
+// Cmd-P) it can go light and then be restored to exactly what the user had.
+let printOriginalPalette = null
+function beginPrintPalette() {
+  if (printOriginalPalette == null) printOriginalPalette = document.documentElement.dataset.p || 'graphite'
+  document.documentElement.dataset.p = 'bond'  // set directly (not applyPalette) so it isn't persisted
+  syncThemePick()
+}
+function endPrintPalette() {
+  if (printOriginalPalette == null) return
+  document.documentElement.dataset.p = printOriginalPalette; printOriginalPalette = null
+  syncThemePick(); if (diagramsRendered) runDiagrams()
+}
+
 // Prepare the page for a clean PDF: switch to a LIGHT palette (ink on paper, not a black
 // page), render the diagrams at real size (they render lazily only while their pane is
 // active and bake the palette into their SVG), and choose the scope — one tab or the whole
-// report (print-all). Awaitable, so the headless PDF path (the desktop app / tests, which
-// get no `beforeprint` event) can wait for the re-render before capturing. Exposed on
-// window for that caller.
-async function preparePrint({ palette = 'bond', tab = null, all = false } = {}) {
-  document.documentElement.dataset.p = PALETTES.includes(palette) ? palette : 'bond'
-  syncThemePick()
+// report (print-all). Awaitable, so the caller (the PDF button, or the headless desktop/app
+// path) can wait for the re-render before printing. Exposed on window for that caller.
+async function preparePrint({ tab = null, all = false } = {}) {
+  beginPrintPalette()
   if (all || tab === 'diagrams') { setTab('diagrams'); try { await runDiagrams() } catch {} }
   if (tab && tab !== 'diagrams') setTab(tab)
   document.body.classList.toggle('print-all', !!all)
   await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
+  fitDiagramsForPrint()
+}
+// mermaid often lays a node out past its own viewBox (e.g. the flowchart's 429 node sits
+// ~180px right of the SVG edge), and the SVG clips at that edge — so the diagram loses its
+// right side in a PDF no matter the CSS width. Re-fit each viewBox to the real content
+// bounds so everything is inside; done last, after all rendering, so nothing resets it.
+function fitDiagramsForPrint() {
+  for (const svg of document.querySelectorAll('#pane-diagrams .mermaid-box svg')) {
+    try {
+      const bb = svg.getBBox(), p = 8
+      svg.setAttribute('viewBox', `${bb.x - p} ${bb.y - p} ${bb.width + 2 * p} ${bb.height + 2 * p}`)
+      svg.setAttribute('preserveAspectRatio', 'xMidYMid meet')
+    } catch {}
+  }
 }
 window.__whydiffPreparePrint = preparePrint
 
@@ -2761,17 +2810,16 @@ window.__whydiffPreparePrint = preparePrint
 // data-p directly (not applyPalette) so the choice is not persisted. Diagrams re-render
 // asynchronously here, so Cmd-P is best for the non-diagram tabs; the app's Export-PDF uses
 // preparePrint() above for pixel-clean diagrams.
-let __prePrintPalette = null
 window.addEventListener('beforeprint', () => {
-  __prePrintPalette = document.documentElement.dataset.p || 'graphite'
-  document.documentElement.dataset.p = 'bond'
-  syncThemePick(); if (diagramsRendered) runDiagrams()
+  // Go light and re-fit the diagram viewBoxes for the page — but do NOT re-render here: a
+  // re-render resets each viewBox to mermaid's original (which clips), and beforeprint also
+  // fires during printToPDF/page.pdf, so re-rendering would silently undo the fit. (When the
+  // PDF button ran preparePrint first, beginPrintPalette is a no-op and the light diagrams
+  // are already in place; a raw Cmd-P still gets light text/code and fitted diagrams.)
+  beginPrintPalette()
+  fitDiagramsForPrint()
 })
-window.addEventListener('afterprint', () => {
-  if (!__prePrintPalette) return
-  document.documentElement.dataset.p = __prePrintPalette; __prePrintPalette = null
-  syncThemePick(); if (diagramsRendered) runDiagrams()
-})
+window.addEventListener('afterprint', endPrintPalette)
 
 // quiet ships; safe is the token block's own two-hue pair, so it is the one
 // spelling that clears the attribute rather than setting it.

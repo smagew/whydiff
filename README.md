@@ -44,8 +44,12 @@ See `PLAN.md` for the problem statement and the design principles.
 /whydiff main..feature      # any git range
 ```
 
-The skill produces `<repo>/.whydiff/<date>-<slug>.html` — a self-contained
-page (mermaid inlined, no network needed) — and opens it.
+By default the run **serves** the map on `http://127.0.0.1:<port>/` and opens it in
+your browser, because that is where the report earns its keep: the ask / instruct /
+note panel works, and the optional passes can be added with the **Generate** button.
+Ask for a file to keep — or an artifact to publish — and it also assembles
+`<repo>/.whydiff/<date>-<slug>.html`: one self-contained page (mermaid and the
+syntax highlighter inlined, no network needed), where those live controls are inert.
 
 The report language follows the conversation language; source code and
 identifiers are always English (see principle 8 in `PLAN.md`).
@@ -62,8 +66,9 @@ no `--plugin-dir` needed, the plugin is then available in every session:
 /plugin install whydiff@whydiff
 ```
 
-The mermaid bundle for the assembler is installed automatically on first
-`/whydiff` run (`npm install` inside the plugin directory).
+The assembler's bundles (mermaid for the diagrams, highlight.js for the code) are
+installed automatically on first `/whydiff` run (`npm install` inside the plugin
+directory).
 
 Plugin skills are namespaced: invoke as `/whydiff:whydiff` (the bare
 `/whydiff` form also resolves when unambiguous).
@@ -110,6 +115,7 @@ make fixtures           # list the fixture projects
 make run-synthetic      # build a fixture and open Claude with THIS working tree
 make report-synthetic   # per-phase timing of the last run there
 make map-synthetic      # open the HTML map that run produced
+make serve-synthetic    # serve that map with the live ask / Generate UI
 ```
 
 Inside the session: `/whydiff HEAD~1..HEAD`. Skill edits apply immediately;
@@ -133,7 +139,7 @@ Fixtures land in `.fixtures/` (gitignored); `make clean-fixtures` removes them.
 `synthetic` and `quick` are a few hundred KB to ~2 MB; `migration` and `big`
 pull ~150–200 MB each because those repos have large trees even at depth 2.
 
-Prerequisites: `npm install` (mermaid for the assembler) and
+Prerequisites: `npm install` (mermaid + highlight.js for the assembler) and
 `npx playwright install chromium` (for `npm test`).
 
 To update an installed copy after new commits: `/plugin marketplace update whydiff`.
@@ -172,14 +178,22 @@ scripts/
   review.mjs                 # the review journal: append-only log + its projection
   rebind.mjs                 # re-attaches the journal to a regenerated map
   lib.mjs                    # shared validation/git/fragment helpers
-templates/viewer.html        # the generic viewer (i18n, mermaid, 7 tabs)
+  version.mjs                # make bump: the version in all 4 places + a CHANGELOG entry
+  check-version.mjs          # the version guard: a shipped change must ride a bump
+templates/viewer.html        # the generic viewer (i18n, mermaid, 7 tabs + Review when served)
+templates/viewer-logic.mjs   # the viewer's pure helpers, unit-tested; inlined at assemble
+app/                         # the desktop app (Electron) — see app/README.md
 schema/review-map.schema.json# the generator↔viewer contract
 examples/rate-limit/         # hand-authored reference sample (synthetic project)
 tests/merge.mjs              # merge contract: git wins over the model
 tests/shards.mjs             # shard planner: balance, coverage, budget overflow
 tests/smoke.mjs              # assemble + headless-browser check of the viewer
 tests/diagram-fallback.mjs   # an invalid diagram shows the fallback, not mermaid's bomb
-tests/serve.mjs              # serve contract: token gating, ask/instruct/options, Tasks tab
+tests/viewer-logic.mjs       # the viewer's extracted pure helpers, in node
+tests/generate-progress.mjs  # the generation bar: a fair estimate, never a fake 100%
+tests/export-notes.mjs       # assemble --journal: notes travel into the export, read-only
+tests/print-pdf.mjs          # print: chrome dropped, active tab only, notes appendix
+tests/serve.mjs              # serve contract: token gating, ask/instruct/options, Review tab
 tests/review.mjs             # review journal: refusals, task states, coverage, migration
 tests/work.mjs               # serve --work: worktree isolation, patch, apply gate
 tests/work-harden.mjs        # serve --work: reclaim/prune worktrees, moved-on vs applied
@@ -208,7 +222,7 @@ tests/design.mjs             # design system: tokens, contrast band, shadows, me
 | I have a question about *this* bit | `serve.mjs` — select a story, Summary block(s), a diagram node or any text and ask; answered by `claude -p` against the real repo. Local-only, see below |
 | This bit should change | `serve.mjs` — the same panel, switched to **Instruct**: Claude replies with a *plan* (files, what proves it done, blast radius, open questions) that you agree to or turn down. Agreeing opens a task in the review journal; nothing is edited |
 | What are my options for this problem? | **Options** — the third panel mode, offered only on a problem the map found: two or three ways to deal with it that differ in *kind* (point fix / at the root / pin it instead), each with cost, risk, blast radius and the criterion it would be judged by. Choosing one opens the task |
-| Can I merge this yet? | **Tasks** — the verdict line says what still blocks, grouped by where the problem came from, with unanswered questions in the same list. One button copies the agreed queue as a prompt for your session |
+| Can I merge this yet? | **Review** — the verdict line says what still blocks, grouped by where the problem came from, with unanswered questions in the same list. One button copies the agreed queue as a prompt for your session |
 
 ### Asking — and instructing — from inside the map
 
@@ -221,8 +235,9 @@ node scripts/serve.mjs .whydiff/review-map.json --repo . --port 7777
 ```
 
 Anchors are a user-story card, a Summary block (⌘/Ctrl-click several to ask about the
-set), a diagram (Alt-click a single node), or any text selection. Answers land in
-`.whydiff/review.log.jsonl` — the review journal — and come back on the next serve.
+set), a diagram — click a node, drag a rectangle to anchor a *region* of it, or take the
+whole diagram — or any text selection. Answers land in `.whydiff/review.log.jsonl` — the
+review journal — and come back on the next serve.
 
 Each question leaves a numbered pin where it was asked — selected text stays
 highlighted, like a comment in a document — and a bookmark in the left rail at the
@@ -243,7 +258,11 @@ spawned with a read-only allowlist *and* an explicit deny list for the editing t
 the shell and subagents, and the task is a queue your own Claude Code session
 drains. The design is in [`docs/review-loop.md`](docs/review-loop.md).
 
-Those decisions collect in a **Tasks** tab, which exists only on the served copy.
+A fourth mode needs no model at all: **Note** pins a plain remark on the anchored place —
+a diagram node, a region, a Summary block, a text selection — kept in the same journal, so
+the reading you did travels with the report (into an export or a PDF, below).
+
+Those decisions collect in a **Review** tab, which exists only on the served copy.
 It is a merge gate rather than a to-do list: the header says `blocking N` — or
 `nothing blocking`, when that is true — cards are grouped by where the problem came
 from (your instructions, a broken user story, a standards finding, a test gap),
@@ -335,7 +354,18 @@ Produce one from a `review-map.json` (the `/whydiff` run leaves it in `.whydiff/
 
 ```bash
 node scripts/assemble.mjs .whydiff/review-map.json --out review.html
+node scripts/assemble.mjs .whydiff/review-map.json --out review.html \
+  --journal .whydiff                    # …with the review's notes and tasks baked in
 ```
+
+With `--journal` the notes, the questions with their answers and the Review tab's tasks
+are folded into the page, so the discussion reads offline as well. That export is
+**view-only**: badges and frames render and read back, but every affordance that would
+ask, decide or run work is gone — there is no server behind them.
+
+To hand over pages instead of a file, the report carries a **PDF** button in its tab bar:
+it saves the tab you are on — with a *Notes & questions* appendix — through the print
+dialog, on a light palette (ink on paper), with the interactive chrome dropped.
 
 It comes out a few MB — well under every messaging limit — so **hand it to a
 teammate by attaching it to a message**:

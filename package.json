@@ -1,6 +1,6 @@
 {
   "name": "whydiff",
-  "version": "0.34.0",
+  "version": "0.35.0",
   "description": "Follow the meaning of a change instead of reading every file an LLM touched — runtime deps for the whydiff Claude Code plugin (mermaid for the HTML assembler)",
   "main": "index.js",
   "directories": {
