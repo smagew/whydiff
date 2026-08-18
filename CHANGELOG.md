@@ -4,6 +4,22 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.27.0] — 2026-08-18
+
+### Fixed
+- **Asking about a region of a diagram works on every diagram type, and always
+  shows where you asked.** Dragging a region looked for covered `.node` elements
+  (flowchart-only), so on any other diagram the drag found nothing: the ask panel
+  never opened, no frame was drawn, and the gesture sometimes turned into a native
+  text selection with a stray "ask about this text" hint. Now the drag suppresses
+  native selection, and the region is anchored **geometrically** — stored as a
+  fraction of the diagram's own box — so the ask panel opens even when the region
+  covers no discrete nodes, and the dashed frame redraws onto the exact area after a
+  reload or a re-layout (palette switch, resize). Covered node labels still ride
+  along as context for the model, best-effort. This makes "show me where each note
+  or question lives" a property that holds for diagram regions the way it already
+  does for text and code selections.
+
 ## [0.26.0] — 2026-08-18
 
 ### Added

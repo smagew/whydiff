@@ -369,6 +369,9 @@
      with a pointer to say "click me". Together they make the diagram's two
      affordances legible without a word of instruction. */
   .diagram .mermaid-box { overflow-x: auto; background: var(--surface-2); border-radius: 3px; padding: 10px; position: relative; cursor: crosshair; }
+  /* While dragging a region, suppress native text selection so the drag never turns
+     into a text highlight (which used to hijack the gesture with an "ask about text" hint). */
+  .diagram .mermaid-box.dg-dragging { user-select: none; -webkit-user-select: none; }
   /* Centre the diagram and let it use the row. mermaid caps the SVG at its natural
      width, so a small one sits left with the row empty; fitDiagrams() (JS) sets a
      width that grows it toward the row but caps the upscale so a tiny diagram doesn't
@@ -1209,6 +1212,7 @@ const I18N = {
     askSend: 'Ask', askThinking: 'asking Claude…', askFailed: 'Could not answer',
     askAboutSelection: 'Ask about this text', askAboutDiagram: 'Ask about this whole diagram (click a block, or drag a region, for part of it)',
     dgBadgeChat: 'A discussion is pinned here — open it', dgBadgeNote: 'A note is pinned here — open it',
+    dgRegionArea: 'selected area',
     dgBrokenMsg: "This diagram couldn't be drawn — the generated diagram source is invalid.",
     dgBrokenSource: 'Show diagram source', dgBrokenCopy: 'Copy source', dgBrokenRegen: 'Regenerate diagrams',
     dgRegenRunning: 'Regenerating…', copied: 'Copied',
@@ -1356,6 +1360,7 @@ const I18N = {
     askSend: 'Спросить', askThinking: 'спрашиваю Claude…', askFailed: 'Не удалось ответить',
     askAboutSelection: 'Спросить про этот текст', askAboutDiagram: 'Вопрос по всей диаграмме (клик по блоку или выделение области — по части)',
     dgBadgeChat: 'Здесь закреплена дискуссия — открыть', dgBadgeNote: 'Здесь закреплена заметка — открыть',
+    dgRegionArea: 'выделенная область',
     dgBrokenMsg: 'Эту диаграмму не удалось построить — сгенерированный исходник диаграммы невалиден.',
     dgBrokenSource: 'Показать исходник', dgBrokenCopy: 'Скопировать исходник', dgBrokenRegen: 'Перегенерировать диаграммы',
     dgRegenRunning: 'Перегенерирую…', copied: 'Скопировано',
@@ -3201,6 +3206,13 @@ if (SERVE?.token) (() => {
   // ── diagrams ───────────────────────────────────────────────────────────────
   const nodeText = (n) => (n.textContent || '').replace(/\s+/g, ' ').trim()
   const nslug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+  const clamp01 = (v) => Math.max(0, Math.min(1, v))
+  // Every annotatable element across the mermaid diagram types whydiff emits — not just
+  // flowchart `.node`, so region context and node badges also see entities (ER), classes,
+  // states and sequence actors. The region FRAME does not depend on this (it is geometric),
+  // so a type this misses still gets a visible, redrawable frame.
+  const DG_NODE_SEL = 'svg .node, svg g[id^="entity-"], svg .classGroup, svg .stateGroup, svg .actor'
+  const dgNodes = (scope) => [...scope.querySelectorAll(DG_NODE_SEL)]
   const nodeAnchor = (dg, i, label) => ({
     kind: 'diagram-node',
     key: `diagram:${i}:${nslug(label).slice(0, 40)}`,
@@ -3227,7 +3239,7 @@ if (SERVE?.token) (() => {
       const box = dg.querySelector('.mermaid-box')
       if (!box || !box.querySelector('svg')) return
       const br = box.getBoundingClientRect()
-      const svgNodes = [...box.querySelectorAll('svg .node')]
+      const svgNodes = dgNodes(box)
       // One entry per annotated anchor on this diagram, with the kinds it carries.
       const byKey = new Map()
       for (const t of threads) {
@@ -3255,11 +3267,24 @@ if (SERVE?.token) (() => {
       }
       for (const [key, e] of byKey) {
         if (/:region:/.test(key)) {
-          const labels = new Set((e.anchor?.nodes || []).map(String))
-          const inside = svgNodes.filter(n => labels.has(nodeText(n).slice(0, 60)))
-          if (!inside.length) continue
-          let L1 = Infinity, T1 = Infinity, R1 = -Infinity, B1 = -Infinity
-          for (const n of inside) { const b = n.getBoundingClientRect(); L1 = Math.min(L1, b.left); T1 = Math.min(T1, b.top); R1 = Math.max(R1, b.right); B1 = Math.max(B1, b.bottom) }
+          let L1, T1, R1, B1
+          const svg = box.querySelector('svg')
+          if (e.anchor?.rect && svg) {
+            // Geometry anchor: rebuild the frame from fractions of the SVG's current box.
+            // Works on any diagram type and after a re-layout, with or without nodes.
+            const sr = svg.getBoundingClientRect()
+            L1 = sr.left + e.anchor.rect.x * sr.width
+            T1 = sr.top + e.anchor.rect.y * sr.height
+            R1 = L1 + e.anchor.rect.w * sr.width
+            B1 = T1 + e.anchor.rect.h * sr.height
+          } else {
+            // Legacy anchor (pre-geometry): hug the covered nodes by label.
+            const labels = new Set((e.anchor?.nodes || []).map(String))
+            const inside = svgNodes.filter(n => labels.has(nodeText(n).slice(0, 60)))
+            if (!inside.length) continue
+            L1 = Infinity; T1 = Infinity; R1 = -Infinity; B1 = -Infinity
+            for (const n of inside) { const b = n.getBoundingClientRect(); L1 = Math.min(L1, b.left); T1 = Math.min(T1, b.top); R1 = Math.max(R1, b.right); B1 = Math.max(B1, b.bottom) }
+          }
           const pad = 6
           const fr = document.createElement('div')
           fr.className = 'dg-region'
@@ -3332,12 +3357,15 @@ if (SERVE?.token) (() => {
         // click (no movement) is left to the click handler above.
         box.addEventListener('mousedown', (e) => {
           if (e.button !== 0) return
+          // Suppress the native text-selection this drag would otherwise start (which used
+          // to hijack the gesture and pop the "ask about text" hint instead).
+          e.preventDefault()
           const r = box.getBoundingClientRect()
           const sx = e.clientX, sy = e.clientY
           let sel = null, dragging = false
           const move = (ev) => {
             if (!dragging && Math.hypot(ev.clientX - sx, ev.clientY - sy) < 6) return
-            if (!dragging) { dragging = true; sel = document.createElement('div'); sel.className = 'dg-select'; box.appendChild(sel) }
+            if (!dragging) { dragging = true; box.classList.add('dg-dragging'); sel = document.createElement('div'); sel.className = 'dg-select'; box.appendChild(sel) }
             ev.preventDefault()
             sel.style.left = (Math.min(ev.clientX, sx) - r.left + box.scrollLeft) + 'px'
             sel.style.top = (Math.min(ev.clientY, sy) - r.top + box.scrollTop) + 'px'
@@ -3346,25 +3374,37 @@ if (SERVE?.token) (() => {
           }
           const up = (ev) => {
             document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up)
+            box.classList.remove('dg-dragging')
             if (sel) sel.remove()
+            window.getSelection?.()?.removeAllRanges?.()
             if (!dragging) return // it was a click — leave node drill-down to its own handler
-            const box2 = { left: Math.min(ev.clientX, sx), top: Math.min(ev.clientY, sy), right: Math.max(ev.clientX, sx), bottom: Math.max(ev.clientY, sy) }
-            const covered = [...dg.querySelectorAll('svg .node')].filter((n) => {
+            // Geometry-first anchor: store the region as fractions of the SVG's own box, so
+            // the frame redraws on ANY diagram type — even one with no discrete nodes — and
+            // survives a re-layout, when pixel geometry is gone. Covered node labels ride
+            // along as context for the model, best-effort (empty is fine; the frame stands).
+            const svg = box.querySelector('svg')
+            if (!svg) return
+            const sr = svg.getBoundingClientRect()
+            const dl = Math.min(ev.clientX, sx), dt = Math.min(ev.clientY, sy)
+            const dr = Math.max(ev.clientX, sx), db = Math.max(ev.clientY, sy)
+            const x = clamp01((Math.max(dl, sr.left) - sr.left) / sr.width)
+            const y = clamp01((Math.max(dt, sr.top) - sr.top) / sr.height)
+            const rect = { x, y, w: clamp01((Math.min(dr, sr.right) - sr.left) / sr.width) - x, h: clamp01((Math.min(db, sr.bottom) - sr.top) / sr.height) - y }
+            if (rect.w < 0.02 || rect.h < 0.02) return // too small to be a deliberate region
+            const covered = [...new Set(dgNodes(dg).filter((n) => {
               const b = n.getBoundingClientRect()
-              return b.left < box2.right && b.right > box2.left && b.top < box2.bottom && b.bottom > box2.top
-            }).map((n) => nodeText(n).slice(0, 60)).filter(Boolean)
-            if (!covered.length) return
-            // The covered node labels ARE the region — stored on the anchor so the
-            // frame can be redrawn from them after mermaid re-lays-out the SVG, when
-            // pixel geometry is gone. Keyed off the sorted labels so the same region
-            // is the same anchor.
+              return b.left < dr && b.right > dl && b.top < db && b.bottom > dt
+            }).map((n) => nodeText(n).slice(0, 60)).filter(Boolean))]
+            const title = dg.querySelector('h3')?.textContent || ''
+            const rk = [rect.x, rect.y, rect.w, rect.h].map((v) => Math.round(v * 1000)).join('-')
             openFor({
               kind: 'diagram-region',
-              key: `diagram:${i}:region:${nslug([...covered].sort().join('+')).slice(0, 60)}`,
-              label: `${dg.querySelector('h3')?.textContent || ''} → ${covered.slice(0, 3).join(', ')}${covered.length > 3 ? '…' : ''}`,
+              key: `diagram:${i}:region:${rk}`,
+              label: `${title} → ${covered.length ? covered.slice(0, 3).join(', ') + (covered.length > 3 ? '…' : '') : L.dgRegionArea}`,
               files: filesOf(dg),
               nodes: covered,
-              context: `A selected region of this diagram covers these nodes: ${covered.join('; ')}.\nFull diagram:\n${(RM.diagrams?.[i]?.mermaid || '').slice(0, 2500)}`,
+              rect,
+              context: `A selected region of this diagram${covered.length ? ` covers these nodes: ${covered.join('; ')}` : ' (a free area — no discrete nodes)'}.\nFull diagram:\n${(RM.diagrams?.[i]?.mermaid || '').slice(0, 2500)}`,
               lang: RM.meta.lang,
             })
           }
