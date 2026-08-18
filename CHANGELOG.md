@@ -4,6 +4,19 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.29.0] — 2026-08-18
+
+### Changed
+- **The on-demand generation bar shows approximate progress, not just "busy".**
+  0.26.0's bar was indeterminate — it never advanced, so it told you nothing about how
+  far along a Generate was (and under "reduce motion" it sat full, looking done). A
+  section is one open-ended agent, so there is no exact percentage — but two real
+  signals give a fair estimate: elapsed time, and the moment the pass stops reading
+  files and starts writing its answer. `serve.mjs` now emits that read→write transition;
+  the bar eases toward ~70% while the pass reads, jumps and eases toward ~97% once it is
+  writing, and completes on done. It is an estimate, grounded in real signals — it never
+  fabricates 100% before the work is finished.
+
 ## [0.28.0] — 2026-08-18
 
 ### Fixed
