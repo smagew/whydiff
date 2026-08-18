@@ -272,8 +272,11 @@ node ${CLAUDE_PLUGIN_ROOT}/scripts/serve.mjs <repo>/.whydiff/review-map.json \
   --repo <repo> [--port 7777]
 ```
 
-Give the user the printed `http://127.0.0.1:<port>/`. The server injects a per-run
-token and answers from the page by calling `claude -p` in the repo (read-only).
+`serve.mjs` opens the map in the default browser and prints the
+`http://127.0.0.1:<port>/` URL as its **last** line (pass `--no-open` to suppress it — for
+CI, or a host that loads the URL itself). Point the user at that URL; do not bury it under a
+summary. The server injects a per-run token and answers from the page by calling
+`claude -p` in the repo (read-only).
 Anchors: a user-story card, a Summary block (⌘/Ctrl-click several for one question
 about the set), a diagram (Alt-click one node), or any text selection. Every remark
 is appended to the review journal at `<repo>/.whydiff/review.log.jsonl` and reloaded
@@ -336,11 +339,18 @@ Generate the timing report (do this on any run):
 node ${CLAUDE_PLUGIN_ROOT}/scripts/timing.mjs report --repo <repo>
 ```
 
-Finish with a chat summary in the report language: the intent paragraph, how
-many files need careful reading and which, any story that is not `delivered`,
-the test gaps, any deploy notes — and one line pointing at
-`.whydiff/timing-report.md` (total time + slowest phase) so performance can be
-discussed with data.
+Finish with a SHORT handoff in the report language — **do not transcribe the report
+into chat**: the whole analysis is in the map (that is the point of building it), and a
+wall of terminal text buries the one thing that matters, the URL. Keep it to a few lines:
+
+- one sentence on what the diff is;
+- one line: how many files need careful reading, and whether the map flagged anything
+  that blocks (a parse error, a secret that must not ship, broken local setup) — name the
+  tab, do not paste the findings;
+- one line pointing at `.whydiff/timing-report.md` (total time + slowest phase).
+
+`serve.mjs` already opened the map in the browser and printed the URL as its **last** line;
+end your handoff by pointing there, not by re-explaining the report.
 
 ## Quality bar (from the project principles)
 

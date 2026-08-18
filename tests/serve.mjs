@@ -80,7 +80,7 @@ say({ type: 'result', subtype: 'success', result: 'STUB **ANSWER** (' + sawAncho
 chmodSync(stub, 0o755)
 
 const port = 7791 + (process.pid % 90)
-const proc = spawn('node', [join(root, 'scripts', 'serve.mjs'), mapPath, '--repo', root, '--port', String(port), '--claude-cmd', stub],
+const proc = spawn('node', [join(root, 'scripts', 'serve.mjs'), '--no-open', mapPath, '--repo', root, '--port', String(port), '--claude-cmd', stub],
   { stdio: ['ignore', 'pipe', 'pipe'] })
 let out = ''
 proc.stdout.on('data', (d) => { out += d })

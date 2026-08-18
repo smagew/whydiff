@@ -33,7 +33,7 @@ const mapPath = join(work, 'review-map.json')
 writeFileSync(mapPath, JSON.stringify(rm))
 
 const port = 7830 + (process.pid % 40)
-const proc = spawn('node', [join(root, 'scripts', 'serve.mjs'), mapPath, '--repo', root, '--port', String(port)], { stdio: ['ignore', 'pipe', 'pipe'] })
+const proc = spawn('node', [join(root, 'scripts', 'serve.mjs'), '--no-open', mapPath, '--repo', root, '--port', String(port)], { stdio: ['ignore', 'pipe', 'pipe'] })
 let out = ''; proc.stdout.on('data', d => { out += d }); proc.stderr.on('data', d => { out += d })
 process.on('exit', () => { try { proc.kill('SIGKILL') } catch {} })
 const base = `http://127.0.0.1:${port}`

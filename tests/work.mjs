@@ -82,7 +82,7 @@ chmodSync(stub, 0o755)
 
 const startServer = (extra) => {
   const port = 7881 + (process.pid % 60) + (extra.includes('--work') ? 0 : 1)
-  const proc = spawn('node', [join(root, 'scripts', 'serve.mjs'), mapPath, '--repo', repo, '--port', String(port), '--claude-cmd', stub, ...extra],
+  const proc = spawn('node', [join(root, 'scripts', 'serve.mjs'), '--no-open', mapPath, '--repo', repo, '--port', String(port), '--claude-cmd', stub, ...extra],
     { stdio: ['ignore', 'pipe', 'pipe'] })
   let out = ''
   proc.stdout.on('data', (d) => { out += d })
