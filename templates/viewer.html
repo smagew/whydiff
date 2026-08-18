@@ -3206,7 +3206,6 @@ if (SERVE?.token) (() => {
   // ── diagrams ───────────────────────────────────────────────────────────────
   const nodeText = (n) => (n.textContent || '').replace(/\s+/g, ' ').trim()
   const nslug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
-  const clamp01 = (v) => Math.max(0, Math.min(1, v))
   // Every annotatable element across the mermaid diagram types whydiff emits — not just
   // flowchart `.node`, so region context and node badges also see entities (ER), classes,
   // states and sequence actors. The region FRAME does not depend on this (it is geometric),
@@ -3269,14 +3268,18 @@ if (SERVE?.token) (() => {
         if (/:region:/.test(key)) {
           let L1, T1, R1, B1
           const svg = box.querySelector('svg')
-          if (e.anchor?.rect && svg) {
-            // Geometry anchor: rebuild the frame from fractions of the SVG's current box.
-            // Works on any diagram type and after a re-layout, with or without nodes.
+          const ctm = svg && svg.getScreenCTM && svg.getScreenCTM()
+          const rr = e.anchor?.rect
+          if (rr && ctm && (rr.w > 1.5 || rr.h > 1.5)) {
+            // SVG-space anchor: map the stored rect back to the screen through the CURRENT
+            // transform — so it lands on the same area whatever the diagram's present scale,
+            // centring, scroll or layout. Type-agnostic; needs no node detection.
+            const a = new DOMPoint(rr.x, rr.y).matrixTransform(ctm), b = new DOMPoint(rr.x + rr.w, rr.y + rr.h).matrixTransform(ctm)
+            L1 = Math.min(a.x, b.x); T1 = Math.min(a.y, b.y); R1 = Math.max(a.x, b.x); B1 = Math.max(a.y, b.y)
+          } else if (rr && svg) {
+            // Legacy fraction-of-box rect (pre SVG-space anchors).
             const sr = svg.getBoundingClientRect()
-            L1 = sr.left + e.anchor.rect.x * sr.width
-            T1 = sr.top + e.anchor.rect.y * sr.height
-            R1 = L1 + e.anchor.rect.w * sr.width
-            B1 = T1 + e.anchor.rect.h * sr.height
+            L1 = sr.left + rr.x * sr.width; T1 = sr.top + rr.y * sr.height; R1 = L1 + rr.w * sr.width; B1 = T1 + rr.h * sr.height
           } else {
             // Legacy anchor (pre-geometry): hug the covered nodes by label.
             const labels = new Set((e.anchor?.nodes || []).map(String))
@@ -3378,25 +3381,28 @@ if (SERVE?.token) (() => {
             if (sel) sel.remove()
             window.getSelection?.()?.removeAllRanges?.()
             if (!dragging) return // it was a click — leave node drill-down to its own handler
-            // Geometry-first anchor: store the region as fractions of the SVG's own box, so
-            // the frame redraws on ANY diagram type — even one with no discrete nodes — and
-            // survives a re-layout, when pixel geometry is gone. Covered node labels ride
-            // along as context for the model, best-effort (empty is fine; the frame stands).
+            // Geometry-first anchor, in the SVG's OWN coordinate system (via getScreenCTM),
+            // not screen fractions: this is invariant to scale, centring (margin:auto), scroll
+            // and re-layout — all of which happen between the drag and the redraw (opening the
+            // ask panel narrows the column and refits the diagram). So the frame returns to the
+            // exact area on ANY diagram type, even one with no discrete nodes. Covered node
+            // labels ride along as context for the model, best-effort (empty is fine).
             const svg = box.querySelector('svg')
-            if (!svg) return
-            const sr = svg.getBoundingClientRect()
+            const ctm = svg && svg.getScreenCTM && svg.getScreenCTM()
+            const vb = svg && svg.viewBox && svg.viewBox.baseVal
+            if (!ctm || !vb || !vb.width || !vb.height) return
             const dl = Math.min(ev.clientX, sx), dt = Math.min(ev.clientY, sy)
             const dr = Math.max(ev.clientX, sx), db = Math.max(ev.clientY, sy)
-            const x = clamp01((Math.max(dl, sr.left) - sr.left) / sr.width)
-            const y = clamp01((Math.max(dt, sr.top) - sr.top) / sr.height)
-            const rect = { x, y, w: clamp01((Math.min(dr, sr.right) - sr.left) / sr.width) - x, h: clamp01((Math.min(db, sr.bottom) - sr.top) / sr.height) - y }
-            if (rect.w < 0.02 || rect.h < 0.02) return // too small to be a deliberate region
+            const inv = ctm.inverse()
+            const u1 = new DOMPoint(dl, dt).matrixTransform(inv), u2 = new DOMPoint(dr, db).matrixTransform(inv)
+            const rect = { x: Math.min(u1.x, u2.x), y: Math.min(u1.y, u2.y), w: Math.abs(u2.x - u1.x), h: Math.abs(u2.y - u1.y) }
+            if (rect.w / vb.width < 0.02 || rect.h / vb.height < 0.02) return // too small to be a deliberate region
             const covered = [...new Set(dgNodes(dg).filter((n) => {
               const b = n.getBoundingClientRect()
               return b.left < dr && b.right > dl && b.top < db && b.bottom > dt
             }).map((n) => nodeText(n).slice(0, 60)).filter(Boolean))]
             const title = dg.querySelector('h3')?.textContent || ''
-            const rk = [rect.x, rect.y, rect.w, rect.h].map((v) => Math.round(v * 1000)).join('-')
+            const rk = [rect.x, rect.y, rect.w, rect.h].map((v) => Math.round(v)).join('-')
             openFor({
               kind: 'diagram-region',
               key: `diagram:${i}:region:${rk}`,

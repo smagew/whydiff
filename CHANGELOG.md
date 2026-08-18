@@ -4,6 +4,21 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.28.0] — 2026-08-18
+
+### Fixed
+- **The diagram region frame no longer drifts on sequence (and other non-flowchart)
+  diagrams.** 0.27.0 anchored the region as a fraction of the diagram's screen box,
+  which held on a flowchart but broke wherever opening the ask panel refits the
+  diagram to a very different size — e.g. a wide sequence diagram squeezed into the
+  narrowed column: the frame collapsed to a sliver or jumped to a corner, detached
+  from what was selected. The region is now anchored in the diagram's **own SVG
+  coordinate space** (`getScreenCTM`), which is invariant to scale, centring and
+  scroll, so the frame returns to the exact selected area through any re-layout, on
+  every diagram type. Regression-tested by asserting the frame overlaps the same
+  nodes/actors the drag covered — on a flowchart and a wide sequence diagram, before
+  and after a reload.
+
 ## [0.27.0] — 2026-08-18
 
 ### Fixed
