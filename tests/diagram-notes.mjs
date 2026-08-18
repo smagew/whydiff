@@ -19,6 +19,16 @@ const ok = (c, m) => { if (!c) fail(m) }
 const work = mkdtempSync(join(tmpdir(), 'whydiff-dgnotes-'))
 const rm = JSON.parse(readFileSync(join(root, 'examples', 'rate-limit', 'review-map.json'), 'utf8'))
 for (const f of Object.values(rm.files)) delete f.embedFull
+// Append a wide SEQUENCE diagram (no `.node` elements; scaled to fit, so opening the ask
+// panel refits it between the drag and the redraw). This is the type the geometry anchor
+// must survive — a flowchart alone would not have caught the region bug.
+const seqParts = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
+rm.diagrams.push({
+  kind: 'flow-diff', title: 'Boot sequence',
+  caption: 'who writes the token, and when',
+  mermaid: 'sequenceDiagram\n' + seqParts.map((p) => ` participant ${p} as ${p}_service_with_a_long_name`).join('\n') + '\n' +
+    seqParts.slice(0, -1).map((p, i) => ` ${p}->>${seqParts[i + 1]}: call step ${i} with a fairly long message label`).join('\n'),
+})
 const mapPath = join(work, 'review-map.json')
 writeFileSync(mapPath, JSON.stringify(rm))
 
@@ -67,52 +77,57 @@ await page.locator('#pane-diagrams .dg-badge').first().click()
 await page.waitForTimeout(300)
 ok(await page.locator('.askpanel.on').count(), 'clicking a block badge did not open its thread')
 
-// ── a dragged region opens a region anchor; a note draws a frame + badge ──────
-const boxLoc = page.locator('#pane-diagrams .mermaid-box').first()
-await boxLoc.evaluate((el) => el.scrollIntoView({ block: 'start' })) // put the box top near the viewport top
-await page.waitForTimeout(100)
-const box = await boxLoc.boundingBox()
-const svgAtDrag = await page.locator('#pane-diagrams .diagram .mermaid-box svg').first().boundingBox()
-const vh = page.viewportSize().height
-// Drag a rectangle over the top of the diagram, clamped to the viewport (the diagram
-// can be taller than the screen now that it fills the width).
-const drag = { x1: box.x + 8, y1: box.y + 8, x2: box.x + box.width - 8, y2: Math.min(box.y + box.height - 8, vh - 8) }
-await page.mouse.move(drag.x1, drag.y1)
-await page.mouse.down()
-await page.mouse.move(drag.x2, drag.y2, { steps: 8 })
-await page.mouse.up()
-await page.waitForTimeout(300)
-ok(await page.locator('.askpanel.on').count(), 'dragging a region did not open the ask panel')
-ok(/diagram-region|→/.test(await page.locator('.askpanel .dk-anchor').textContent() || ''), 'the drag did not open a region anchor')
-// The drag must NOT have turned into a native text selection (the old hijack).
-ok((await page.evaluate(() => (window.getSelection()?.toString() || '').trim())) === '', 'the region drag left a native text selection (hijack not suppressed)')
-await page.locator('.askpanel .dk-mode button[data-mode="note"]').click()
-await page.locator('.askpanel textarea').fill('This whole branch is the external-manager path.')
-await page.locator('.askpanel .dk-send').click()
-await page.waitForFunction(() => document.querySelector('#pane-diagrams .dg-region'), null, { timeout: 10000 })
-  .catch(() => fail('a note on a region did not draw its frame'))
+// ── a dragged region opens a region anchor; its frame lands on the dragged area ──
+// Correctness is checked by IDENTITY, not pixels: the set of nodes/actors the frame
+// overlaps must equal the set the drag covered — before and after a reload. This is
+// invariant to the diagram's scale, centring and scroll, all of which change when the
+// ask panel opens and refits the diagram (a pixel/fraction check missed exactly that).
+// The set of DISTINCT element labels a viewport rect overlaps (deduped: a sequence
+// participant has both a top and a bottom `.actor` box, so a tall frame hits each twice).
+const overlap = (sel, x1, y1, x2, y2) => page.evaluate(([sel, x1, y1, x2, y2]) =>
+  [...new Set([...document.querySelectorAll(sel)].filter((n) => { const b = n.getBoundingClientRect(); return b.width && b.height && b.left < x2 && b.right > x1 && b.top < y2 && b.bottom > y1 })
+    .map((n) => (n.textContent || '').replace(/\s+/g, ' ').trim()).filter(Boolean))].sort(), [sel, x1, y1, x2, y2])
+// The frame lives inside its own diagram — scope to it, or a leftover frame on an
+// earlier diagram (from a prior region()) would be picked up instead.
+const frameActors = async (dgIndex, sel) => { const f = await page.locator(`#pane-diagrams .diagram[data-anchor="diagram:${dgIndex}"] .dg-region`).first().boundingBox(); return overlap(sel, f.x, f.y, f.x + f.width, f.y + f.height) }
 
-// The frame must survive a reload — redrawn from the journal — and land back on the
-// area that was dragged (geometry anchor), not merely somewhere. This is what proves the
-// hybrid rect round-trips and positions the frame independently of any node detection.
-await page.reload()
-await page.locator('#tabs .tab[data-pane="diagrams"]').click()
-await page.waitForSelector('#pane-diagrams svg', { timeout: 15000 })
-await page.waitForFunction(() => document.querySelector('#pane-diagrams .dg-region'), null, { timeout: 10000 })
-  .catch(() => fail('the region frame did not survive a reload'))
-const fr = await page.locator('#pane-diagrams .dg-region').first().boundingBox()
-const svg2 = await page.locator('#pane-diagrams .diagram .mermaid-box svg').first().boundingBox()
-// Compare in SVG-fraction space — invariant to scroll/layout shifts across the reload.
-const clamp01 = (v) => Math.max(0, Math.min(1, v))
-const want = { x1: clamp01((drag.x1 - svgAtDrag.x) / svgAtDrag.width), y1: clamp01((drag.y1 - svgAtDrag.y) / svgAtDrag.height),
-               x2: clamp01((drag.x2 - svgAtDrag.x) / svgAtDrag.width), y2: clamp01((drag.y2 - svgAtDrag.y) / svgAtDrag.height) }
-const got = { x1: (fr.x - svg2.x) / svg2.width, y1: (fr.y - svg2.y) / svg2.height,
-              x2: (fr.x + fr.width - svg2.x) / svg2.width, y2: (fr.y + fr.height - svg2.y) / svg2.height }
-const near = (a, b) => Math.abs(a - b) <= 0.06 // ~6px frame pad over an ~900px svg, plus edge clamp
-ok(near(got.x1, want.x1) && near(got.y1, want.y1) && near(got.x2, want.x2) && near(got.y2, want.y2),
-  `the reloaded frame ${JSON.stringify(Object.fromEntries(Object.entries(got).map(([k, v]) => [k, +v.toFixed(3)])))} does not match the dragged area ${JSON.stringify(Object.fromEntries(Object.entries(want).map(([k, v]) => [k, +v.toFixed(3)])))}`)
+// Drag over a diagram, note it, and assert the frame overlaps the same elements as the
+// drag — immediately, and again after a reload (redrawn from the journal).
+const region = async (dgIndex, sel, label) => {
+  const boxLoc = page.locator('#pane-diagrams .diagram').nth(dgIndex).locator('.mermaid-box')
+  await boxLoc.evaluate((el) => el.scrollIntoView({ block: 'start' }))
+  await page.waitForTimeout(150)
+  const box = await boxLoc.boundingBox()
+  const vh = page.viewportSize().height
+  const drag = { x1: box.x + box.width * 0.28, y1: box.y + 24, x2: box.x + box.width * 0.72, y2: Math.min(box.y + box.height - 12, vh - 12) }
+  const draggedOver = await overlap(sel, drag.x1, drag.y1, drag.x2, drag.y2)
+  ok(draggedOver.length > 0, `[${label}] test setup: the drag covered no ${sel} to compare against`)
+  await page.mouse.move(drag.x1, drag.y1); await page.mouse.down(); await page.mouse.move(drag.x2, drag.y2, { steps: 8 }); await page.mouse.up()
+  await page.waitForTimeout(300)
+  ok(await page.locator('.askpanel.on').count(), `[${label}] dragging a region did not open the ask panel`)
+  ok((await page.evaluate(() => (window.getSelection()?.toString() || '').trim())) === '', `[${label}] the region drag left a native text selection (hijack not suppressed)`)
+  await page.locator('.askpanel .dk-mode button[data-mode="note"]').click()
+  await page.locator('.askpanel textarea').fill(`region note on ${label}`)
+  await page.locator('.askpanel .dk-send').click()
+  await page.waitForFunction(() => document.querySelector('#pane-diagrams .dg-region'), null, { timeout: 10000 })
+    .catch(() => fail(`[${label}] a note on a region did not draw its frame`))
+  await page.waitForTimeout(900) // let the panel-open refit + redraws settle before measuring
+  const now = await frameActors(dgIndex, sel)
+  ok(JSON.stringify(now) === JSON.stringify(draggedOver), `[${label}] the frame overlaps ${JSON.stringify(now)} but the drag covered ${JSON.stringify(draggedOver)}`)
+  await page.reload()
+  await page.locator('#tabs .tab[data-pane="diagrams"]').click()
+  await page.waitForSelector('#pane-diagrams svg', { timeout: 15000 })
+  await page.waitForFunction(() => document.querySelector('#pane-diagrams .dg-region'), null, { timeout: 10000 })
+    .catch(() => fail(`[${label}] the region frame did not survive a reload`))
+  await page.waitForTimeout(300)
+  const after = await frameActors(dgIndex, sel)
+  ok(JSON.stringify(after) === JSON.stringify(draggedOver), `[${label}] after reload the frame overlaps ${JSON.stringify(after)} but the drag covered ${JSON.stringify(draggedOver)}`)
+}
+
+await region(0, '#pane-diagrams .diagram[data-anchor="diagram:0"] svg .node', 'flowchart')  // flowchart nodes
+await region(2, '#pane-diagrams .diagram[data-anchor="diagram:2"] svg .actor', 'sequence')  // sequence actors (no `.node`)
 
 if (errors.length) fail('page errors:\n' + errors.join('\n'))
 await browser.close()
 proc.kill('SIGKILL')
-console.log('OK: diagram annotations (block click opens the panel not the file; a note pins a badge that survives reload; a dragged region opens without hijacking text, and its geometry frame round-trips a reload onto the dragged area)')
+console.log('OK: diagram annotations (block click opens the panel not the file; a note pins a badge that survives reload; a region opens without hijacking text; its frame overlaps the same elements it covered — on a flowchart AND a wide sequence diagram — and survives a reload)')
