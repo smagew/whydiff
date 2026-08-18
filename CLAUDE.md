@@ -45,6 +45,18 @@ is opened, its drill-down.
 
 ## Conventions (enforced — do not relearn them the hard way)
 
+- **Testing discipline (how we stop shipping regressions).** Three rules, learned
+  the hard way on the diagram-region and progress-bar work:
+  1. **Bug → failing test first.** Every reported bug gets a test that FAILS on the
+     current code, then the fix that turns it green. No fix lands without it.
+  2. **Assert the invariant, not a proxy.** A test must fail when the feature is
+     actually wrong. Prefer behaviour/identity checks (e.g. "the region frame
+     overlaps the same nodes the drag covered") over brittle proxies like pixel
+     coordinates or fractions — a proxy can pass while the feature is broken.
+  3. **Reproduce the failing variant before claiming a fix works.** If a change
+     spans variants (diagram types, palettes, OS, window sizes, reduced-motion),
+     verify the one that actually breaks — not the convenient one — and cover it.
+     Never write "works on all X" from one sample.
 - **Design system** (`tests/design.mjs` fails the build otherwise): hex colours
   live only in the token block on `:root`/`[data-p=…]` — nowhere else;
   `border-radius` ≤ 5px for any single value; font-size ≥ 13px everywhere; no

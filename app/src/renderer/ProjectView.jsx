@@ -1,43 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { ReviewCounts } from './ProjectList.jsx'
-
-const refLabel = (a) => a.kind === 'working' ? 'working tree' : a.kind === 'pr' ? a.ref.replace(/^pr:/, 'PR #') : (a.ref || '').slice(0, 8)
-
-// The optional passes the user can pick at order time (core always runs). `id` is the
-// section id the skill understands; `agent` is the pass name run.mjs reports progress
-// under, so the progress bar can name the stage.
-const OPTIONAL = [
-  { id: 'story', label: 'Summary', agent: 'summariser' },
-  { id: 'stories', label: 'User stories', agent: 'story-writer' },
-  { id: 'standards', label: 'Standards', agent: 'standards-reviewer' },
-  { id: 'tests', label: 'Tests', agent: 'tests-analyst' },
-]
-const AGENT_OF = Object.fromEntries(OPTIONAL.map((o) => [o.id, o.agent]))
-// Human labels for every stage run.mjs emits (@stage markers).
-const STAGE_LABEL = {
-  prepare: 'Prepare', classifier: 'Code map', diagrammer: 'Diagrams',
-  summariser: 'Summary', 'story-writer': 'User stories', 'standards-reviewer': 'Standards', 'tests-analyst': 'Tests',
-  merge: 'Merge', assemble: 'Assemble',
-}
-
-// The stages a run WILL go through, given the chosen sections — so the bar can show
-// what's planned before anything starts. Core passes always run.
-const plannedStages = (sections) => {
-  const optional = sections.map((id) => AGENT_OF[id]).filter(Boolean)
-  return ['prepare', 'classifier', 'diagrammer', ...optional, 'merge', 'assemble']
-    .map((name) => ({ name, label: STAGE_LABEL[name] || name, started: 0, finished: 0 }))
-}
-// A pass is done when every start it announced has finished; running once any start
-// arrives (agents run in parallel, and a sharded classifier starts several times).
-const statusOf = (s) => (s.started > 0 && s.finished >= s.started ? 'done' : s.started > 0 ? 'running' : 'pending')
-const applyStageEvent = (stages, { stage, status }) => {
-  const next = stages.map((s) => ({ ...s }))
-  let s = next.find((x) => x.name === stage)
-  if (!s) { s = { name: stage, label: STAGE_LABEL[stage] || stage, started: 0, finished: 0 }; next.push(s) }
-  if (status === 'start') s.started++
-  else if (status === 'done') s.finished++
-  return next
-}
+import { refLabel, OPTIONAL, plannedStages, statusOf, applyStageEvent } from './logic.mjs'
 
 function StageProgress({ stages, text }) {
   if (!stages || !stages.length) {

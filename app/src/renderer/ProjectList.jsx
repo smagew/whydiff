@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
+import { refLabel, reviewPills } from './logic.mjs'
 
 // The project list: add a local folder or a GitHub URL, and open one to review it.
-const refLabel = (a) => a.kind === 'working' ? 'working tree' : a.kind === 'pr' ? a.ref.replace(/^pr:/, 'PR #') : (a.ref || '').slice(0, 8)
 
 // The same two glyphs the map's diagram badges use (CHAT_ICON / NOTE_ICON in
 // templates/viewer.html), so a report shows one visual language everywhere. They stroke
@@ -18,22 +18,22 @@ const NoteIcon = () => (
 )
 
 // Review activity a saved analysis carries — discussions (questions/tasks) and pinned
-// notes, from its journal. The discussions pill flags when some still need attention.
+// notes, from its journal. reviewPills() decides what to show; this only renders it.
 export function ReviewCounts({ counts }) {
-  if (!counts || (!counts.discussions && !counts.notes)) return null
+  const pills = reviewPills(counts)
+  if (!pills.length) return null
   return (
     <span className="rvcounts">
-      {counts.discussions > 0 && (
-        <span className={`rvc ${counts.blocking > 0 ? 'attn' : ''}`}
-          title={`${counts.discussions} discussion${counts.discussions === 1 ? '' : 's'}${counts.blocking ? ` · ${counts.blocking} still need${counts.blocking === 1 ? 's' : ''} attention` : ''}`}>
-          <ChatIcon />{counts.discussions}
+      {pills.map((p) => p.kind === 'discussions' ? (
+        <span key="d" className={`rvc ${p.attn ? 'attn' : ''}`}
+          title={`${p.n} discussion${p.n === 1 ? '' : 's'}${counts.blocking ? ` · ${counts.blocking} still need${counts.blocking === 1 ? 's' : ''} attention` : ''}`}>
+          <ChatIcon />{p.n}
         </span>
-      )}
-      {counts.notes > 0 && (
-        <span className="rvc" title={`${counts.notes} note${counts.notes === 1 ? '' : 's'}`}>
-          <NoteIcon />{counts.notes}
+      ) : (
+        <span key="n" className="rvc" title={`${p.n} note${p.n === 1 ? '' : 's'}`}>
+          <NoteIcon />{p.n}
         </span>
-      )}
+      ))}
     </span>
   )
 }
