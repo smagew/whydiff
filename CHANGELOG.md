@@ -4,6 +4,17 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.29.1] — 2026-08-18
+
+### Changed
+- **Internal: viewer logic is becoming unit-testable.** The viewer is one large
+  in-browser script that until now could only be covered end-to-end. Its pure,
+  DOM-free helpers are moving into `templates/viewer-logic.mjs`, unit-tested in node
+  (`tests/viewer-logic.mjs`); `assemble.mjs` inlines that module into the viewer's
+  single script (exports stripped) so the map stays self-contained. First helpers
+  moved: `nslug` and the generation progress-estimate math. No behaviour change — the
+  seam just lets this logic grow under fast unit coverage instead of only e2e.
+
 ## [0.29.0] — 2026-08-18
 
 ### Changed

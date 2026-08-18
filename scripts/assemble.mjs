@@ -114,6 +114,13 @@ if (diagrams.length) {
 // Replacements go through functions: string replacements interpret $-patterns
 // ($&, $', …), and both the JSON and the mermaid bundle contain them.
 const json = JSON.stringify(rm).replace(/<\//g, '<\\/')
+// The viewer's pure logic module, inlined into its single classic <script> — the `export`
+// keywords stripped so the declarations run as plain script, any literal </script>
+// neutralised. Authored/tested as an ES module (templates/viewer-logic.mjs); shipped
+// inline so the map stays self-contained.
+const viewerLogic = readFileSync(join(rootDir, 'templates', 'viewer-logic.mjs'), 'utf8')
+  .replace(/^export\s+/gm, '')
+  .replace(/<\/script/g, '<\\/script')
 // The plugin version, stamped into the footer so a served or exported map says
 // which whydiff produced it. Read from the plugin manifest; empty if unavailable.
 let version = ''
@@ -124,6 +131,7 @@ const html = template
   .replace('__DIAGRAMS_HTML__', () => diagramsHtml)
   .replace('__MERMAID_BUNDLE__', () => mermaidBundle)
   .replace('__HLJS_BUNDLE__', () => hljsBundle)
+  .replace('__VIEWER_LOGIC__', () => viewerLogic)
   .replace('__REVIEW_MAP_JSON__', () => json)
 
 mkdirSync(dirname(resolve(out)), { recursive: true })
