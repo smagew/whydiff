@@ -25,6 +25,9 @@ contextBridge.exposeInMainWorld('api', {
   latestAnalyses: (limit) => ipcRenderer.invoke('analyses:latest', limit),
   // opts: { work } — work:true opens the map able to run a fix in a worktree (opt-in)
   openAnalysis: (id, opts) => ipcRenderer.invoke('analysis:open', id, opts),
+  // Export a saved analysis to a self-contained HTML file (notes baked in); returns the
+  // chosen path, or null if the user cancelled the save dialog.
+  exportAnalysis: (id) => ipcRenderer.invoke('analysis:export', id),
   removeAnalysis: (id) => ipcRenderer.invoke('analysis:remove', id),
 
   // Settings — a GitHub token kept in the OS keychain. The renderer never sees the

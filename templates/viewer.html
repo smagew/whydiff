@@ -1022,6 +1022,16 @@
   .statline b { font-weight: 500; color: var(--ink); }
   .statline .hot { color: var(--flag); }
 
+  /* A read-only exported map (assemble --journal): the notes render and read back, but
+     every affordance that would ask, decide, or run work is removed — there is no server
+     behind them. Placed last so it wins the source-order tie with the can-ask rules that
+     otherwise show the ask entry points. */
+  body.view-only .dk-form,
+  body.view-only .dg-ask,
+  body.view-only .askbtn,
+  body.view-only .asksel,
+  body.view-only .dk-agree, body.view-only .dk-make, body.view-only .dk-notnow, body.view-only .dk-pick,
+  body.view-only .tk-run, body.view-only .tk-apply, body.view-only .tk-reopen, body.view-only .tk-decline { display: none; }
 </style>
 
 <div class="wrap">
@@ -1120,6 +1130,11 @@ __MERMAID_BUNDLE__
    templates/viewer-logic.mjs by assemble.mjs (exports stripped), so they run in this
    script's scope and are unit-tested in node. Defined first — before any use below. */
 __VIEWER_LOGIC__
+// Review state baked in for an offline, read-only export (assemble --journal). Null in a
+// served map (which loads notes live) or a plain export (no notes). When present, the
+// annotation subsystem below runs read-only: it renders the notes but offers no ask/edit.
+window.__WHYDIFF_THREADS__ = __THREADS__
+window.__WHYDIFF_REVIEW__ = __REVIEW__
 const RM = __REVIEW_MAP_JSON__
 
 // ── i18n: viewer chrome follows the report language (meta.lang), default en ──
@@ -2835,8 +2850,14 @@ addEventListener('resize', () => { if (!document.getElementById('pane-files').hi
 // file and the published artifact have no endpoint to talk to, so the whole
 // feature stays absent rather than visibly broken.
 const SERVE = window.__WHYDIFF_SERVE__
-if (SERVE?.token) (() => {
-  document.body.classList.add('can-ask')
+// A baked-in export (assemble --journal) sets __WHYDIFF_THREADS__; run the annotation
+// subsystem for it too, but READ-ONLY — canWrite gates every server call and every
+// compose/decision affordance, while the notes still render and read back.
+const EMBEDDED = window.__WHYDIFF_THREADS__ || null
+if (SERVE?.token || EMBEDDED) (() => {
+  const canWrite = !!(SERVE && SERVE.token)
+  document.body.classList.add('can-ask')            // annotation marks/badges are visible
+  if (!canWrite) document.body.classList.add('view-only')  // ...but nothing can be asked or decided
 
   // ── markdown ───────────────────────────────────────────────────────────────
   // A small renderer rather than a library: the page must stay self-contained,
@@ -2883,6 +2904,7 @@ if (SERVE?.token) (() => {
   }
 
   const api = async (path, body, raw) => {
+    if (!canWrite) throw new Error('read-only export')  // no server to talk to; write paths are hidden anyway
     const res = await fetch('/api/' + path, {
       method: body ? 'POST' : 'GET',
       headers: { 'x-whydiff-token': SERVE.token, ...(body ? { 'content-type': 'application/json' } : {}) },
@@ -3195,6 +3217,7 @@ if (SERVE?.token) (() => {
   // ── text selection ─────────────────────────────────────────────────────────
   const hideSel = () => { selBtn.style.display = 'none' }
   document.addEventListener('mouseup', (e) => {
+    if (!canWrite) return  // read-only export: no "ask about this text" affordance
     if (e.target.closest('.askpanel') || e.target === selBtn) return
     setTimeout(() => {
       const sel = window.getSelection()
@@ -3370,14 +3393,18 @@ if (SERVE?.token) (() => {
         box.addEventListener('click', (e) => {
           const node = e.target.closest?.('.node, .er.entityBox, g[id^="entity-"]')
           if (!node || !box.contains(node)) return
+          const a = nodeAnchor(dg, i, nodeText(node).slice(0, 90))
+          // Read-only export with no note on this node: don't preempt — let mermaid's own
+          // click directive run so the file drill-down still works.
+          if (!canWrite && !forKey(a.key).length) return
           e.preventDefault(); e.stopImmediatePropagation()
-          openFor(nodeAnchor(dg, i, nodeText(node).slice(0, 90)))
+          openFor(a)
         }, true)
         // Drag a rectangle over the diagram to ask about a REGION, not one node: on
         // release, the nodes the box covers become the anchor's context. A plain
         // click (no movement) is left to the click handler above.
         box.addEventListener('mousedown', (e) => {
-          if (e.button !== 0) return
+          if (e.button !== 0 || !canWrite) return  // read-only: no region asking
           // Suppress the native text-selection this drag would otherwise start (which used
           // to hijack the gesture and pop the "ask about text" hint instead).
           e.preventDefault()
@@ -3604,6 +3631,9 @@ if (SERVE?.token) (() => {
     }, btn)
   }
   function openFor(anchor) {
+    // Read-only export: only open the panel for a place that actually carries a note —
+    // there is nothing to compose, so an empty panel would just be a dead end.
+    if (!canWrite && !forKey(anchor.key).length) return
     current = anchor
     const fixable = canPropose(anchor)
     // Show the Options tab only where the map found something to weigh options about
@@ -4084,7 +4114,16 @@ if (SERVE?.token) (() => {
     tkSaid.textContent = L.tasksCopied
   })
 
-  api('threads').then((d) => { threads = d.threads || []; refreshMarks() }).catch(() => refreshMarks())
-  api('review').then((d) => { review = d; renderTasks() }).catch((e) => console.error('review load failed:', e))
+  if (canWrite) {
+    // Served: load the live review state from the journal on disk.
+    api('threads').then((d) => { threads = d.threads || []; refreshMarks() }).catch(() => refreshMarks())
+    api('review').then((d) => { review = d; renderTasks() }).catch((e) => console.error('review load failed:', e))
+  } else {
+    // Exported: the review state is baked into the page; render it read-only.
+    threads = EMBEDDED || []
+    review = window.__WHYDIFF_REVIEW__ || null
+    refreshMarks()
+    if (review) renderTasks()
+  }
 })()
 </script>

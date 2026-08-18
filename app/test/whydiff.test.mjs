@@ -3,7 +3,7 @@
 import { mkdtempSync, writeFileSync, existsSync, readFileSync, chmodSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { runAnalysis, serveMap, reviewCounts } from '../src/main/whydiff.mjs'
+import { runAnalysis, serveMap, reviewCounts, exportHtml } from '../src/main/whydiff.mjs'
 
 const fail = (m) => { console.error(`FAIL: ${m}`); process.exit(1) }
 const ok = (c, m) => { if (!c) fail(m) }
@@ -102,6 +102,27 @@ writeFileSync(join(jdir, 'review.log.jsonl'), [
   ev({ type: 'note.added', noteId: 'n3', kind: 'answer', replyTo: 'n1', anchor: { kind: 'file', key: 'a.js' }, text: 'because…' }),
 ].join('\n') + '\n')
 
+// exportHtml drives assemble.mjs with --out, and --journal/--repo only when given. A stub
+// records its argv so both directions are checked without running the real assembler.
+const exportArgv = join(dir, 'export-argv.json')
+const assembleStub = mkScript('assemble-stub.mjs', `
+import { writeFileSync } from 'node:fs'
+writeFileSync(${JSON.stringify(exportArgv)}, JSON.stringify(process.argv.slice(2)))
+writeFileSync(process.argv[process.argv.indexOf('--out') + 1], '<html>ok</html>')
+`)
+const outHtml = join(dir, 'shared.html')
+const outPath = await exportHtml(join(dir, 'map.json'), '/journal/dir', outHtml, { assembleScript: assembleStub, repo: '/repo' })
+ok(outPath === outHtml, 'exportHtml should resolve the output path')
+ok(existsSync(outHtml), 'exportHtml did not produce the output file')
+let eav = JSON.parse(readFileSync(exportArgv, 'utf8'))
+ok(eav[0] === join(dir, 'map.json'), 'exportHtml passes the map path first')
+ok(eav.includes('--out') && eav[eav.indexOf('--out') + 1] === outHtml, 'exportHtml forwards --out')
+ok(eav.includes('--journal') && eav[eav.indexOf('--journal') + 1] === '/journal/dir', 'exportHtml forwards --journal')
+ok(eav.includes('--repo') && eav[eav.indexOf('--repo') + 1] === '/repo', 'exportHtml forwards --repo when given')
+await exportHtml(join(dir, 'map.json'), null, join(dir, 's2.html'), { assembleScript: assembleStub })
+eav = JSON.parse(readFileSync(exportArgv, 'utf8'))
+ok(!eav.includes('--journal') && !eav.includes('--repo'), 'exportHtml omits --journal/--repo when not given')
+
 const c = await reviewCounts(jdir)
 // notes = pinned remarks (kind 'note') only; the question and answer are not "notes".
 ok(c.notes === 1, `expected 1 pinned note, got ${c.notes}`)
@@ -110,4 +131,4 @@ ok(c.discussions === 2, `expected 2 discussion threads, got ${c.discussions}`)
 // blocking = the open task; the question was answered so it no longer blocks.
 ok(c.blocking === 1, `expected 1 blocking (open task; question answered), got ${c.blocking}`)
 
-console.log('OK: whydiff bridge (runAnalysis streams progress + returns the map path + rejects on failure; serveMap surfaces the localhost URL and a stop(); --work is opt-in; reviewCounts folds notes/discussions/blocking from the journal)')
+console.log('OK: whydiff bridge (runAnalysis streams progress + returns the map path + rejects on failure; serveMap surfaces the localhost URL and a stop(); --work is opt-in; reviewCounts folds notes/discussions/blocking from the journal; exportHtml drives assemble with --out and optional --journal/--repo)')
