@@ -43,10 +43,10 @@ await page.waitForFunction(() => document.querySelector('.printnotes')?.textCont
 const disp = (sel) => page.evaluate((s) => { const e = document.querySelector(s); return e ? getComputedStyle(e).display : 'MISSING' }, sel)
 
 // A visible PDF button in the report header opens the print dialog.
-ok(await page.locator('#tabs .print-btn').count() === 1, 'the report header should show a PDF button')
+ok(await page.locator('.content-pdf').count() === 1, 'the report content should show a PDF button')
 const printed = await page.evaluate(async () => {
   let called = false; window.print = () => { called = true }
-  document.querySelector('#tabs .print-btn').click()
+  document.querySelector('.content-pdf').click()
   for (let i = 0; i < 80 && !called; i++) await new Promise((r) => setTimeout(r, 50)) // the handler preps the tab first (async)
   return called
 })

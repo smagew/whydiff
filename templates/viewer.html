@@ -280,9 +280,16 @@
   .help-btn { margin-left: auto; flex: none; width: 28px; height: 28px; align-self: center; border-radius: 3px; border: 1px solid var(--line); background: var(--surface-2); color: var(--muted); font: inherit; font-size: 13px; font-weight: 500; cursor: pointer; transition: border-color var(--t), color var(--t); }
   .help-btn:hover { border-color: var(--accent); color: var(--accent); }
   .help-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-  /* The PDF button sits just left of the help "?"; wider than the square help button so
-     its "PDF" label fits, and it keeps the auto-left margin so the pair hugs the right. */
-  .print-btn { width: auto; padding: 0 10px; margin-right: 6px; }
+  /* PDF button in a right-aligned toolbar at the top of the content, so it reads as "save
+     this section", not "print the page", and reserves its own row (never over content). */
+  .content-tools { display: flex; justify-content: flex-end; margin-bottom: 8px; }
+  .content-pdf { display: inline-flex; align-items: center; gap: 5px;
+    font: inherit; font-size: 13px; font-weight: 500; cursor: pointer; color: var(--muted);
+    border: 1px solid var(--line); background: none; border-radius: 4px; padding: 4px 9px;
+    transition: border-color var(--t), color var(--t); }
+  .content-pdf:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  .content-pdf:disabled { opacity: .6; cursor: default; }
+  .content-pdf svg { width: 14px; height: 14px; flex: none; }
   .glegend { margin: 0 0 14px; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 2px; }
   .gleg-row { display: flex; align-items: baseline; gap: 8px; width: 100%; font: inherit; font-size: 13px; background: none; border: none; padding: 4px 6px; margin: 0 -6px; border-radius: 3px; cursor: pointer; color: inherit; text-align: left; }
   .gleg-row:hover { background: var(--surface-2); }
@@ -1055,7 +1062,7 @@
        (.themepick) and the "show all links" toggle (.toggle), which otherwise land on the
        page as overlapping debris. */
     #tabs, #scopebar, #consistency, .footstrip, .aside-toggle, .help-btn, .themepick, .toggle,
-    .askpanel, .askbar, .rail, .rc-grip, .rc-grip-pill, .rightcol, .modebar,
+    .askpanel, .askbar, .rail, .rc-grip, .rc-grip-pill, .rightcol, .modebar, .content-tools,
     #edges, #elabels, .elabels, .elabel, .dg-badges,
     #diagramsHint, #blastHint, .dg-actions, [data-pop] { display: none !important; }
     /* Clamp the whole reading column to the paper width. The PDF renderer lays out at the
@@ -1703,23 +1710,6 @@ for (const [id, name, cnt] of PANES) {
   b.dataset.pane = id
   tabsEl.appendChild(b)
 }
-// Print the current tab to a PDF (with its notes appendix). Lives in the tab bar, which
-// the print stylesheet hides — so the button never lands in the PDF itself.
-const printBtn = document.createElement('button')
-printBtn.className = 'help-btn print-btn'
-printBtn.textContent = L.printBtn
-printBtn.title = L.printTitle
-printBtn.setAttribute('aria-label', L.printTitle)
-printBtn.addEventListener('click', async () => {
-  // Prep THIS tab for a clean PDF (light palette, diagrams rendered light and re-fitted to
-  // the page), then open the print dialog. preparePrint/functions are hoisted declarations.
-  const tab = document.querySelector('#tabs .tab.active')?.dataset.pane || null
-  printBtn.disabled = true
-  try { await preparePrint({ tab }) } catch {}
-  printBtn.disabled = false
-  window.print()
-})
-tabsEl.appendChild(printBtn)
 const helpBtn = document.createElement('button')
 helpBtn.className = 'help-btn'
 helpBtn.textContent = '?'
@@ -1727,6 +1717,31 @@ helpBtn.title = L.overviewTitle
 helpBtn.setAttribute('aria-label', L.overviewTitle)
 helpBtn.addEventListener('click', () => helpModal.showModal())
 tabsEl.appendChild(helpBtn)
+
+// A PDF button that belongs to the CONTENT, not the page chrome: it sits at the top-right of
+// the reading column and saves the tab you are looking at (its diagrams rendered light and
+// re-fitted). In the tab bar a PDF button read as "print the whole page"; here it is clearly
+// "save this section". Hidden by the print stylesheet, so it never lands in the PDF.
+const contentPdf = document.createElement('button')
+contentPdf.className = 'content-pdf'
+contentPdf.title = L.printTitle
+contentPdf.setAttribute('aria-label', L.printTitle)
+contentPdf.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg><span>' + esc(L.printBtn) + '</span>'
+contentPdf.addEventListener('click', async () => {
+  // Prep the ACTIVE tab for a clean PDF (light palette, diagrams light + re-fitted), then
+  // open the print dialog. preparePrint and its helpers are hoisted function declarations.
+  const tab = document.querySelector('#tabs .tab.active')?.dataset.pane || null
+  contentPdf.disabled = true
+  try { await preparePrint({ tab }) } catch {}
+  contentPdf.disabled = false
+  window.print()
+})
+// A right-aligned toolbar at the top of the content, so the button reserves its own row and
+// never overlaps a story's ask button or a node the way an absolute corner button would.
+const contentTools = document.createElement('div')
+contentTools.className = 'content-tools'
+contentTools.appendChild(contentPdf)
+document.querySelector('.main-panel')?.prepend(contentTools)
 
 // Tabs whose content actually feeds the inspector. Standards and Tests do carry
 // [data-goto] links into it, so collapsing must be reversible: a file click from

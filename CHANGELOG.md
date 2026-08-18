@@ -32,10 +32,12 @@ to receive an update.
   generating real PDFs and reading them back, and guarded by a regression test.
 
 ### Changed
-- **The report's PDF button now produces a clean PDF of the tab you're on.** It preps that
-  tab first — switches to a light palette, renders its diagrams light and re-fits them —
-  then opens the print dialog, and restores your on-screen palette afterwards. So printing
-  any tab (Cmd-P or the button) gives ink-on-paper output with diagrams that fit, not the
+- **A PDF button on every tab, in the content — saves that tab, cleanly.** The button sits
+  at the top-right of the reading column (not the page header, where it read as "print the
+  whole page"), so it clearly belongs to the section you're looking at. Clicking it preps
+  that tab first — switches to a light palette, renders its diagrams light and re-fits them —
+  then opens the print dialog, and restores your on-screen palette afterwards. So any tab
+  (the button, or a raw Cmd-P) gives ink-on-paper output with diagrams that fit, not the
   dark, clipped page it used to.
 
 ## [0.33.0] — 2026-08-18
