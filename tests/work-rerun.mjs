@@ -50,7 +50,7 @@ process.stdout.write(JSON.stringify({ type: 'result', subtype: 'success', result
 chmodSync(stub, 0o755)
 
 const port = 7900 + (process.pid % 30)
-const proc = spawn('node', [join(root, 'scripts', 'serve.mjs'), mapPath, '--repo', repo, '--port', String(port), '--claude-cmd', stub, '--work'], { stdio: ['ignore', 'pipe', 'pipe'] })
+const proc = spawn('node', [join(root, 'scripts', 'serve.mjs'), '--no-open', mapPath, '--repo', repo, '--port', String(port), '--claude-cmd', stub, '--work'], { stdio: ['ignore', 'pipe', 'pipe'] })
 let out = ''; proc.stdout.on('data', d => { out += d }); proc.stderr.on('data', d => { out += d })
 process.on('exit', () => { try { proc.kill('SIGKILL') } catch {} })
 const base = `http://127.0.0.1:${port}`

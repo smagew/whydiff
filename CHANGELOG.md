@@ -4,6 +4,17 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.33.0] — 2026-08-18
+
+### Changed
+- **The served map opens in your browser, and the terminal stays quiet.** Three fixes to
+  the end of a `/whydiff` run: (1) `serve.mjs` now opens the report in your default browser
+  on startup (`--no-open` to suppress — CI, or the desktop app, which loads it itself); (2)
+  it prints the `http://127.0.0.1:<port>/` URL as its **last** line, so it is what is left on
+  screen instead of being buried; (3) the skill now ends with a short handoff (what the diff
+  is, how many files to read, one timing line) instead of transcribing the whole report into
+  the terminal — the analysis lives in the map, which is the point of building it.
+
 ## [0.32.0] — 2026-08-18
 
 ### Added

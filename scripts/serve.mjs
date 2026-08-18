@@ -48,6 +48,10 @@ const workTimeoutMs = Number(opt('--work-timeout', '900000'))
 // by an agent — in a throwaway git worktree, never in the tree under review, and
 // the result reaches that tree only through an explicit apply.
 const workMode = args.includes('--work')
+// Open the report in the default browser on startup. Default on — the whole point is to
+// land the reviewer on the live map without a copy-paste step. Off with --no-open (CI, or a
+// host like the desktop app that loads the URL in its own window).
+const noOpen = args.includes('--no-open')
 const reviewDir = dirname(mapPath)
 const patchDir = join(reviewDir, 'tasks')
 
@@ -810,18 +814,28 @@ const server = createServer(async (req, res) => {
   return json(res, 404, { error: 'not found' })
 })
 
+// Open a URL in the OS default browser, best-effort (never let it break serving).
+const openInBrowser = (url) => {
+  const cmd = process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'cmd' : 'xdg-open'
+  const args = process.platform === 'win32' ? ['/c', 'start', '', url] : [url]
+  try { const c = spawn(cmd, args, { stdio: 'ignore', detached: true }); c.on('error', () => {}); c.unref() } catch {}
+}
+
 server.listen(port, '127.0.0.1', () => {
   if (workMode) sweepWorktrees()
   const url = `http://127.0.0.1:${port}/`
-  console.log(`whydiff serve: ${url}`)
   console.log(`  map    ${mapPath}`)
   console.log(`  repo   ${repo}`)
   const existing = review.counts.questions
   console.log(`  journal ${join(reviewDir, REVIEW_LOG)}${existing ? ` (${existing} question(s) already asked)` : ''}`)
-  if (migrated) console.log(`  migrated ${migrated} thread(s) from threads.json (kept as threads.migrated.json)`)
   console.log(`  asking and planning via \`${claudeCmd} -p\` (${READ_ONLY_TOOLS}; ${DENY_WRITES} refused) — Ctrl-C to stop`)
   console.log(workMode
     ? `  --work is ON: an agreed task can be worked in a throwaway git worktree; its patch reaches ${repo} only when you apply it`
     : '  --work is off: nothing here edits the repo')
+  if (migrated) console.log(`  migrated ${migrated} thread(s) from threads.json (kept as threads.migrated.json)`)
+  if (!noOpen) openInBrowser(url)
+  // The URL is the one thing the reviewer needs — print it LAST so it is the line left on
+  // screen, not buried above the rest of the startup log.
+  console.log(`\nwhydiff review map: ${url}${noOpen ? '' : '  (opened in your browser)'}`)
 })
 process.on('SIGINT', () => { console.log(`\nstopped${inFlight ? ` (${inFlight} answer(s) abandoned)` : ''}`); process.exit(0) })
