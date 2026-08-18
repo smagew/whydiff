@@ -4,6 +4,19 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.30.0] — 2026-08-18
+
+### Added
+- **Export a shareable review — notes included.** `assemble.mjs --journal <dir>`
+  folds the review journal (notes, questions/answers, the Review tab's tasks) into the
+  self-contained HTML, so the exported map reads offline with its annotations intact —
+  the artifact you send to someone. Until now notes only existed in a served map (loaded
+  live from `/api/threads`); a plain export had none. The exported map opens **read-only
+  (view-only)**: badges/frames and threads render and read back, but every affordance
+  that would ask, decide, or run work is removed — there is no server behind them, and a
+  click on an un-annotated diagram node falls through to its normal file drill-down.
+  (The desktop app's Export button that produces this file, and PDF-per-tab, follow.)
+
 ## [0.29.1] — 2026-08-18
 
 ### Changed

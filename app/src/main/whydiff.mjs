@@ -73,6 +73,27 @@ export function serveMap(repo, mapPath, { serveScript, node = 'node', env, port,
   })
 }
 
+/**
+ * Export a saved analysis to a self-contained HTML file WITH its notes baked in — the
+ * shareable, offline, read-only review. Runs scripts/assemble.mjs with --journal (the
+ * analysis dir, where the review journal lives) and --repo (to embed full-file drill-downs
+ * when the repo is on hand). Resolves the output path.
+ */
+export function exportHtml(mapPath, journalDir, outPath, { assembleScript, repo, node = 'node', env } = {}) {
+  return new Promise((resolveP, reject) => {
+    const script = assembleScript || join(pluginDir(), 'scripts', 'assemble.mjs')
+    const args = [script, mapPath, '--out', outPath]
+    if (journalDir) args.push('--journal', journalDir)
+    if (repo) args.push('--repo', repo)
+    const child = spawn(node, args, { stdio: ['ignore', 'pipe', 'pipe'], env: env || process.env })
+    let err = ''
+    child.stderr.on('data', (d) => { err = (err + d).slice(-2000) })
+    child.on('error', (e) => reject(new Error(`could not start the exporter: ${e.message}`)))
+    child.on('close', (code) => code === 0 ? resolveP(outPath)
+      : reject(new Error(`export failed (exit ${code})${err ? `: ${err.trim().split('\n').pop()}` : ''}`)))
+  })
+}
+
 // The plugin's review projection (scripts/review.mjs), imported lazily and once. It is
 // import-safe — its CLI is guarded — and only uses node builtins, so it loads cleanly
 // as an external ESM module in both dev and a packaged build.

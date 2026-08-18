@@ -13,6 +13,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs'
 import { resolve, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { validateStructure, logTiming } from './lib.mjs'
+import { readReview, turns, coverage } from './review.mjs'
 
 const args = process.argv.slice(2)
 const jsonPath = args.find(a => !a.startsWith('--'))
@@ -23,6 +24,10 @@ if (!jsonPath) {
 const opt = (name) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : null }
 const repo = opt('--repo')
 const out = opt('--out') || jsonPath.replace(/\.json$/, '.html')
+// --journal <dir>: bake the review journal (notes, discussions, tasks) into the exported
+// map so it reads offline, read-only — the shareable artifact. Without it the map ships
+// note-less (a served map loads them live from /api/threads instead).
+const journalDir = opt('--journal')
 
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), '..')
 const template = readFileSync(join(rootDir, 'templates', 'viewer.html'), 'utf8')
@@ -121,6 +126,17 @@ const json = JSON.stringify(rm).replace(/<\//g, '<\\/')
 const viewerLogic = readFileSync(join(rootDir, 'templates', 'viewer-logic.mjs'), 'utf8')
   .replace(/^export\s+/gm, '')
   .replace(/<\/script/g, '<\\/script')
+// The review journal, folded into the page for an offline read-only export. `null` when
+// no --journal is given (a served or plain export). The shapes match what serve.mjs sends
+// live (turns() for the annotations, the projection + coverage for the Review tab).
+let threadsJson = 'null', reviewJson = 'null'
+if (journalDir) {
+  try {
+    const { state } = readReview(journalDir)
+    threadsJson = JSON.stringify(turns(state)).replace(/<\//g, '<\\/')
+    reviewJson = JSON.stringify({ ...state, coverage: coverage(rm, state) }).replace(/<\//g, '<\\/')
+  } catch (e) { console.warn(`warning: could not read the review journal at ${journalDir} — exporting without notes (${e.message})`) }
+}
 // The plugin version, stamped into the footer so a served or exported map says
 // which whydiff produced it. Read from the plugin manifest; empty if unavailable.
 let version = ''
@@ -132,6 +148,8 @@ const html = template
   .replace('__MERMAID_BUNDLE__', () => mermaidBundle)
   .replace('__HLJS_BUNDLE__', () => hljsBundle)
   .replace('__VIEWER_LOGIC__', () => viewerLogic)
+  .replace('__THREADS__', () => threadsJson)
+  .replace('__REVIEW__', () => reviewJson)
   .replace('__REVIEW_MAP_JSON__', () => json)
 
 mkdirSync(dirname(resolve(out)), { recursive: true })

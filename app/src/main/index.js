@@ -5,7 +5,7 @@ import { openStore, repoNameFromUrl } from './store.mjs'
 import { openSettings } from './settings.mjs'
 import { gitState, rangeForCommit, clone, fetchPrRange } from './git.mjs'
 import { fetchPRs, parseRepo } from './github.mjs'
-import { runAnalysis, serveMap, reviewCounts } from './whydiff.mjs'
+import { runAnalysis, serveMap, reviewCounts, exportHtml } from './whydiff.mjs'
 import { checkForUpdate } from './updates.mjs'
 import { resolvedPath } from './pathenv.mjs'
 
@@ -178,6 +178,24 @@ app.whenReady().then(() => {
     return Promise.all(store.listAnalyses({ limit }).map(a => withCounts(a).then(x => ({ ...x, projectName: store.getProject(a.projectId)?.name || '?' }))))
   })
   ipcMain.handle('analysis:open', async (_e, id, opts) => { await openAnalysisWindow(id, opts || {}); return true })
+  // Export a saved analysis as a self-contained HTML file WITH its notes baked in — the
+  // shareable, offline, read-only review. Asks the user where to save; nothing is uploaded.
+  ipcMain.handle('analysis:export', async (_e, id) => {
+    const a = store.getAnalysis(id)
+    if (!a) throw new Error('that analysis is gone')
+    const dir = join(analysesDir, String(id))
+    const mapJson = join(dir, 'review-map.json')
+    if (!existsSync(mapJson)) throw new Error('the saved map is missing')
+    const project = store.getProject(a.projectId)
+    const resolved = repoForProject(project)
+    const repo = resolved && existsSync(resolved) ? resolved : null
+    const base = (a.title || project?.name || 'review').replace(/[^\w.-]+/g, '-').replace(/^-+|-+$/g, '') || 'review'
+    const r = await dialog.showSaveDialog({ title: 'Export review as HTML', defaultPath: `${base}.html`, filters: [{ name: 'HTML', extensions: ['html'] }] })
+    if (r.canceled || !r.filePath) return null
+    await exportHtml(mapJson, dir, r.filePath, { repo, node: nodeCmd(), env: nodeEnv() })
+    shell.showItemInFolder(r.filePath)
+    return r.filePath
+  })
   ipcMain.handle('analysis:remove', (_e, id) => {
     const ok = store.removeAnalysis(id)
     if (ok) rmSync(join(analysesDir, String(id)), { recursive: true, force: true })
