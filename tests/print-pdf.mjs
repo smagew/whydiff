@@ -44,7 +44,12 @@ const disp = (sel) => page.evaluate((s) => { const e = document.querySelector(s)
 
 // A visible PDF button in the report header opens the print dialog.
 ok(await page.locator('#tabs .print-btn').count() === 1, 'the report header should show a PDF button')
-const printed = await page.evaluate(() => { let called = false; window.print = () => { called = true }; document.querySelector('#tabs .print-btn').click(); return called })
+const printed = await page.evaluate(async () => {
+  let called = false; window.print = () => { called = true }
+  document.querySelector('#tabs .print-btn').click()
+  for (let i = 0; i < 80 && !called; i++) await new Promise((r) => setTimeout(r, 50)) // the handler preps the tab first (async)
+  return called
+})
 ok(printed, 'clicking the PDF button did not open the print dialog (window.print)')
 
 // On screen the appendix is hidden; the tab bar is shown.

@@ -1710,7 +1710,15 @@ printBtn.className = 'help-btn print-btn'
 printBtn.textContent = L.printBtn
 printBtn.title = L.printTitle
 printBtn.setAttribute('aria-label', L.printTitle)
-printBtn.addEventListener('click', () => window.print())
+printBtn.addEventListener('click', async () => {
+  // Prep THIS tab for a clean PDF (light palette, diagrams rendered light and re-fitted to
+  // the page), then open the print dialog. preparePrint/functions are hoisted declarations.
+  const tab = document.querySelector('#tabs .tab.active')?.dataset.pane || null
+  printBtn.disabled = true
+  try { await preparePrint({ tab }) } catch {}
+  printBtn.disabled = false
+  window.print()
+})
 tabsEl.appendChild(printBtn)
 const helpBtn = document.createElement('button')
 helpBtn.className = 'help-btn'
@@ -2740,15 +2748,27 @@ const applyPalette = (v) => {
   if (diagramsRendered) runDiagrams()
 }
 
+// Remember the on-screen palette once, so however print starts (the PDF button, or a raw
+// Cmd-P) it can go light and then be restored to exactly what the user had.
+let printOriginalPalette = null
+function beginPrintPalette() {
+  if (printOriginalPalette == null) printOriginalPalette = document.documentElement.dataset.p || 'graphite'
+  document.documentElement.dataset.p = 'bond'  // set directly (not applyPalette) so it isn't persisted
+  syncThemePick()
+}
+function endPrintPalette() {
+  if (printOriginalPalette == null) return
+  document.documentElement.dataset.p = printOriginalPalette; printOriginalPalette = null
+  syncThemePick(); if (diagramsRendered) runDiagrams()
+}
+
 // Prepare the page for a clean PDF: switch to a LIGHT palette (ink on paper, not a black
 // page), render the diagrams at real size (they render lazily only while their pane is
 // active and bake the palette into their SVG), and choose the scope — one tab or the whole
-// report (print-all). Awaitable, so the headless PDF path (the desktop app / tests, which
-// get no `beforeprint` event) can wait for the re-render before capturing. Exposed on
-// window for that caller.
-async function preparePrint({ palette = 'bond', tab = null, all = false } = {}) {
-  document.documentElement.dataset.p = PALETTES.includes(palette) ? palette : 'bond'
-  syncThemePick()
+// report (print-all). Awaitable, so the caller (the PDF button, or the headless desktop/app
+// path) can wait for the re-render before printing. Exposed on window for that caller.
+async function preparePrint({ tab = null, all = false } = {}) {
+  beginPrintPalette()
   if (all || tab === 'diagrams') { setTab('diagrams'); try { await runDiagrams() } catch {} }
   if (tab && tab !== 'diagrams') setTab(tab)
   document.body.classList.toggle('print-all', !!all)
@@ -2775,21 +2795,16 @@ window.__whydiffPreparePrint = preparePrint
 // data-p directly (not applyPalette) so the choice is not persisted. Diagrams re-render
 // asynchronously here, so Cmd-P is best for the non-diagram tabs; the app's Export-PDF uses
 // preparePrint() above for pixel-clean diagrams.
-let __prePrintPalette = null
 window.addEventListener('beforeprint', () => {
-  __prePrintPalette = document.documentElement.dataset.p || 'graphite'
-  document.documentElement.dataset.p = 'bond'
-  syncThemePick()
-  // Re-fit the diagram viewBoxes for the page, but do NOT re-render here: a re-render
-  // resets each viewBox to mermaid's original (which clips), and beforeprint also fires
-  // during printToPDF/page.pdf — so re-rendering would silently undo the fit.
+  // Go light and re-fit the diagram viewBoxes for the page — but do NOT re-render here: a
+  // re-render resets each viewBox to mermaid's original (which clips), and beforeprint also
+  // fires during printToPDF/page.pdf, so re-rendering would silently undo the fit. (When the
+  // PDF button ran preparePrint first, beginPrintPalette is a no-op and the light diagrams
+  // are already in place; a raw Cmd-P still gets light text/code and fitted diagrams.)
+  beginPrintPalette()
   fitDiagramsForPrint()
 })
-window.addEventListener('afterprint', () => {
-  if (!__prePrintPalette) return
-  document.documentElement.dataset.p = __prePrintPalette; __prePrintPalette = null
-  syncThemePick(); if (diagramsRendered) runDiagrams()  // restore the on-screen diagrams
-})
+window.addEventListener('afterprint', endPrintPalette)
 
 // quiet ships; safe is the token block's own two-hue pair, so it is the one
 // spelling that clears the attribute rather than setting it.

@@ -31,6 +31,13 @@ to receive an update.
   `beforeprint` now re-fits without re-rendering, so the fit survives. Verified by
   generating real PDFs and reading them back, and guarded by a regression test.
 
+### Changed
+- **The report's PDF button now produces a clean PDF of the tab you're on.** It preps that
+  tab first — switches to a light palette, renders its diagrams light and re-fits them —
+  then opens the print dialog, and restores your on-screen palette afterwards. So printing
+  any tab (Cmd-P or the button) gives ink-on-paper output with diagrams that fit, not the
+  dark, clipped page it used to.
+
 ## [0.33.0] — 2026-08-18
 
 ### Changed
