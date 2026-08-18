@@ -2753,6 +2753,20 @@ async function preparePrint({ palette = 'bond', tab = null, all = false } = {}) 
   if (tab && tab !== 'diagrams') setTab(tab)
   document.body.classList.toggle('print-all', !!all)
   await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
+  fitDiagramsForPrint()
+}
+// mermaid often lays a node out past its own viewBox (e.g. the flowchart's 429 node sits
+// ~180px right of the SVG edge), and the SVG clips at that edge — so the diagram loses its
+// right side in a PDF no matter the CSS width. Re-fit each viewBox to the real content
+// bounds so everything is inside; done last, after all rendering, so nothing resets it.
+function fitDiagramsForPrint() {
+  for (const svg of document.querySelectorAll('#pane-diagrams .mermaid-box svg')) {
+    try {
+      const bb = svg.getBBox(), p = 8
+      svg.setAttribute('viewBox', `${bb.x - p} ${bb.y - p} ${bb.width + 2 * p} ${bb.height + 2 * p}`)
+      svg.setAttribute('preserveAspectRatio', 'xMidYMid meet')
+    } catch {}
+  }
 }
 window.__whydiffPreparePrint = preparePrint
 
@@ -2765,12 +2779,16 @@ let __prePrintPalette = null
 window.addEventListener('beforeprint', () => {
   __prePrintPalette = document.documentElement.dataset.p || 'graphite'
   document.documentElement.dataset.p = 'bond'
-  syncThemePick(); if (diagramsRendered) runDiagrams()
+  syncThemePick()
+  // Re-fit the diagram viewBoxes for the page, but do NOT re-render here: a re-render
+  // resets each viewBox to mermaid's original (which clips), and beforeprint also fires
+  // during printToPDF/page.pdf — so re-rendering would silently undo the fit.
+  fitDiagramsForPrint()
 })
 window.addEventListener('afterprint', () => {
   if (!__prePrintPalette) return
   document.documentElement.dataset.p = __prePrintPalette; __prePrintPalette = null
-  syncThemePick(); if (diagramsRendered) runDiagrams()
+  syncThemePick(); if (diagramsRendered) runDiagrams()  // restore the on-screen diagrams
 })
 
 // quiet ships; safe is the token block's own two-hue pair, so it is the one
