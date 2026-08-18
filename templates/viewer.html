@@ -1116,6 +1116,10 @@ __HLJS_BUNDLE__
 __MERMAID_BUNDLE__
 
 <script>
+/* Pure, DOM-free helpers (nslug, genProgressEstimate) inlined here from
+   templates/viewer-logic.mjs by assemble.mjs (exports stripped), so they run in this
+   script's scope and are unit-tested in node. Defined first — before any use below. */
+__VIEWER_LOGIC__
 const RM = __REVIEW_MAP_JSON__
 
 // ── i18n: viewer chrome follows the report language (meta.lang), default en ──
@@ -1844,9 +1848,8 @@ function startGenProgress(el) {
   const tick = () => {
     const now = Date.now(), elapsed = (now - t0) / 1000
     timeEl.textContent = `${Math.round(elapsed)}s`
-    if (ended) { p = 1 }
-    else if (phase === 'reading') p = Math.max(p, 0.04 + 0.66 * (1 - Math.exp(-elapsed / 20)))  // creep from the start toward ~70% while it reads
-    else p = Math.max(p, 0.76 + 0.21 * (1 - Math.exp(-(now - writeAt) / 9000)))                  // then toward ~97% while it writes
+    // genProgressEstimate (viewer-logic) is the pure model; keep it monotonic here.
+    p = Math.max(p, genProgressEstimate({ elapsedS: elapsed, phase, writeElapsedS: (now - writeAt) / 1000, ended }))
     barEl.style.width = (Math.min(p, ended ? 1 : 0.985) * 100).toFixed(1) + '%'
   }
   const timer = setInterval(tick, 200); tick()
@@ -3220,7 +3223,7 @@ if (SERVE?.token) (() => {
 
   // ── diagrams ───────────────────────────────────────────────────────────────
   const nodeText = (n) => (n.textContent || '').replace(/\s+/g, ' ').trim()
-  const nslug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+  // nslug is defined in the inlined viewer-logic module at the top of this script.
   // Every annotatable element across the mermaid diagram types whydiff emits — not just
   // flowchart `.node`, so region context and node badges also see entities (ER), classes,
   // states and sequence actors. The region FRAME does not depend on this (it is geometric),
