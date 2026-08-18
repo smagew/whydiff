@@ -4,6 +4,21 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.34.0] — 2026-08-19
+
+### Changed
+- **PDF output is legible now — light, not a black page of overlapping debris.** Printing
+  a report (Cmd-P, or the app) had been unusable: the dark palette printed as a near-black
+  page, the code-map connector lines and floating link labels landed on top of the content,
+  and the palette swatches leaked in. Now the print path switches to a **light palette** (a
+  `beforeprint` swap for Cmd-P, and an awaitable `preparePrint()` the app/headless path
+  calls so diagrams re-render light before capture); the code-map overlay (connectors, link
+  labels, the "show all links" toggle) and the swatches are hidden; colours print faithfully;
+  and overlapping diagram renders are serialized so a good diagram no longer drops to its
+  "invalid source" fallback. Code-map, notes and the text tabs come out clean. Known
+  residual: a wide flowchart diagram can still clip on the right edge — tracked for the app
+  Export-PDF work.
+
 ## [0.33.0] — 2026-08-18
 
 ### Changed

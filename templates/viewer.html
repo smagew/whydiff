@@ -1050,17 +1050,35 @@
   .printnotes .pn-q { font-size: 13.5px; font-weight: 500; }
   .printnotes .pn-a, .printnotes .pn-note { font-size: 13.5px; margin-top: 4px; }
   @media print {
-    #tabs, #scopebar, #consistency, .footstrip, .aside-toggle, .help-btn,
+    /* Every interactive/overlay bit is hidden — including the code-map connector layer
+       (#edges) and its floating link labels (#elabels/.elabel), the palette swatches
+       (.themepick) and the "show all links" toggle (.toggle), which otherwise land on the
+       page as overlapping debris. */
+    #tabs, #scopebar, #consistency, .footstrip, .aside-toggle, .help-btn, .themepick, .toggle,
     .askpanel, .askbar, .rail, .rc-grip, .rc-grip-pill, .rightcol, .modebar,
+    #edges, #elabels, .elabels, .elabel, .dg-badges,
     #diagramsHint, #blastHint, .dg-actions, [data-pop] { display: none !important; }
-    .wrap { max-width: none; padding: 0; }
+    /* Clamp the whole reading column to the paper width. The PDF renderer lays out at the
+       on-screen viewport width and crops to the page, so a full-width column would spill
+       off the right edge; a physical max-width keeps every tab (and centred diagrams) on
+       the page regardless of the window size when it was printed. */
+    .wrap { max-width: 190mm; margin: 0; padding: 0; }  /* left-aligned: centring in the print viewport pushes the right half off the page crop */
     .board, .layout { display: block; }
     .main-panel { border: none; padding: 0; }
     body.print-all .pane[hidden] { display: block !important; }
     .group, .node, .diagram, .ustory, .finding, .tkcard, .brow, .step { break-inside: avoid; }
     pre, .codebox, .cl, .diagram .mermaid-box { white-space: pre-wrap; overflow: visible; }
+    /* Fit a diagram to the page instead of clipping it off the right edge. fitDiagrams
+       sized the SVG in px for the on-screen column (wider than the paper), so clamp the box
+       to a PHYSICAL width the paper can hold and let the SVG scale to it by its viewBox. */
+    .diagram, .diagram .mermaid-box { max-width: 180mm !important; overflow: visible !important; }
+    .diagram .mermaid-box svg { width: 100% !important; max-width: 100% !important; height: auto !important; }
     .printnotes { display: block; break-before: page; }
     .printnotes:empty { display: none; }
+    /* Print the surface/tint/diagram colours faithfully (browsers drop backgrounds by
+       default). The palette is switched to a light one before printing, so this yields
+       ink on paper, not a black page. */
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   }
 </style>
 
@@ -1789,7 +1807,13 @@ const mermaidTheme = () => ({
 // has run, and it can change again afterwards. mermaid consumes the source node
 // it renders into, so the original text is kept on the element and put back
 // before a re-run — that is the only way to re-theme an existing diagram.
-async function runDiagrams() {
+// Serialize renders: overlapping runs (a palette switch landing on top of the lazy first
+// render, or the print prep) would fight over the same <pre> nodes — one resets a node the
+// other is mid-parsing — and leave a good diagram showing the "invalid source" fallback.
+// Chaining makes every call run after the previous finishes; the last one wins the palette.
+let dgChain = Promise.resolve()
+function runDiagrams() { dgChain = dgChain.catch(() => {}).then(() => runDiagramsOnce()); return dgChain }
+async function runDiagramsOnce() {
   if (!window.mermaid) return
   const pres = [...document.querySelectorAll('#pane-diagrams pre.mermaid')]
   if (!pres.length) return
@@ -1829,6 +1853,10 @@ const DIAGRAM_MAX_SCALE = 1.6
 function fitDiagrams() {
   const pane = document.getElementById('pane-diagrams')
   if (!pane) return
+  // Don't fight the print layout: while printing, the @media print rules size the diagram
+  // to the paper; a relayout-triggered fit here would re-impose an on-screen px width and
+  // clip the diagram off the right edge of the page.
+  if (typeof matchMedia === 'function' && matchMedia('print').matches) return
   for (const box of pane.querySelectorAll('.mermaid-box')) {
     const svg = box.querySelector('svg')
     if (!svg) continue
@@ -2711,6 +2739,40 @@ const applyPalette = (v) => {
   // baked into rendered SVG and has to be rebuilt
   if (diagramsRendered) runDiagrams()
 }
+
+// Prepare the page for a clean PDF: switch to a LIGHT palette (ink on paper, not a black
+// page), render the diagrams at real size (they render lazily only while their pane is
+// active and bake the palette into their SVG), and choose the scope — one tab or the whole
+// report (print-all). Awaitable, so the headless PDF path (the desktop app / tests, which
+// get no `beforeprint` event) can wait for the re-render before capturing. Exposed on
+// window for that caller.
+async function preparePrint({ palette = 'bond', tab = null, all = false } = {}) {
+  document.documentElement.dataset.p = PALETTES.includes(palette) ? palette : 'bond'
+  syncThemePick()
+  if (all || tab === 'diagrams') { setTab('diagrams'); try { await runDiagrams() } catch {} }
+  if (tab && tab !== 'diagrams') setTab(tab)
+  document.body.classList.toggle('print-all', !!all)
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
+}
+window.__whydiffPreparePrint = preparePrint
+
+// The browser Print / Cmd-P path gets no chance to await a re-render, but it can still go
+// light: swap to a light palette on beforeprint and restore the user's on afterprint. Set
+// data-p directly (not applyPalette) so the choice is not persisted. Diagrams re-render
+// asynchronously here, so Cmd-P is best for the non-diagram tabs; the app's Export-PDF uses
+// preparePrint() above for pixel-clean diagrams.
+let __prePrintPalette = null
+window.addEventListener('beforeprint', () => {
+  __prePrintPalette = document.documentElement.dataset.p || 'graphite'
+  document.documentElement.dataset.p = 'bond'
+  syncThemePick(); if (diagramsRendered) runDiagrams()
+})
+window.addEventListener('afterprint', () => {
+  if (!__prePrintPalette) return
+  document.documentElement.dataset.p = __prePrintPalette; __prePrintPalette = null
+  syncThemePick(); if (diagramsRendered) runDiagrams()
+})
+
 // quiet ships; safe is the token block's own two-hue pair, so it is the one
 // spelling that clears the attribute rather than setting it.
 const DIFFS = ['quiet', 'safe', 'classic']
