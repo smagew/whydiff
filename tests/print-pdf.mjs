@@ -42,6 +42,11 @@ await page.waitForFunction(() => document.querySelector('.printnotes')?.textCont
 
 const disp = (sel) => page.evaluate((s) => { const e = document.querySelector(s); return e ? getComputedStyle(e).display : 'MISSING' }, sel)
 
+// A visible PDF button in the report header opens the print dialog.
+ok(await page.locator('#tabs .print-btn').count() === 1, 'the report header should show a PDF button')
+const printed = await page.evaluate(() => { let called = false; window.print = () => { called = true }; document.querySelector('#tabs .print-btn').click(); return called })
+ok(printed, 'clicking the PDF button did not open the print dialog (window.print)')
+
 // On screen the appendix is hidden; the tab bar is shown.
 ok(await disp('.printnotes') === 'none', 'the print appendix must be hidden on screen')
 ok(await disp('#tabs') !== 'none', 'the tab bar should be visible on screen')

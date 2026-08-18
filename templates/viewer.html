@@ -280,6 +280,9 @@
   .help-btn { margin-left: auto; flex: none; width: 28px; height: 28px; align-self: center; border-radius: 3px; border: 1px solid var(--line); background: var(--surface-2); color: var(--muted); font: inherit; font-size: 13px; font-weight: 500; cursor: pointer; transition: border-color var(--t), color var(--t); }
   .help-btn:hover { border-color: var(--accent); color: var(--accent); }
   .help-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  /* The PDF button sits just left of the help "?"; wider than the square help button so
+     its "PDF" label fits, and it keeps the auto-left margin so the pair hugs the right. */
+  .print-btn { width: auto; padding: 0 10px; margin-right: 6px; }
   .glegend { margin: 0 0 14px; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 2px; }
   .gleg-row { display: flex; align-items: baseline; gap: 8px; width: 100%; font: inherit; font-size: 13px; background: none; border: none; padding: 4px 6px; margin: 0 -6px; border-radius: 3px; cursor: pointer; color: inherit; text-align: left; }
   .gleg-row:hover { background: var(--surface-2); }
@@ -1260,6 +1263,7 @@ const I18N = {
     dgBadgeChat: 'A discussion is pinned here — open it', dgBadgeNote: 'A note is pinned here — open it',
     dgRegionArea: 'selected area',
     printNotesTitle: 'Notes & questions',
+    printBtn: 'PDF', printTitle: 'Save this tab as a PDF (opens Print → Save as PDF), notes included',
     dgBrokenMsg: "This diagram couldn't be drawn — the generated diagram source is invalid.",
     dgBrokenSource: 'Show diagram source', dgBrokenCopy: 'Copy source', dgBrokenRegen: 'Regenerate diagrams',
     dgRegenRunning: 'Regenerating…', copied: 'Copied',
@@ -1409,6 +1413,7 @@ const I18N = {
     dgBadgeChat: 'Здесь закреплена дискуссия — открыть', dgBadgeNote: 'Здесь закреплена заметка — открыть',
     dgRegionArea: 'выделенная область',
     printNotesTitle: 'Заметки и вопросы',
+    printBtn: 'PDF', printTitle: 'Сохранить этот таб в PDF (откроет Печать → Сохранить как PDF), с заметками',
     dgBrokenMsg: 'Эту диаграмму не удалось построить — сгенерированный исходник диаграммы невалиден.',
     dgBrokenSource: 'Показать исходник', dgBrokenCopy: 'Скопировать исходник', dgBrokenRegen: 'Перегенерировать диаграммы',
     dgRegenRunning: 'Перегенерирую…', copied: 'Скопировано',
@@ -1680,6 +1685,15 @@ for (const [id, name, cnt] of PANES) {
   b.dataset.pane = id
   tabsEl.appendChild(b)
 }
+// Print the current tab to a PDF (with its notes appendix). Lives in the tab bar, which
+// the print stylesheet hides — so the button never lands in the PDF itself.
+const printBtn = document.createElement('button')
+printBtn.className = 'help-btn print-btn'
+printBtn.textContent = L.printBtn
+printBtn.title = L.printTitle
+printBtn.setAttribute('aria-label', L.printTitle)
+printBtn.addEventListener('click', () => window.print())
+tabsEl.appendChild(printBtn)
 const helpBtn = document.createElement('button')
 helpBtn.className = 'help-btn'
 helpBtn.textContent = '?'

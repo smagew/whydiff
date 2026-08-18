@@ -4,6 +4,15 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.32.0] — 2026-08-18
+
+### Added
+- **A PDF button in the report header.** The print/PDF path existed but had no
+  visible control (only Cmd-P). Every report now shows a **PDF** button in the tab bar:
+  click it on any tab to save that tab — with its notes appendix — as a PDF via the
+  print dialog. The button sits in the tab bar, which the print stylesheet hides, so it
+  never lands in the PDF itself.
+
 ## [0.31.0] — 2026-08-18
 
 ### Added
