@@ -71,6 +71,11 @@ ok(!appendix.includes('PRINT-ME'), 'a NOTE must NOT be dumped into the questions
 // ── NOTE → a footnote AT its place (browser fallback), not in the appendix ────
 ok(await page.locator('.pn-inline-note').count() >= 1, 'a note should print as a footnote at its place')
 ok((await text('.pn-inline-note')).includes('PRINT-ME'), 'the note footnote carries the note text')
+// A diagram note's footnote goes BELOW the diagram (a direct child of the .diagram card), never
+// into the flex .dg-head — which squeezed the notes into a narrow right column and inflated the
+// header enough to break a tall diagram onto the next page (the "you broke everything" report).
+ok(await page.locator('.dg-head .pn-inline-note').count() === 0, 'a diagram note footnote must NOT land in the flex .dg-head (it squeezes the header and splits the diagram)')
+ok(await page.locator('.diagram > .pn-inline-note').count() >= 1, 'a diagram note footnote must sit below the diagram, as a direct child of the .diagram card')
 
 // Every question marker links to an appendix entry that exists, and back again.
 const linkOk = await page.evaluate(() => {
