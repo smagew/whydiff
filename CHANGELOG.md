@@ -4,6 +4,17 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.40.0] — 2026-08-19
+
+### Fixed
+- **The "Download the app" link pointed at the wrong release.** The desktop app has its own
+  version (`app-v*` tags), separate from the plugin (`v*`), so GitHub's repo-wide
+  `/releases/latest` — which the link used — resolved to the frequent plugin release, which
+  carries no installer, and 404'd. The link now targets a moving **`app-latest`** release
+  (published by the desktop workflow) holding the current installers under stable, version-less
+  names, so per-OS downloads always resolve; unknown OS / "All versions" go to the releases
+  list.
+
 ## [0.39.0] — 2026-08-19
 
 ### Changed

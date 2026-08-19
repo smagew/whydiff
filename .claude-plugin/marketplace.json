@@ -11,7 +11,7 @@
       "name": "whydiff",
       "source": "./",
       "description": "Follow the meaning of a change — its architectural and logical decisions — without reading every file an LLM touched. /whydiff turns a git diff into an interactive review map: causal story, cause-grouped changes, diff-marked flow and schema diagrams, standards, tests and ops reports, blast radius — all with drill-down to the code.",
-      "version": "0.39.0",
+      "version": "0.40.0",
       "author": {
         "name": "Alisher Gafurov"
       },

@@ -22,6 +22,14 @@ the viewer's PDF button behaves by where it runs:
   popover with an OS-detected **download link** to the desktop app (`appDownloadUrl()`; the
   footer carries the same link). We do not ship a headless Chromium to `serve`/CLI — that would
   add a ~350 MB browser to every plugin user for an optional feature.
+  - **The download link targets the app, not the plugin.** The desktop app has its own version
+    (`app-v*` tags), separate from the plugin (`v*`), so GitHub's repo-wide `/releases/latest`
+    is the WRONG target — it is usually a plugin release with no installer. `desktop.yml`
+    publishes a moving **`app-latest`** release holding the current installers under stable
+    version-less names (`whydiff-<os>-<arch>.<ext>`, set by `app/electron-builder.yml`), so
+    `appDownloadUrl()` links to `/releases/download/app-latest/…` and always resolves. Unknown
+    OS (and "All versions") → the releases list. These three — the artifact names, the
+    `app-latest` publish step, and `appDownloadUrl()` — must stay in sync.
 - **A standalone HTML opened as a file, if the user hits Cmd-P themselves**: the browser's own
   print runs (we can't stop it). `beforeprint` still lays notes out as **footnotes at their
   place** and questions as in-document links, so that raw print is not ugly — but this is a

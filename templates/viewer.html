@@ -1766,17 +1766,21 @@ tabsEl.appendChild(helpBtn)
 // the button exports for real, and in the browser / served / a standalone file it stays
 // visible but says so, with a link to get the app (never a degraded window.print()).
 const IN_APP = /Electron/i.test(navigator.userAgent || '')
-// The right per-OS installer from the latest desktop release (electron-builder ships stable,
-// version-less artifact names, so /latest/download/<name> always resolves to the newest); if
-// the OS is not recognised, fall back to the releases page. `arch` for macOS is unknowable in
-// the browser, so we point at the Apple-Silicon build and also offer "All versions".
+// The right per-OS installer for the newest DESKTOP-APP release. The app has its own version
+// (tags app-vX.Y.Z), separate from the plugin (tags vX.Y.Z) — so GitHub's repo-wide
+// /releases/latest is the WRONG target (it is usually the frequent plugin release, which has no
+// installer). Instead the desktop workflow keeps a moving `app-latest` release holding the
+// newest installers under stable, version-less names, so these URLs always resolve. macOS arch
+// is unknowable in the browser → we point at the Apple-Silicon build and also offer "All
+// versions" (the releases list). Unknown OS → the releases list.
 function appReleaseBase() { return 'https://github.com/smagew/whydiff/releases' }
+function appAsset(name) { return `${appReleaseBase()}/download/app-latest/${name}` }
 function appDownloadUrl() {
   const ua = navigator.userAgent || '', p = navigator.platform || ''
-  if (/Mac/i.test(p) || /Mac OS X/i.test(ua)) return `${appReleaseBase()}/latest/download/whydiff-mac-arm64.dmg`
-  if (/Win/i.test(p) || /Windows/i.test(ua)) return `${appReleaseBase()}/latest/download/whydiff-win-x64.exe`
-  if (/Linux/i.test(p) && !/Android/i.test(ua)) return `${appReleaseBase()}/latest/download/whydiff-linux-x64.AppImage`
-  return `${appReleaseBase()}/latest`
+  if (/Mac/i.test(p) || /Mac OS X/i.test(ua)) return appAsset('whydiff-mac-arm64.dmg')
+  if (/Win/i.test(p) || /Windows/i.test(ua)) return appAsset('whydiff-win-x64.exe')
+  if (/Linux/i.test(p) && !/Android/i.test(ua)) return appAsset('whydiff-linux-x64.AppImage')
+  return appReleaseBase()
 }
 const contentPdf = document.createElement('button')
 contentPdf.className = 'content-pdf' + (IN_APP ? '' : ' app-only')
@@ -1801,7 +1805,7 @@ function showAppOnlyPopover() {
   const pop = document.createElement('div'); pop.className = 'pdf-pop'
   pop.innerHTML = `<div>${esc(L.pdfPopMsg)}</div>` +
     `<a class="pp-get" href="${esc(appDownloadUrl())}" target="_blank" rel="noopener">${esc(L.getApp)} ↗</a>` +
-    `<span class="pp-all"><a href="${esc(appReleaseBase())}/latest" target="_blank" rel="noopener">${esc(L.allReleases)}</a></span>`
+    `<span class="pp-all"><a href="${esc(appReleaseBase())}" target="_blank" rel="noopener">${esc(L.allReleases)}</a></span>`
   contentPdf.parentElement.appendChild(pop)
   pdfPopEl = pop
   // place under the button, right-aligned to it
