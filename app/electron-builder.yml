@@ -9,6 +9,12 @@ files:
   - out/**
   - package.json
 
+# pdfjs-dist is ESM-only and is loaded by a runtime dynamic import() in the main process
+# (see pdf-annotate.mjs). Keep it on the real filesystem (app.asar.unpacked) rather than
+# inside the asar archive, so the ESM loader resolves it reliably when packaged.
+asarUnpack:
+  - "**/node_modules/pdfjs-dist/**"
+
 # The app shells out to the whydiff plugin's own scripts, so the plugin has to ride
 # inside the packaged app (in dev it uses the repo root instead). We ship the pieces
 # a run needs — its scripts, the viewer template, the agents/skills/hooks the plugin

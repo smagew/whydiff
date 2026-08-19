@@ -1,5 +1,43 @@
 import { PDFDocument, PDFName, PDFString, PDFArray } from 'pdf-lib'
-import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs'
+
+// pdfjs-dist v4 is ESM-only (no CJS build). The app's main process is bundled to CommonJS,
+// so a static import becomes a require() of pdf.mjs → ERR_REQUIRE_ESM, which crashes the
+// packaged app at launch. Load it lazily with a runtime dynamic import() instead (the same
+// ESM-in-Electron pattern whydiff.mjs uses for the plugin's review.mjs); the /* @vite-ignore */
+// keeps electron-vite from rewriting it back to a require. pdfjs is asarUnpack'd (see
+// electron-builder.yml) so it resolves from a real path, not inside the asar archive.
+let _pdfjs
+async function loadPdfjs() {
+  if (!_pdfjs) _pdfjs = await import(/* @vite-ignore */ 'pdfjs-dist/legacy/build/pdf.mjs')
+  return _pdfjs
+}
+
+/**
+ * Read every /Text comment annotation back out of a PDF: page index, note text, author,
+ * whether it has a popup, and its lower-left point. Used by the tests to assert against the
+ * produced bytes (never viewer internals), and handy for round-trip verification.
+ */
+export async function readComments(pdfBytes) {
+  const doc = await PDFDocument.load(pdfBytes)
+  const out = []
+  doc.getPages().forEach((page, pageIndex) => {
+    const annots = page.node.Annots()
+    if (!annots) return
+    for (let i = 0; i < annots.size(); i++) {
+      const d = annots.lookup(i)
+      if (d?.get?.(PDFName.of('Subtype'))?.toString() !== '/Text') continue
+      const rect = d.get(PDFName.of('Rect')).asArray().map((n) => n.asNumber())
+      out.push({
+        pageIndex,
+        contents: d.get(PDFName.of('Contents')).decodeText(),
+        author: d.get(PDFName.of('T')).decodeText(),
+        hasPopup: !!d.get(PDFName.of('Popup')),
+        x: rect[0], y: rect[1],
+      })
+    }
+  })
+  return out
+}
 
 // Turn the review notes into REAL PDF comment annotations, placed where each note's anchor
 // actually rendered. The desktop Export-PDF path drops an invisible locator glyph at each
@@ -22,6 +60,7 @@ export async function locateTokens(pdfBytes, tokens) {
   // Minimal options on purpose: passing isEvalSupported/useSystemFonts pushes pdfjs onto a
   // worker-transfer path that throws a DataCloneError under Node's fake worker. Plain { data }
   // runs on the main thread and is all we need (text-item transforms, no font rendering).
+  const pdfjs = await loadPdfjs()
   const data = Uint8Array.from(pdfBytes instanceof Uint8Array ? pdfBytes : new Uint8Array(pdfBytes))
   const pdf = await pdfjs.getDocument({ data, verbosity: 0 }).promise
   const want = new Set(tokens)

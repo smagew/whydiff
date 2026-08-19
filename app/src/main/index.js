@@ -227,8 +227,16 @@ app.whenReady().then(() => {
         pageSize: 'A4', landscape: false, printBackground: true, scale: 1,
         margins: { top: 0.4, bottom: 0.4, left: 0.4, right: 0.4 }, preferCSSPageSize: false, displayHeaderFooter: false,
       })
-      const { bytes } = await annotatePdf(pdfBuf, Array.isArray(manifest) ? manifest : [], { warn: (m) => console.warn(m) })
-      writeFileSync(r.filePath, Buffer.from(bytes))
+      // Add the note comments. If that step fails (e.g. pdfjs could not load), still save a
+      // valid PDF — the clean layout with questions-as-links — rather than crashing the export.
+      let finalBytes = pdfBuf
+      try {
+        const { bytes } = await annotatePdf(pdfBuf, Array.isArray(manifest) ? manifest : [], { warn: (m) => console.warn(m) })
+        finalBytes = bytes
+      } catch (e) {
+        console.warn('whydiff: PDF comment annotation failed — saving the PDF without comments:', e?.message || e)
+      }
+      writeFileSync(r.filePath, Buffer.from(finalBytes))
     } finally {
       if (!win.isDestroyed()) win.destroy()
       stop()

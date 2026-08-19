@@ -15,7 +15,7 @@ PLUGIN_DIR := $(shell pwd)
 FIXDIR     := $(PLUGIN_DIR)/.fixtures
 EXAMPLE    := examples/rate-limit/review-map.json
 
-.PHONY: help check coverage preview fixtures clean-fixtures bump hooks
+.PHONY: help check coverage pdf-e2e preview fixtures clean-fixtures bump hooks
 .DEFAULT_GOAL := help
 
 help: ## show this help
@@ -33,6 +33,9 @@ check: ## contract + viewer + manifest + version checks (no LLM)
 
 coverage: ## run the suite under c8 and print scripts/ coverage (fails below the floor)
 	npm run coverage
+
+pdf-e2e: ## end-to-end PDF comments: real Chromium print → annotate (needs app/ deps installed)
+	node tests/pdf-comments.mjs
 
 bump: ## bump version + open a CHANGELOG entry: make bump BUMP=minor [NOTE="…"]
 	@test -n "$(BUMP)" || { echo 'usage: make bump BUMP=<patch|minor|major> [NOTE="…"]'; exit 1; }
