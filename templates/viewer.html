@@ -282,15 +282,31 @@
   .help-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   /* PDF button in a right-aligned toolbar at the top of the content, so it reads as "save
      this section", not "print the page", and reserves its own row (never over content). */
-  .content-tools { display: flex; justify-content: flex-end; margin: 2px 0 16px; }
+  .content-tools { position: relative; display: flex; justify-content: flex-end; margin: 2px 0 16px; }
   .content-tools[hidden] { display: none; }
-  .content-pdf { display: inline-flex; align-items: center; gap: 5px;
+  .content-pdf { position: relative; display: inline-flex; align-items: center; gap: 5px;
     font: inherit; font-size: 13px; font-weight: 500; cursor: pointer; color: var(--muted);
     border: 1px solid var(--line); background: none; border-radius: 4px; padding: 4px 9px;
     transition: border-color var(--t), color var(--t); }
   .content-pdf:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
   .content-pdf:disabled { opacity: .6; cursor: default; }
   .content-pdf svg { width: 14px; height: 14px; flex: none; }
+  /* Web/served/standalone: the PDF button stays but explains that real PDF export lives in
+     the desktop app — a hover tooltip, and a click popover with a download link. */
+  .cp-tip { display: none; position: absolute; top: calc(100% + 6px); right: 0; z-index: 40;
+    width: max-content; max-width: 240px; text-align: left; white-space: normal;
+    font-weight: 400; font-size: 13px; color: var(--ink-2);
+    background: var(--surface); border: 1px solid var(--line-strong); border-radius: 5px; padding: 6px 9px; }
+  .content-pdf.app-only:hover .cp-tip, .content-pdf.app-only:focus-visible .cp-tip { display: block; }
+  .pdf-pop { position: absolute; z-index: 60; width: max-content; max-width: 280px;
+    font-size: 13px; line-height: 1.5; color: var(--ink-2);
+    background: var(--surface); border: 1px solid var(--line-strong); border-radius: 5px; padding: 11px 13px; }
+  .pdf-pop a.pp-get { color: var(--accent); text-decoration: none; font-weight: 500; display: inline-block; margin-top: 9px; }
+  .pdf-pop .pp-all { display: block; margin-top: 6px; }
+  .pdf-pop .pp-all a { color: var(--muted); text-decoration: none; font-size: 13px; }
+  .fs-app { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-3); text-decoration: none; }
+  .fs-app:hover { color: var(--accent); }
+  .fs-app svg { width: 14px; height: 14px; flex: none; }
   .glegend { margin: 0 0 14px; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 2px; }
   .gleg-row { display: flex; align-items: baseline; gap: 8px; width: 100%; font: inherit; font-size: 13px; background: none; border: none; padding: 4px 6px; margin: 0 -6px; border-radius: 3px; cursor: pointer; color: inherit; text-align: left; }
   .gleg-row:hover { background: var(--surface-2); }
@@ -1308,7 +1324,10 @@ const I18N = {
     dgBadgeChat: 'A discussion is pinned here — open it', dgBadgeNote: 'A note is pinned here — open it',
     dgRegionArea: 'selected area',
     printQuestionsTitle: 'Questions', printNoteLabel: 'Note', printQLink: 'question',
-    printBtn: 'PDF', printTitle: 'Save this tab as a PDF (opens Print → Save as PDF), notes included',
+    printBtn: 'PDF', printTitle: 'Export this tab as a PDF',
+    pdfAppOnly: 'PDF export — notes as real PDF comments — is in the desktop app',
+    pdfPopMsg: 'Export to PDF, with your notes as real clickable PDF comments, lives in the whydiff desktop app.',
+    getApp: 'Download the desktop app', allReleases: 'All versions',
     dgBrokenMsg: "This diagram couldn't be drawn — the generated diagram source is invalid.",
     dgBrokenSource: 'Show diagram source', dgBrokenCopy: 'Copy source', dgBrokenRegen: 'Regenerate diagrams',
     dgRegenRunning: 'Regenerating…', copied: 'Copied',
@@ -1458,7 +1477,10 @@ const I18N = {
     dgBadgeChat: 'Здесь закреплена дискуссия — открыть', dgBadgeNote: 'Здесь закреплена заметка — открыть',
     dgRegionArea: 'выделенная область',
     printQuestionsTitle: 'Вопросы', printNoteLabel: 'Заметка', printQLink: 'вопрос',
-    printBtn: 'PDF', printTitle: 'Сохранить этот таб в PDF (откроет Печать → Сохранить как PDF), с заметками',
+    printBtn: 'PDF', printTitle: 'Экспортировать этот таб в PDF',
+    pdfAppOnly: 'Экспорт PDF — заметки как настоящие комментарии — в десктоп-версии',
+    pdfPopMsg: 'Экспорт в PDF, с заметками как настоящими кликабельными комментариями, доступен в десктоп-версии whydiff.',
+    getApp: 'Скачать десктоп-версию', allReleases: 'Все версии',
     dgBrokenMsg: 'Эту диаграмму не удалось построить — сгенерированный исходник диаграммы невалиден.',
     dgBrokenSource: 'Показать исходник', dgBrokenCopy: 'Скопировать исходник', dgBrokenRegen: 'Перегенерировать диаграммы',
     dgRegenRunning: 'Перегенерирую…', copied: 'Скопировано',
@@ -1739,23 +1761,55 @@ helpBtn.addEventListener('click', () => helpModal.showModal())
 tabsEl.appendChild(helpBtn)
 
 // A PDF button that belongs to the CONTENT, not the page chrome: it sits at the top-right of
-// the reading column and saves the tab you are looking at (its diagrams rendered light and
-// re-fitted). In the tab bar a PDF button read as "print the whole page"; here it is clearly
-// "save this section". Hidden by the print stylesheet, so it never lands in the PDF.
+// the reading column and exports the tab you are looking at. Real PDF export (notes as real
+// PDF comments) needs a Chromium we control, which only the DESKTOP APP has — so in the app
+// the button exports for real, and in the browser / served / a standalone file it stays
+// visible but says so, with a link to get the app (never a degraded window.print()).
+const IN_APP = /Electron/i.test(navigator.userAgent || '')
+// The right per-OS installer from the latest desktop release (electron-builder ships stable,
+// version-less artifact names, so /latest/download/<name> always resolves to the newest); if
+// the OS is not recognised, fall back to the releases page. `arch` for macOS is unknowable in
+// the browser, so we point at the Apple-Silicon build and also offer "All versions".
+function appReleaseBase() { return 'https://github.com/smagew/whydiff/releases' }
+function appDownloadUrl() {
+  const ua = navigator.userAgent || '', p = navigator.platform || ''
+  if (/Mac/i.test(p) || /Mac OS X/i.test(ua)) return `${appReleaseBase()}/latest/download/whydiff-mac-arm64.dmg`
+  if (/Win/i.test(p) || /Windows/i.test(ua)) return `${appReleaseBase()}/latest/download/whydiff-win-x64.exe`
+  if (/Linux/i.test(p) && !/Android/i.test(ua)) return `${appReleaseBase()}/latest/download/whydiff-linux-x64.AppImage`
+  return `${appReleaseBase()}/latest`
+}
 const contentPdf = document.createElement('button')
-contentPdf.className = 'content-pdf'
-contentPdf.title = L.printTitle
+contentPdf.className = 'content-pdf' + (IN_APP ? '' : ' app-only')
 contentPdf.setAttribute('aria-label', L.printTitle)
 contentPdf.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg><span>' + esc(L.printBtn) + '</span>'
+if (!IN_APP) { const tip = document.createElement('span'); tip.className = 'cp-tip'; tip.textContent = L.pdfAppOnly; contentPdf.appendChild(tip) }
 contentPdf.addEventListener('click', async () => {
-  // Prep the ACTIVE tab for a clean PDF (light palette, diagrams light + re-fitted), then
-  // open the print dialog. preparePrint and its helpers are hoisted function declarations.
   const tab = document.querySelector('#tabs .tab.active')?.dataset.pane || null
-  contentPdf.disabled = true
-  try { await preparePrint({ tab }) } catch {}
-  contentPdf.disabled = false
-  window.print()
+  if (IN_APP && window.whydiff?.exportPdf) {
+    // In the desktop app: real export (notes → PDF comments) via the app bridge.
+    contentPdf.disabled = true
+    try { await window.whydiff.exportPdf({ tab }) } catch (e) { console.error(e) }
+    contentPdf.disabled = false
+    return
+  }
+  showAppOnlyPopover()   // web/served/standalone: explain + offer the app
 })
+// A small popover anchored under the button: what PDF export needs, and where to get it.
+let pdfPopEl = null
+function showAppOnlyPopover() {
+  if (pdfPopEl) { pdfPopEl.remove(); pdfPopEl = null; return }
+  const pop = document.createElement('div'); pop.className = 'pdf-pop'
+  pop.innerHTML = `<div>${esc(L.pdfPopMsg)}</div>` +
+    `<a class="pp-get" href="${esc(appDownloadUrl())}" target="_blank" rel="noopener">${esc(L.getApp)} ↗</a>` +
+    `<span class="pp-all"><a href="${esc(appReleaseBase())}/latest" target="_blank" rel="noopener">${esc(L.allReleases)}</a></span>`
+  contentPdf.parentElement.appendChild(pop)
+  pdfPopEl = pop
+  // place under the button, right-aligned to it
+  pop.style.top = (contentPdf.offsetTop + contentPdf.offsetHeight + 6) + 'px'
+  pop.style.right = '0'
+  const close = (e) => { if (pdfPopEl && !pdfPopEl.contains(e.target) && e.target !== contentPdf && !contentPdf.contains(e.target)) { pdfPopEl.remove(); pdfPopEl = null; document.removeEventListener('click', close, true) } }
+  setTimeout(() => document.addEventListener('click', close, true), 0)
+}
 // A right-aligned toolbar at the top of the content, so the button reserves its own row and
 // never overlaps a story's ask button or a node the way an absolute corner button would.
 const contentTools = document.createElement('div')
@@ -2882,6 +2936,7 @@ const foot = document.createElement('div')
 foot.className = 'footstrip'
 foot.innerHTML = `<div class="fs-bar"></div><span class="fs-count"></span>
   <span class="fs-ver">whydiff __WHYDIFF_VERSION__</span>
+  ${IN_APP ? '' : `<a class="fs-app" href="${esc(appDownloadUrl())}" target="_blank" rel="noopener" title="${esc(L.getApp)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="1"/><path d="M8 20h8M12 16v4"/></svg>${esc(L.getApp)}</a>`}
   <span class="fs-keys"><kbd>j</kbd><kbd>k</kbd> ${esc(L.keyMove)} · <kbd>]</kbd><kbd>[</kbd> ${esc(L.keyFile)} · <kbd>s</kbd> ${esc(L.keySeen)} · <kbd>?</kbd> ${esc(L.keyAll)}</span>`
 document.body.appendChild(foot)
 const fsBar = foot.querySelector('.fs-bar')

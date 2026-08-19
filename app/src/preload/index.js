@@ -53,3 +53,14 @@ contextBridge.exposeInMainWorld('api', {
     return () => ipcRenderer.removeListener('clone:progress', h)
   },
 })
+
+// A map window is launched with --whydiff-analysis-id=<id>. Inside it runs the viewer, whose
+// content PDF button calls window.whydiff.exportPdf() to export THIS analysis with its notes
+// as real PDF comments (the app has Chromium via Electron; the browser does not). Only exposed
+// when the id is present, so it never appears in the main app window.
+const _aid = (process.argv.find((a) => a.startsWith('--whydiff-analysis-id=')) || '').split('=')[1]
+if (_aid) {
+  contextBridge.exposeInMainWorld('whydiff', {
+    exportPdf: (opts) => ipcRenderer.invoke('analysis:exportPdf', Number(_aid), opts || {}),
+  })
+}
