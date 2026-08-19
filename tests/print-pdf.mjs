@@ -1,10 +1,13 @@
 #!/usr/bin/env node
-// The print / PDF stylesheet. A map assembled with a journal is loaded, print media is
-// emulated, and we assert: interactive chrome is dropped, only the active pane prints by
-// default (all panes with body.print-all), and the "Notes & questions" appendix — built
-// from the review threads — is shown so the discussion travels into the PDF. No real
-// printing happens (that is Electron's printToPDF in the app); this checks the CSS + the
-// appendix, which is the surface a PDF actually renders.
+// The print / PDF layout. A map assembled with a journal is loaded, print media is emulated,
+// and we assert the two kinds of review annotation travel into the PDF DIFFERENTLY:
+//  • QUESTIONS become an in-document link at their place → a "Questions" appendix (Chromium
+//    keeps # links as real PDF links), linked both ways.
+//  • NOTES are comments on a place. In the browser print fallback each note prints as a
+//    footnote AT its place (not dumped in an appendix). The desktop Export-PDF path instead
+//    returns a locator manifest (window.__whydiffPreparePrint forComments) and suppresses the
+//    inline footnote, so the app can inject real PDF comment annotations (tested in the app).
+// There must be NO combined "Notes & questions" heading. No real printing happens here.
 
 import { readFileSync, writeFileSync, mkdtempSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
@@ -23,7 +26,11 @@ for (const f of Object.values(rm.files)) delete f.embedFull
 writeFileSync(join(work, 'review-map.json'), JSON.stringify(rm))
 const ev = (o) => JSON.stringify({ at: '2026-08-15T00:00:00Z', by: 'ag', ...o })
 writeFileSync(join(work, 'review.log.jsonl'), [
+  // A NOTE on one diagram node…
   ev({ type: 'note.added', noteId: 'n1', kind: 'note', anchor: { kind: 'diagram-node', key: 'diagram:0:auth', label: 'Request path → Auth' }, text: 'PRINT-ME: the auth gate before the limiter.' }),
+  // …and a QUESTION (with its answer) on another node of the same diagram.
+  ev({ type: 'note.added', noteId: 'q1', kind: 'question', anchor: { kind: 'diagram-node', key: 'diagram:0:limiter', label: 'Rate limiter' }, text: 'ASK-ME: where does the bucket state live?' }),
+  ev({ type: 'note.added', noteId: 'a1', kind: 'answer', replyTo: 'q1', anchor: { kind: 'diagram-node', key: 'diagram:0:limiter', label: 'Rate limiter' }, text: 'ANSWER-ME: in Redis, keyed by user.' }),
 ].join('\n') + '\n')
 
 const html = join(work, 'review-map.html')
@@ -38,61 +45,66 @@ await page.locator('#tabs .tab[data-pane="diagrams"]').click()
 await page.waitForSelector('#pane-diagrams svg', { timeout: 15000 })
 
 const disp = (sel) => page.evaluate((s) => { const e = document.querySelector(s); return e ? getComputedStyle(e).display : 'MISSING' }, sel)
+const text = (sel) => page.evaluate((s) => document.querySelector(s)?.textContent || '', sel)
 
 // The content PDF button is shown on a tab with content, and hidden on an un-generated one.
 ok(await page.locator('.content-pdf').count() === 1, 'the report content should show a PDF button')
 ok(await disp('.content-tools') !== 'none', 'the PDF button should be visible on a content tab (diagrams)')
-await page.locator('#tabs .tab[data-pane="stories"]').click(); await page.waitForTimeout(120)  // User stories is the un-generated (lazy) pane in the example
+await page.locator('#tabs .tab[data-pane="stories"]').click(); await page.waitForTimeout(120)  // User stories is the un-generated (lazy) pane
 ok(await disp('.content-tools') === 'none', 'the PDF button should be hidden on an un-generated tab (User stories placeholder)')
 await page.locator('#tabs .tab[data-pane="diagrams"]').click(); await page.waitForTimeout(120)
 
-// Clicking it preps the tab (async) and opens the print dialog.
-const printed = await page.evaluate(async () => {
-  let called = false; window.print = () => { called = true }
-  document.querySelector('.content-pdf').click()
-  for (let i = 0; i < 80 && !called; i++) await new Promise((r) => setTimeout(r, 50))
-  return called
-})
-ok(printed, 'clicking the PDF button did not open the print dialog (window.print)')
-
-// The notes are built at print time (beforeprint), not on load: on screen they are absent.
-ok(await disp('.printnotes') === 'none', 'the print notes must be hidden on screen')
+// The notes/questions are built at print time (beforeprint), not on load.
+ok(['none', 'MISSING'].includes(await disp('.printnotes')), 'the questions appendix must not be visible on screen')
 await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')))
 await page.waitForTimeout(200)
 
-// Print media: chrome drops, the endnotes show, linked to/from their place.
+// ── QUESTIONS → a "Questions" appendix, linked to/from the place ──────────────
 await page.emulateMedia({ media: 'print' })
+ok(await disp('.printnotes') === 'block', 'the questions appendix must print')
+const appendix = await text('.printnotes')
+ok(/Questions/.test(appendix), 'the appendix is titled "Questions"')
+ok(!/Notes\s*&\s*questions/i.test(appendix), 'there must be NO combined "Notes & questions" heading')
+ok(appendix.includes('ASK-ME') && appendix.includes('ANSWER-ME'), 'the question and its answer travel into the appendix')
+ok(!appendix.includes('PRINT-ME'), 'a NOTE must NOT be dumped into the questions appendix')
+
+// ── NOTE → a footnote AT its place (browser fallback), not in the appendix ────
+ok(await page.locator('.pn-inline-note').count() >= 1, 'a note should print as a footnote at its place')
+ok((await text('.pn-inline-note')).includes('PRINT-ME'), 'the note footnote carries the note text')
+
+// Every question marker links to an appendix entry that exists, and back again.
+const linkOk = await page.evaluate(() => {
+  const refs = [...document.querySelectorAll('.pnref a, .pn-diagram-notes a')]
+  if (!refs.length) return 'no question link was placed at the annotated place'
+  for (const a of refs) { const id = a.getAttribute('href').slice(1); if (!document.getElementById(id)) return `question link → #${id} has no target` }
+  for (const back of document.querySelectorAll('.printnotes .pn-back')) { const id = back.getAttribute('href').slice(1); if (!document.getElementById(id)) return `back-link → #${id} has no target` }
+  return 'ok'
+})
+ok(linkOk === 'ok', `question links broken: ${linkOk}`)
+
+// Interactive chrome drops in print.
 for (const sel of ['#tabs', '.rightcol', '.footstrip', '.askpanel', '#title', '.kicker']) {
   const d = await disp(sel)
   ok(d === 'none' || d === 'MISSING', `[print] ${sel} should be hidden (got ${d})`)
 }
-ok(await disp('.printnotes') === 'block', 'the notes endnotes must print')
-const pn = (await page.locator('.printnotes').textContent()) || ''
-ok(/Notes & questions/.test(pn) && pn.includes('PRINT-ME'), `the endnotes should carry the title and the note text (got: "${pn.slice(0, 80)}")`)
-// Every [N] marker links to an endnote that exists (internal PDF links resolve).
-const linkOk = await page.evaluate(() => {
-  const refs = [...document.querySelectorAll('.pnref a, .pn-diagram-notes a')]
-  if (!refs.length) return 'no [N] markers were placed at the annotated places'
-  for (const a of refs) { const id = a.getAttribute('href').slice(1); if (!document.getElementById(id)) return `marker → #${id} has no target` }
-  // and each endnote links back to a place that exists
-  for (const back of document.querySelectorAll('.printnotes .pn-back')) { const id = back.getAttribute('href').slice(1); if (!document.getElementById(id)) return `back-link → #${id} has no target` }
-  return 'ok'
-})
-ok(linkOk === 'ok', `notes links broken: ${linkOk}`)
 
-// Default print shows only the active pane; print-all reveals the inactive ones.
-const hiddenPane = '#pane-story'
-ok(await disp(hiddenPane) === 'none', `[print] an inactive pane (${hiddenPane}) should not print by default`)
-await page.evaluate(() => document.body.classList.add('print-all'))
-ok(await disp(hiddenPane) === 'block', `[print] body.print-all should reveal the inactive pane (${hiddenPane})`)
-
-// A wide diagram must FIT the page: mermaid can lay a node out past its own SVG viewBox,
-// which the SVG clips — and printToPDF/page.pdf fires `beforeprint`, so the fix (re-fit the
-// viewBox on beforeprint, without re-rendering, which would reset it) has to survive that
-// event. Prepare the diagrams tab, fire beforeprint like the PDF path does, and assert no
-// node hangs past its SVG's right edge.
+// ── Desktop comment path: preparePrint(forComments) returns a locator manifest and
+//    suppresses the inline note footnote (the app turns notes into real PDF comments) ──
 await page.emulateMedia({ media: 'screen' })
 await page.locator('#tabs .tab[data-pane="diagrams"]').click()
+const manifest = await page.evaluate(() => window.__whydiffPreparePrint({ tab: 'diagrams', forComments: true }))
+await page.waitForTimeout(300)
+ok(Array.isArray(manifest) && manifest.length === 1, `the manifest should carry one annotated place (got ${JSON.stringify(manifest)?.slice(0, 120)})`)
+ok(manifest[0].anchorKey === 'diagram:0:auth', 'the manifest place is the note anchor')
+ok(manifest[0].notes?.[0]?.contents.includes('PRINT-ME'), 'the manifest carries the note text')
+ok(manifest[0].notes?.[0]?.author === 'ag', 'the manifest carries the note author')
+ok(await page.locator('.wdx-loc').count() >= 1, 'a locator glyph should be placed for the note')
+const glyphVisible = await page.evaluate(() => { const g = document.querySelector('.wdx-loc'); const s = getComputedStyle(g); return s.display !== 'none' && s.visibility !== 'hidden' && parseFloat(s.fontSize) > 0 })
+ok(glyphVisible, 'the locator glyph must be painted (so it lands in the PDF text stream), not display:none/hidden/0px')
+ok(await page.locator('.pn-inline-note').count() === 0, 'the inline note footnote must be suppressed in the comment path (the app makes a real PDF comment)')
+
+// A wide diagram must FIT the page: mermaid can lay a node out past its SVG viewBox (clipped),
+// and printToPDF fires beforeprint, so the re-fit must survive that event without re-render.
 await page.evaluate(() => window.__whydiffPreparePrint({ tab: 'diagrams' }))
 await page.waitForTimeout(500)
 await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')))
@@ -109,4 +121,4 @@ ok(clipped === 0, `${clipped} diagram node(s) hang past the SVG edge after befor
 
 if (errors.length) fail('page errors:\n' + errors.join('\n'))
 await browser.close()
-console.log('OK: print/PDF — chrome dropped, active pane only (print-all reveals the rest), the notes appendix prints, and no diagram node clips past its SVG (survives beforeprint)')
+console.log('OK: print/PDF — questions link to a Questions appendix, notes print at their place (no combined heading), the desktop comment path returns a locator manifest + painted glyph and suppresses the footnote, chrome drops, no diagram clips')

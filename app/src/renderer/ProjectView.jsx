@@ -124,6 +124,7 @@ export default function ProjectView({ project, onBack }) {
   }
   const open = async (id) => { setError(''); try { await window.api.openAnalysis(id, { work: edits }) } catch (e) { setError(e?.message || String(e)) } }
   const exportAnalysis = async (id) => { setError(''); try { await window.api.exportAnalysis(id) } catch (e) { setError(e?.message || String(e)) } }
+  const exportAnalysisPdf = async (id) => { setError(''); try { await window.api.exportAnalysisPdf(id) } catch (e) { setError(e?.message || String(e)) } }
   const drop = async (id) => { try { await window.api.removeAnalysis(id); await refreshAnalyses() } catch (e) { setError(e?.message || String(e)) } }
 
   const working = latestByRef.get('')
@@ -198,6 +199,7 @@ export default function ProjectView({ project, onBack }) {
                     <ReviewCounts counts={a.counts} />
                     <button className="btn" disabled={analyzing} onClick={() => open(a.id)}>View</button>
                     <button className="btn ghost" disabled={analyzing} title="Export a shareable HTML file with the notes baked in" onClick={() => exportAnalysis(a.id)}>Export</button>
+                    <button className="btn ghost" disabled={analyzing} title="Export a PDF: notes become real PDF comments, questions become links" onClick={() => exportAnalysisPdf(a.id)}>PDF</button>
                     <button className="btn ghost" disabled={analyzing} title="Regenerate this analysis in place (runs the model again)" onClick={() => rerun(a)}>Re-run</button>
                     <span className="x" title="Remove" onClick={() => drop(a.id)}>✕</span>
                   </div>

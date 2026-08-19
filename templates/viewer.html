@@ -1057,13 +1057,19 @@
   .printnotes .pn-anchor { font-family: var(--mono); font-size: 13px; color: var(--muted); margin-bottom: 4px; overflow-wrap: anywhere; }
   .printnotes .pn-anchor .pn-back { color: var(--accent); text-decoration: none; font-weight: 500; margin-right: 6px; }
   .printnotes .pn-q { font-size: 13.5px; font-weight: 500; }
-  .printnotes .pn-a, .printnotes .pn-note { font-size: 13.5px; margin-top: 4px; }
-  /* A [N] link at an annotated place (text selection, or a diagram's caption) pointing at
-     its endnote — shown only in print (Chromium keeps in-document # links in the PDF). */
+  .printnotes .pn-a { font-size: 13.5px; margin-top: 4px; }
+  /* A [N] question link at a place (text selection, or a diagram's caption) pointing at the
+     Questions appendix — shown only in print (Chromium keeps in-document # links in the PDF). */
   .pnref { display: none; font-size: 13px; vertical-align: super; line-height: 0; margin-left: 2px; }
   .pnref a { color: var(--accent); text-decoration: none; font-weight: 500; }
   .diagram .pn-diagram-notes { display: none; }
   @media print { .diagram .pn-diagram-notes { display: block; font-family: var(--mono); font-size: 13px; color: var(--muted); margin: 4px 0 0; } }
+  /* A note is a comment on its place. In the browser print fallback it prints as a footnote
+     right AT its place, so it reads on the same page as the fragment it belongs to. (The
+     desktop Export-PDF makes these real PDF comment annotations instead and suppresses this.) */
+  .pn-inline-note { display: none; }
+  @media print { .pn-inline-note { display: block; font-size: 13px; color: var(--muted); margin: 4px 0 0; padding-left: 10px; border-left: 2px solid var(--line); break-inside: avoid; } }
+  .pn-inline-note .pn-note-tag { color: var(--accent); font-weight: 500; margin-right: 6px; }
   @media print {
     /* Every interactive/overlay bit is hidden — including the code-map connector layer
        (#edges) and its floating link labels (#elabels/.elabel), the palette swatches
@@ -1092,7 +1098,7 @@
     #pane-diagrams .diagram:first-of-type { break-before: auto; }
     .diagram .mermaid-box { max-width: 100% !important; overflow: visible !important; text-align: center; }
     .diagram .mermaid-box svg { width: auto !important; height: auto !important; max-width: 100% !important; max-height: 225mm !important; margin: 0 auto; }
-    /* Endnotes: the review notes, linked to/from their place in the report. */
+    /* The Questions appendix: each question linked to/from its place in the report. */
     .printnotes { display: block; break-before: page; }
     .printnotes:empty { display: none; }
     .pnref { display: inline !important; }
@@ -1301,7 +1307,7 @@ const I18N = {
     askAboutSelection: 'Ask about this text', askAboutDiagram: 'Ask about this whole diagram (click a block, or drag a region, for part of it)',
     dgBadgeChat: 'A discussion is pinned here — open it', dgBadgeNote: 'A note is pinned here — open it',
     dgRegionArea: 'selected area',
-    printNotesTitle: 'Notes & questions',
+    printQuestionsTitle: 'Questions', printNoteLabel: 'Note', printQLink: 'question',
     printBtn: 'PDF', printTitle: 'Save this tab as a PDF (opens Print → Save as PDF), notes included',
     dgBrokenMsg: "This diagram couldn't be drawn — the generated diagram source is invalid.",
     dgBrokenSource: 'Show diagram source', dgBrokenCopy: 'Copy source', dgBrokenRegen: 'Regenerate diagrams',
@@ -1451,7 +1457,7 @@ const I18N = {
     askAboutSelection: 'Спросить про этот текст', askAboutDiagram: 'Вопрос по всей диаграмме (клик по блоку или выделение области — по части)',
     dgBadgeChat: 'Здесь закреплена дискуссия — открыть', dgBadgeNote: 'Здесь закреплена заметка — открыть',
     dgRegionArea: 'выделенная область',
-    printNotesTitle: 'Заметки и вопросы',
+    printQuestionsTitle: 'Вопросы', printNoteLabel: 'Заметка', printQLink: 'вопрос',
     printBtn: 'PDF', printTitle: 'Сохранить этот таб в PDF (откроет Печать → Сохранить как PDF), с заметками',
     dgBrokenMsg: 'Эту диаграмму не удалось построить — сгенерированный исходник диаграммы невалиден.',
     dgBrokenSource: 'Показать исходник', dgBrokenCopy: 'Скопировать исходник', dgBrokenRegen: 'Перегенерировать диаграммы',
@@ -2808,14 +2814,19 @@ function endPrintPalette() {
 // active and bake the palette into their SVG), and choose the scope — one tab or the whole
 // report (print-all). Awaitable, so the caller (the PDF button, or the headless desktop/app
 // path) can wait for the re-render before printing. Exposed on window for that caller.
-async function preparePrint({ tab = null, all = false } = {}) {
+async function preparePrint({ tab = null, all = false, forComments = false } = {}) {
   beginPrintPalette()
   if (all || tab === 'diagrams') { setTab('diagrams'); try { await runDiagrams() } catch {} }
   if (tab && tab !== 'diagrams') setTab(tab)
   document.body.classList.toggle('print-all', !!all)
+  document.body.classList.toggle('wdx-comments', !!forComments) // beforeprint must not rebuild notes now
   await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
-  window.__whydiffBuildPrintNotes?.()  // endnotes + [N] links for the scope being printed
+  // Questions become in-document links + a Questions appendix. Notes: the browser fallback
+  // prints them as footnotes at their place; the desktop comment path (forComments) suppresses
+  // that and instead drops locator glyphs, returning the manifest the app annotates from.
+  window.__whydiffBuildPrintNotes?.({ inlineNotes: !forComments })
   fitDiagramsForPrint()
+  return forComments ? (window.__whydiffPlaceLocators?.() || []) : undefined
 }
 // mermaid often lays a node out past its own viewBox (e.g. the flowchart's 429 node sits
 // ~180px right of the SVG edge), and the SVG clips at that edge — so the diagram loses its
@@ -2838,6 +2849,9 @@ window.__whydiffPreparePrint = preparePrint
 // asynchronously here, so Cmd-P is best for the non-diagram tabs; the app's Export-PDF uses
 // preparePrint() above for pixel-clean diagrams.
 window.addEventListener('beforeprint', () => {
+  // The desktop comment export (preparePrint forComments) has already prepared everything and
+  // placed locator glyphs; rebuilding notes here would re-add inline footnotes and fight it.
+  if (document.body.classList.contains('wdx-comments')) { beginPrintPalette(); fitDiagramsForPrint(); return }
   // Go light and re-fit the diagram viewBoxes for the page — but do NOT re-render here: a
   // re-render resets each viewBox to mermaid's original (which clips), and beforeprint also
   // fires during printToPDF/page.pdf, so re-rendering would silently undo the fit. (When the
@@ -2847,7 +2861,7 @@ window.addEventListener('beforeprint', () => {
   window.__whydiffBuildPrintNotes?.()
   fitDiagramsForPrint()
 })
-window.addEventListener('afterprint', () => { endPrintPalette(); document.querySelectorAll('.pnref, .pn-diagram-notes').forEach((e) => e.remove()) })
+window.addEventListener('afterprint', () => { endPrintPalette(); document.body.classList.remove('wdx-comments'); document.querySelectorAll('.pnref, .pn-diagram-notes, .pn-inline-note, .wdx-loc').forEach((e) => e.remove()) })
 
 // quiet ships; safe is the token block's own two-hue pair, so it is the one
 // spelling that clears the attribute rather than setting it.
@@ -3271,14 +3285,15 @@ if (SERVE?.token || EMBEDDED) (() => {
   // Chromium keeps as internal links in the PDF, so the reader jumps between the note and
   // where it belongs instead of reading a disconnected dump. Rebuilt just before printing.
   let printNotesEl = null
-  const buildPrintNotes = () => {
-    document.querySelectorAll('.pnref, .pn-diagram-notes').forEach((e) => e.remove())
-    if (!printNotesEl) { printNotesEl = document.createElement('section'); printNotesEl.className = 'printnotes'; document.querySelector('.wrap')?.appendChild(printNotesEl) }
-    printNotesEl.innerHTML = ''
+  // Group the review threads by place, resolve each place's host element, and keep only the
+  // places that will actually print (host in the visible tab, or print-all) — so a single-tab
+  // PDF carries just that tab's discussion, not the whole review's. Each place separates its
+  // NOTES (comments on the place) from its QUESTIONS (a Q&A thread) — they are different
+  // things and are rendered differently (see buildPrintNotes). Shared by the print appendix
+  // and the desktop comment-annotation path, so both agree on what prints and where.
+  let printPlaces = []
+  const resolvePrintPlaces = () => {
     const printAll = document.body.classList.contains('print-all')
-    // Group threads by place, resolve each place's host element, and keep only those that
-    // will actually print (host in the visible tab, or print-all) — so a single-tab PDF
-    // lists just that tab's notes, not the whole review's.
     const places = [], byKey = new Map()
     for (const t of threads) {
       if (byKey.has(t.anchorKey)) { byKey.get(t.anchorKey).threads.push(t); continue }
@@ -3290,41 +3305,107 @@ if (SERVE?.token || EMBEDDED) (() => {
       const p = { key: t.anchorKey, anchor: t.anchor, threads: [t], host, isDiagram: !!dg, willPrint }
       byKey.set(t.anchorKey, p); places.push(p)
     }
-    const shown = places.filter((p) => p.willPrint)
+    printPlaces = places.filter((p) => p.willPrint)
+    for (const p of printPlaces) {
+      p.notes = p.threads.filter((t) => t.kind === 'note')
+      p.questions = p.threads.filter((t) => t.kind !== 'note')
+    }
+    return printPlaces
+  }
+  // Build the printable discussion for the scope being printed. QUESTIONS always become an
+  // internal link at their place → a "Questions" appendix (Chromium keeps # links as real PDF
+  // links). NOTES are comments: in the browser print fallback (inlineNotes) each note prints
+  // as a footnote AT its place; the desktop Export-PDF turns notes into real PDF comment
+  // annotations instead (inlineNotes:false) and places locator glyphs via placeLocators().
+  const buildPrintNotes = ({ inlineNotes = true } = {}) => {
+    document.querySelectorAll('.pnref, .pn-diagram-notes, .pn-inline-note').forEach((e) => e.remove())
+    if (!printNotesEl) { printNotesEl = document.createElement('section'); printNotesEl.className = 'printnotes'; document.querySelector('.wrap')?.appendChild(printNotesEl) }
+    printNotesEl.innerHTML = ''
+    const shown = resolvePrintPlaces()
     if (!shown.length) return
-    // A [N] link at each place: on a text/code selection or block it goes on the highlight;
-    // on a diagram node/region it goes in that diagram's caption (the badge itself doesn't
-    // print). The place element gets an id so the endnote can link back to it.
-    const diagramRefs = new Map()  // diagram card element → [n, …]
-    shown.forEach((p, i) => {
-      p.n = i + 1
-      if (!p.host.id) p.host.id = `panchor-${p.n}`
+    // Number the questions and place a link at each question's place. On a text/code
+    // selection the link is a small superscript on the highlight; on a diagram it is a line
+    // in the caption (the badge itself does not print). Each place hosting a question gets an
+    // id so its appendix entry can link back.
+    let qn = 0
+    const qEntries = []
+    const diagramQ = new Map()  // diagram card element → [n, …]
+    for (const p of shown) {
+      if (!p.questions.length) continue
+      if (!p.host.id) p.host.id = `panchor-${shown.indexOf(p) + 1}`
       p.anchorId = p.host.id
-      if (p.isDiagram && p.host.classList.contains('diagram')) {
-        if (!diagramRefs.has(p.host)) diagramRefs.set(p.host, [])
-        diagramRefs.get(p.host).push(p.n)
-      } else {
-        const ref = document.createElement('sup'); ref.className = 'pnref'
-        ref.innerHTML = `<a href="#pnote-${p.n}">${p.n}</a>`
-        p.host.appendChild(ref)
+      for (const t of p.questions) {
+        const n = ++qn
+        qEntries.push({ n, anchorId: p.anchorId, anchor: p.anchor, key: p.key, t })
+        if (p.isDiagram && p.host.classList.contains('diagram')) {
+          if (!diagramQ.has(p.host)) diagramQ.set(p.host, [])
+          diagramQ.get(p.host).push(n)
+        } else {
+          const ref = document.createElement('sup'); ref.className = 'pnref'
+          ref.innerHTML = `<a href="#pq-${n}" title="${esc(L.printQLink)}">${n}</a>`
+          p.host.appendChild(ref)
+        }
       }
-    })
-    for (const [card, ns] of diagramRefs) {
+    }
+    for (const [card, ns] of diagramQ) {
       const line = document.createElement('p'); line.className = 'pn-diagram-notes'
-      line.innerHTML = `${esc(L.printNotesTitle)}: ` + ns.map((n) => `<a href="#pnote-${n}">[${n}]</a>`).join(' ')
+      line.innerHTML = `${esc(L.printQuestionsTitle)}: ` + ns.map((n) => `<a href="#pq-${n}">[${n}]</a>`).join(' ')
       ;(card.querySelector('.dg-head') || card).appendChild(line)
     }
-    const entry = (p) => {
-      const back = p.anchorId ? `<a class="pn-back" href="#${p.anchorId}">${p.n} ↩</a>` : `<b>${p.n}</b> `
-      const label = esc(`${p.anchor?.kind || ''} · ${p.anchor?.label || p.key}`.slice(0, 160))
-      const body = p.threads.map((t) => t.kind === 'note'
-        ? `<div class="pn-note md">${mdToHtml(t.request)}</div>`
-        : `<div class="pn-q">${esc(t.request || L.proposeAsked)}</div>${t.response ? `<div class="pn-a md">${mdToHtml(t.response)}</div>` : ''}`).join('')
-      return `<div class="pn-item" id="pnote-${p.n}"><div class="pn-anchor">${back}${label}</div>${body}</div>`
+    // The browser fallback: print each note as a footnote at its place.
+    if (inlineNotes) for (const p of shown) {
+      if (!p.notes.length) continue
+      const box = document.createElement('div'); box.className = 'pn-inline-note'
+      box.innerHTML = p.notes.map((t) => `<div class="md"><span class="pn-note-tag">${esc(L.printNoteLabel)}</span>${mdToHtml(t.request)}</div>`).join('')
+      if (p.isDiagram && p.host.classList.contains('diagram')) (p.host.querySelector('.dg-head') || p.host).appendChild(box)
+      else p.host.appendChild(box)
     }
-    printNotesEl.innerHTML = `<h2 class="pn-title">${esc(L.printNotesTitle)}</h2>` + shown.map(entry).join('')
+    // The Questions appendix.
+    if (qEntries.length) {
+      const entry = (q) => {
+        const back = q.anchorId ? `<a class="pn-back" href="#${q.anchorId}">${q.n} ↩</a>` : `<b>${q.n}</b> `
+        const label = esc(`${q.anchor?.kind || ''} · ${q.anchor?.label || q.key}`.slice(0, 160))
+        const body = `<div class="pn-q">${esc(q.t.request || L.proposeAsked)}</div>${q.t.response ? `<div class="pn-a md">${mdToHtml(q.t.response)}</div>` : ''}`
+        return `<div class="pn-item" id="pq-${q.n}"><div class="pn-anchor">${back}${label}</div>${body}</div>`
+      }
+      printNotesEl.innerHTML = `<h2 class="pn-title">${esc(L.printQuestionsTitle)}</h2>` + qEntries.map(entry).join('')
+    }
   }
   window.__whydiffBuildPrintNotes = buildPrintNotes
+
+  // Desktop Export-PDF only: after the page is prepared for print, drop one invisible locator
+  // glyph at each note's place and return a manifest [{token, anchorKey, notes:[{contents,
+  // author, nm}]}]. The app prints the page, reads each token's real rendered position back
+  // out of the produced PDF, and injects a real /Text comment annotation there — so a note
+  // becomes a genuine PDF comment on its exact spot, surviving forced page breaks and diagram
+  // fit-scaling (the position is read from the finished PDF, never computed here). The glyph
+  // is painted (so it lands in the PDF text stream) but paper-coloured and tiny, styled INLINE
+  // only — never a stylesheet rule, which would trip the design gate's font-size/colour checks.
+  const placeLocators = () => {
+    document.querySelectorAll('.wdx-loc').forEach((e) => e.remove())
+    const bg = getComputedStyle(document.body).backgroundColor || 'white'
+    const manifest = []
+    const withNotes = printPlaces.filter((p) => p.willPrint && p.notes && p.notes.length)
+    withNotes.forEach((p, i) => {
+      const token = `WDX${String(i).padStart(3, '0')}WDX`
+      const glyph = document.createElement('span')
+      glyph.className = 'wdx-loc'
+      glyph.textContent = token
+      glyph.style.cssText = `font-size:6px;color:${bg};user-select:none;`
+      // On a diagram the glyph goes in the caption (never inside the fit-scaled SVG, which
+      // would move it); on a text/code place it goes at the START of the host (the highlight's
+      // top-left), so the comment lands on the fragment, not after it.
+      if (p.isDiagram && p.host.classList.contains('diagram')) (p.host.querySelector('.dg-head') || p.host).appendChild(glyph)
+      else p.host.insertBefore(glyph, p.host.firstChild)
+      manifest.push({
+        token, anchorKey: p.key,
+        notes: p.notes.map((t) => ({ contents: t.request || '', author: t.by || 'whydiff', nm: `${p.key}::${t.requestId || ''}` })),
+      })
+    })
+    placeLocators.__last = manifest
+    return manifest
+  }
+  window.__whydiffPlaceLocators = placeLocators
 
   // ── markers ────────────────────────────────────────────────────────────────
   const refreshMarks = () => {

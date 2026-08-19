@@ -1,12 +1,13 @@
 import { app, BrowserWindow, ipcMain, dialog, safeStorage, shell } from 'electron'
 import { join, basename, dirname } from 'node:path'
-import { existsSync, statSync, mkdirSync, copyFileSync, rmSync } from 'node:fs'
+import { existsSync, statSync, mkdirSync, copyFileSync, rmSync, writeFileSync } from 'node:fs'
 import { openStore, repoNameFromUrl } from './store.mjs'
 import { openSettings } from './settings.mjs'
 import { gitState, rangeForCommit, clone, fetchPrRange } from './git.mjs'
 import { fetchPRs, parseRepo } from './github.mjs'
 import { runAnalysis, serveMap, reviewCounts, exportHtml } from './whydiff.mjs'
 import { checkForUpdate } from './updates.mjs'
+import { annotatePdf } from './pdf-annotate.mjs'
 import { resolvedPath } from './pathenv.mjs'
 
 let store
@@ -193,6 +194,45 @@ app.whenReady().then(() => {
     const r = await dialog.showSaveDialog({ title: 'Export review as HTML', defaultPath: `${base}.html`, filters: [{ name: 'HTML', extensions: ['html'] }] })
     if (r.canceled || !r.filePath) return null
     await exportHtml(mapJson, dir, r.filePath, { repo, node: nodeCmd(), env: nodeEnv() })
+    shell.showItemInFolder(r.filePath)
+    return r.filePath
+  })
+  // Export a saved analysis as a PDF with the review NOTES as real PDF comment annotations
+  // (the kind a reader shows in its Comments panel) and QUESTIONS as in-document links. We
+  // serve the map, print it to PDF off-screen (Chromium printToPDF == the viewer's clean print
+  // layout), then place a /Text comment at each note's real rendered position — read back out
+  // of the produced PDF via a locator glyph, so it survives page breaks and diagram scaling.
+  ipcMain.handle('analysis:exportPdf', async (_e, id, opts = {}) => {
+    const a = store.getAnalysis(id)
+    if (!a) throw new Error('that analysis is gone')
+    const dir = join(analysesDir, String(id))
+    const json = join(dir, 'review-map.json')
+    if (!existsSync(json)) throw new Error('the saved map is missing')
+    const project = store.getProject(a.projectId)
+    const resolved = repoForProject(project)
+    const repo = resolved && existsSync(resolved) ? resolved : dir
+    const base = (a.title || project?.name || 'review').replace(/[^\w.-]+/g, '-').replace(/^-+|-+$/g, '') || 'review'
+    const r = await dialog.showSaveDialog({ title: 'Export review as PDF', defaultPath: `${base}.pdf`, filters: [{ name: 'PDF', extensions: ['pdf'] }] })
+    if (r.canceled || !r.filePath) return null
+    const { url, stop } = await serveMap(repo, json, { node: nodeCmd(), env: nodeEnv(), port: nextServePort(), work: false })
+    const win = new BrowserWindow({ show: false, width: 1400, height: 1000, webPreferences: { offscreen: false } })
+    try {
+      await win.loadURL(url)
+      // Wait for the viewer's print API, then prepare the chosen scope for a clean print and
+      // get back the note manifest (one locator token per annotated place).
+      await win.webContents.executeJavaScript('new Promise((res)=>{const t=setInterval(()=>{if(window.__whydiffPreparePrint){clearInterval(t);res(1)}},50);setTimeout(()=>{clearInterval(t);res(0)},15000)})')
+      const scope = { tab: opts.tab || null, all: !!opts.all, forComments: true }
+      const manifest = await win.webContents.executeJavaScript(`window.__whydiffPreparePrint(${JSON.stringify(scope)})`)
+      const pdfBuf = await win.webContents.printToPDF({
+        pageSize: 'A4', landscape: false, printBackground: true, scale: 1,
+        margins: { top: 0.4, bottom: 0.4, left: 0.4, right: 0.4 }, preferCSSPageSize: false, displayHeaderFooter: false,
+      })
+      const { bytes } = await annotatePdf(pdfBuf, Array.isArray(manifest) ? manifest : [], { warn: (m) => console.warn(m) })
+      writeFileSync(r.filePath, Buffer.from(bytes))
+    } finally {
+      if (!win.isDestroyed()) win.destroy()
+      stop()
+    }
     shell.showItemInFolder(r.filePath)
     return r.filePath
   })

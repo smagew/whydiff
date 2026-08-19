@@ -81,6 +81,7 @@ export default function ProjectList({ onOpen }) {
   }
   const openAnalysis = async (id) => { setError(''); try { await window.api.openAnalysis(id, { work: edits }) } catch (e) { setError(e?.message || String(e)) } }
   const exportAnalysis = async (id) => { setError(''); try { await window.api.exportAnalysis(id) } catch (e) { setError(e?.message || String(e)) } }
+  const exportAnalysisPdf = async (id) => { setError(''); try { await window.api.exportAnalysisPdf(id) } catch (e) { setError(e?.message || String(e)) } }
   const saveToken = () => guard(async () => { setToken(await window.api.setToken(tokenInput.trim())); setTokenInput(''); setShowToken(false) })
   const clearToken = () => guard(async () => { setToken(await window.api.clearToken()) })
 
@@ -185,6 +186,7 @@ export default function ProjectList({ onOpen }) {
                 <ReviewCounts counts={a.counts} />
                 <button className="btn" onClick={() => openAnalysis(a.id)}>View</button>
                 <button className="btn ghost" title="Export a shareable HTML file with the notes baked in" onClick={() => exportAnalysis(a.id)}>Export</button>
+                <button className="btn ghost" title="Export a PDF: notes become real PDF comments, questions become links" onClick={() => exportAnalysisPdf(a.id)}>PDF</button>
               </div>
             ))}
           </section>
