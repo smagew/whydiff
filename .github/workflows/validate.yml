@@ -48,3 +48,25 @@ jobs:
       - name: Run app tests (main modules + renderer logic)
         run: npm test
         working-directory: app
+
+  # The PDF-comments end-to-end spans both dep trees (playwright from the plugin, pdf-lib/pdfjs
+  # from app/) and drives real Chromium page.pdf() → annotatePdf, so it lives in its own job
+  # that installs both. It is the guard that a review note actually becomes a real PDF comment
+  # on the right page through a real print — see docs/pdf-export.md.
+  pdf-comments-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install plugin dependencies
+        run: npm ci
+      - name: Install app dependencies
+        run: npm ci
+        working-directory: app
+      - name: End-to-end PDF comments (real Chromium print → annotate)
+        run: |
+          npx playwright install --with-deps chromium
+          make pdf-e2e

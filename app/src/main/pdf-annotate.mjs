@@ -1,6 +1,33 @@
 import { PDFDocument, PDFName, PDFString, PDFArray } from 'pdf-lib'
 import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs'
 
+/**
+ * Read every /Text comment annotation back out of a PDF: page index, note text, author,
+ * whether it has a popup, and its lower-left point. Used by the tests to assert against the
+ * produced bytes (never viewer internals), and handy for round-trip verification.
+ */
+export async function readComments(pdfBytes) {
+  const doc = await PDFDocument.load(pdfBytes)
+  const out = []
+  doc.getPages().forEach((page, pageIndex) => {
+    const annots = page.node.Annots()
+    if (!annots) return
+    for (let i = 0; i < annots.size(); i++) {
+      const d = annots.lookup(i)
+      if (d?.get?.(PDFName.of('Subtype'))?.toString() !== '/Text') continue
+      const rect = d.get(PDFName.of('Rect')).asArray().map((n) => n.asNumber())
+      out.push({
+        pageIndex,
+        contents: d.get(PDFName.of('Contents')).decodeText(),
+        author: d.get(PDFName.of('T')).decodeText(),
+        hasPopup: !!d.get(PDFName.of('Popup')),
+        x: rect[0], y: rect[1],
+      })
+    }
+  })
+  return out
+}
+
 // Turn the review notes into REAL PDF comment annotations, placed where each note's anchor
 // actually rendered. The desktop Export-PDF path drops an invisible locator glyph at each
 // note's place (viewer: placeLocators) and prints the page; here we read each glyph's real

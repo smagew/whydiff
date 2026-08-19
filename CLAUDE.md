@@ -37,6 +37,8 @@ HTML viewer.
 - `templates/viewer.html` — the whole viewer (CSS + JS + i18n) in one file.
 - `schema/review-map.schema.json` — the generator↔viewer contract. Everything the
   map carries is documented there.
+- `docs/pdf-export.md` — the PDF-export contract (acceptance checklist, the locator-glyph
+  comment mechanism, invariants ↔ tests). Read it before touching the print/PDF path.
 
 Viewer tabs, in order: **Diagrams · Code map · User stories · Summary · Ops &
 risks · Standards · Tests**. Diagrams is the default (Code map when a diff changed
