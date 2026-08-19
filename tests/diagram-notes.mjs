@@ -132,6 +132,21 @@ const region = async (dgIndex, sel, label) => {
     .catch(() => fail(`[${label}] the region frame did not survive a reload`))
   await page.waitForTimeout(300)
   covers(await frameActors(dgIndex, sel), 'after reload')
+  // Reflow must not leave the frame behind (the recurring "zones jump" bug). The badges/frames
+  // are placed from live rects, so a window resize or a sidebar collapse/expand reflows the
+  // diagram and must trigger a redraw. Assert the frame STILL covers the same dragged nodes.
+  await page.setViewportSize({ width: 1080, height: 900 })
+  await page.waitForTimeout(500)
+  covers(await frameActors(dgIndex, sel), 'after shrink resize')
+  await page.setViewportSize({ width: 1500, height: 1000 })
+  await page.waitForTimeout(500)
+  covers(await frameActors(dgIndex, sel), 'after grow resize')
+  // Collapse then reopen the sidebar (drives setAsideCollapsed both ways).
+  await page.evaluate(() => document.getElementById('asideToggle')?.click())
+  await page.waitForTimeout(400)
+  await page.evaluate(() => document.getElementById('asideReopen')?.click())
+  await page.waitForTimeout(500)
+  covers(await frameActors(dgIndex, sel), 'after sidebar toggle')
 }
 
 await region(0, '#pane-diagrams .diagram[data-anchor="diagram:0"] svg .node', 'flowchart')  // flowchart nodes
@@ -140,4 +155,4 @@ await region(2, '#pane-diagrams .diagram[data-anchor="diagram:2"] svg .actor', '
 if (errors.length) fail('page errors:\n' + errors.join('\n'))
 await browser.close()
 proc.kill('SIGKILL')
-console.log('OK: diagram annotations (block click opens the panel not the file; a note pins a badge that survives reload; a region opens without hijacking text; its frame covers the elements it was dragged over — on a flowchart AND a wide sequence diagram — and survives a reload)')
+console.log('OK: diagram annotations (block click opens the panel not the file; a note pins a badge that survives reload; a region opens without hijacking text; its frame covers the elements it was dragged over — on a flowchart AND a wide sequence diagram — and survives a reload, a window resize, and a sidebar toggle)')

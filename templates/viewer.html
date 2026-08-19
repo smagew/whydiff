@@ -1978,7 +1978,11 @@ function fitDiagrams() {
     if (!natural || avail <= 0) { svg.style.width = ''; continue }
     svg.style.width = Math.round(Math.min(avail, natural * DIAGRAM_MAX_SCALE)) + 'px'
   }
-  requestAnimationFrame(() => { try { drawDiagramMarks() } catch {} })
+  // Redraw the annotation marks for the new size. drawDiagramMarks lives inside the diagrams
+  // IIFE below, so it is reachable only through this handle — a bare drawDiagramMarks() here
+  // throws (out of scope) and the old try/catch swallowed it, which is why resizing left the
+  // badges/frames behind. __whydiffDrawMarks is rAF-debounced itself.
+  window.__whydiffDrawMarks?.()
 }
 let fitRAF = 0
 window.addEventListener('resize', () => { cancelAnimationFrame(fitRAF); fitRAF = requestAnimationFrame(fitDiagrams) })
@@ -2765,6 +2769,10 @@ const setAsideCollapsed = (on) => {
   // column reflows the nodes, so the edges must be redrawn or they point at where
   // the nodes used to be — overlapping the panel on re-expand.
   if (!document.getElementById('pane-files').hidden) requestAnimationFrame(drawEdges)
+  // Same for the diagram badges/frames: collapsing the sidebar reflows the diagrams pane, so
+  // its marks must be re-placed or they land where the nodes used to be.
+  fitDiagrams()
+  window.__whydiffDrawMarks?.()
 }
 asideToggle.addEventListener('click', () => setAsideCollapsed(true))
 asideReopen.addEventListener('click', () => setAsideCollapsed(false))
@@ -3735,6 +3743,19 @@ if (SERVE?.token || EMBEDDED) (() => {
       }
     })
   }
+
+  // The badges/frames are positioned from LIVE rects (getBoundingClientRect / getScreenCTM), so
+  // any reflow that moves or rescales a diagram — a window resize, opening/closing the sidebar,
+  // dragging the column split — leaves them where the nodes USED to be unless we redraw. A
+  // ResizeObserver on the diagrams pane catches every such reflow in one place (absolute
+  // children don't change the pane's box, so redrawing cannot re-trigger it). rAF-debounced so a
+  // burst of resize events coalesces into one redraw after layout settles.
+  let marksRAF = 0
+  const scheduleMarks = () => { cancelAnimationFrame(marksRAF); marksRAF = requestAnimationFrame(() => { try { drawDiagramMarks() } catch {} }) }
+  const marksPane = document.getElementById('pane-diagrams')
+  if (marksPane && 'ResizeObserver' in window) new ResizeObserver(scheduleMarks).observe(marksPane)
+  window.addEventListener('resize', scheduleMarks)
+  window.__whydiffDrawMarks = scheduleMarks // reflow hooks + tests
 
   const wireDiagrams = () => {
     // Guarded: this runs from a MutationObserver on the pane, and refreshMarks()

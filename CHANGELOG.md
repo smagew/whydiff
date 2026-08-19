@@ -4,6 +4,19 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.41.0] — 2026-08-19
+
+### Fixed
+- **Diagram note/question marks no longer drift on reflow.** The badges and region frames are
+  placed from live rects, but nothing re-placed them when the diagram reflowed — a window
+  resize, or collapsing/expanding the sidebar — so they were left where the nodes used to be.
+  (The resize path did try, but its `drawDiagramMarks()` call sat outside the function's scope
+  and threw into a swallowing `try/catch`, so it silently did nothing.) A `ResizeObserver` on
+  the diagrams pane now redraws the marks on any reflow, and the sidebar/resize/column paths
+  route through the one reachable handle. Guarded by `tests/diagram-notes.mjs` — the region
+  frame must still cover the same nodes after a resize and a sidebar toggle (verified to fail
+  on the pre-fix viewer).
+
 ## [0.40.0] — 2026-08-19
 
 ### Fixed
