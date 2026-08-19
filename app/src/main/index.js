@@ -219,6 +219,7 @@ app.whenReady().then(() => {
     const base = (a.title || project?.name || 'review').replace(/[^\w.-]+/g, '-').replace(/^-+|-+$/g, '') || 'review'
     const r = await dialog.showSaveDialog({ title: 'Export review as PDF', defaultPath: `${base}.pdf`, filters: [{ name: 'PDF', extensions: ['pdf'] }] })
     if (r.canceled || !r.filePath) return null
+    const pdf = {} // annotate outcome: { expected, added, located, total, warns, error }
     const { url, stop } = await serveMap(repo, json, { node: nodeCmd(), env: nodeEnv(), port: nextServePort(), work: false })
     const win = new BrowserWindow({ show: false, width: 1400, height: 1000, webPreferences: { offscreen: false } })
     try {
@@ -232,19 +233,34 @@ app.whenReady().then(() => {
         pageSize: 'A4', landscape: false, printBackground: true, scale: 1,
         margins: { top: 0.4, bottom: 0.4, left: 0.4, right: 0.4 }, preferCSSPageSize: false, displayHeaderFooter: false,
       })
-      // Add the note comments. If that step fails (e.g. pdfjs could not load), still save a
-      // valid PDF — the clean layout with questions-as-links — rather than crashing the export.
+      // Add the note comments. If that step fails (e.g. pdfjs could not load) still save a
+      // valid PDF — the clean layout with questions-as-links — but do NOT hide the failure: a
+      // note that can't become a comment is otherwise dropped silently (the comment path does
+      // not print footnotes). Capture the outcome so the caller can surface it.
+      const notes = Array.isArray(manifest) ? manifest : []
+      pdf.expected = notes.reduce((n, m) => n + (m.notes?.length || 0), 0)
       let finalBytes = pdfBuf
+      const warns = []
       try {
-        const { bytes } = await annotatePdf(pdfBuf, Array.isArray(manifest) ? manifest : [], { warn: (m) => console.warn(m) })
-        finalBytes = bytes
+        const res = await annotatePdf(pdfBuf, notes, { warn: (m) => warns.push(m) })
+        finalBytes = res.bytes
+        pdf.added = res.added; pdf.located = res.located; pdf.total = res.total
       } catch (e) {
-        console.warn('whydiff: PDF comment annotation failed — saving the PDF without comments:', e?.message || e)
+        pdf.error = e?.stack || e?.message || String(e)
       }
+      pdf.warns = warns
       writeFileSync(r.filePath, Buffer.from(finalBytes))
     } finally {
       if (!win.isDestroyed()) win.destroy()
       stop()
+    }
+    // Tell the user when comments were expected but not all landed — with the real reason,
+    // instead of quietly shipping a comment-less PDF.
+    if (pdf.expected > 0 && (pdf.error || (pdf.added || 0) < pdf.expected)) {
+      const detail = pdf.error
+        ? `Could not add comments:\n${pdf.error}`
+        : `Placed ${pdf.added || 0} of ${pdf.expected} note comment(s) (found ${pdf.located || 0}/${pdf.total || 0} anchors in the PDF).\n${(pdf.warns || []).join('\n')}`
+      dialog.showMessageBox({ type: 'warning', title: 'PDF saved without all comments', message: 'The PDF was saved, but some notes did not become PDF comments.', detail }).catch(() => {})
     }
     shell.showItemInFolder(r.filePath)
     return r.filePath

@@ -8,7 +8,18 @@ import { PDFDocument, PDFName, PDFString, PDFArray } from 'pdf-lib'
 // electron-builder.yml) so it resolves from a real path, not inside the asar archive.
 let _pdfjs
 async function loadPdfjs() {
-  if (!_pdfjs) _pdfjs = await import(/* @vite-ignore */ 'pdfjs-dist/legacy/build/pdf.mjs')
+  if (_pdfjs) return _pdfjs
+  // In the packaged app pdfjs is asarUnpack'd, so a bare-specifier ESM import from inside
+  // app.asar may not resolve to app.asar.unpacked. require.resolve() DOES apply Electron's
+  // asar→unpacked mapping, so resolve to the real path and import it by file URL. The bare
+  // import (with a literal specifier, so the bundler externalises it) is the dev/Node fallback.
+  try {
+    const path = require.resolve('pdfjs-dist/legacy/build/pdf.mjs')
+    const { pathToFileURL } = require('node:url')
+    _pdfjs = await import(/* @vite-ignore */ pathToFileURL(path).href)
+  } catch {
+    _pdfjs = await import(/* @vite-ignore */ 'pdfjs-dist/legacy/build/pdf.mjs')
+  }
   return _pdfjs
 }
 
