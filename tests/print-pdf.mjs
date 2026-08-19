@@ -67,10 +67,14 @@ const clickResult = await page.evaluate(async () => {
 })
 ok(!clickResult.printed, 'the browser PDF button must NOT call window.print()')
 ok(clickResult.pop, 'clicking the browser PDF button shows the get-the-app popover')
-ok(/github\.com\/smagew\/whydiff\/releases/.test(clickResult.href), `the popover offers a release download link (got "${clickResult.href}")`)
-// The footer carries a download CTA to the desktop app.
+// The link must target the moving APP release (app-latest), NOT the repo-wide /releases/latest,
+// which is a plugin release with no installer (the "wrong link" bug). And a stable asset name.
+ok(/\/releases\/download\/app-latest\/whydiff-(mac|win|linux)-[\w.]+/.test(clickResult.href),
+  `the popover must link to an app-latest installer, not the plugin release (got "${clickResult.href}")`)
+ok(!/\/releases\/latest(\/|$)/.test(clickResult.href), 'must NOT use the repo-wide /releases/latest (that is the plugin, no installer)')
+// The footer carries the same download CTA.
 ok(await page.locator('.footstrip .fs-app').count() === 1, 'the footer shows a "download the app" link')
-ok(/releases/.test(await page.locator('.footstrip .fs-app').getAttribute('href') || ''), 'the footer link points at the app releases')
+ok(/\/releases\/download\/app-latest\/whydiff-/.test(await page.locator('.footstrip .fs-app').getAttribute('href') || ''), 'the footer link points at an app-latest installer')
 
 // The notes/questions are built at print time (beforeprint), not on load.
 ok(['none', 'MISSING'].includes(await disp('.printnotes')), 'the questions appendix must not be visible on screen')

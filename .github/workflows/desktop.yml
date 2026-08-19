@@ -137,3 +137,22 @@ jobs:
             - **Linux**: `.AppImage` (portable, `chmod +x` then run) or `.deb`.
 
             Requires Claude Code (`claude`) and `git` installed — the app drives them to produce the map.
+      # A MOVING pointer to the newest app build. The app has its own version (app-v*), separate
+      # from the plugin (v*), so the repo-wide /releases/latest is usually a plugin release with
+      # no installer. This `app-latest` release always holds the current installers under stable
+      # version-less names, so the viewer's "Download the app" links resolve:
+      #   .../releases/download/app-latest/whydiff-<os>-<arch>.<ext>  (see appDownloadUrl() in
+      # templates/viewer.html, and artifactName in app/electron-builder.yml). make_latest:false so
+      # it does not steal the repo's "Latest" badge from the real versioned releases.
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: app-latest
+          target_commitish: ${{ github.sha }}
+          files: dist/**/*
+          fail_on_unmatched_files: false
+          make_latest: false
+          name: whydiff desktop (latest)
+          body: |
+            The newest desktop build, mirrored here under stable filenames so download links
+            always resolve. The canonical, versioned release is **${{ needs.plan.outputs.tag }}**.
+            Install notes are the same as on that release.

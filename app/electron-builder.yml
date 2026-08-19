@@ -47,9 +47,9 @@ mac:
   category: public.app-category.developer-tools
   gatekeeperAssess: false
   # Version-less, OS+arch-stable names so the viewer's "Download the app" link can point at
-  # https://github.com/smagew/whydiff/releases/latest/download/whydiff-mac-<arch>.dmg
-  # and always resolve to the newest build. Keep these names in sync with appDownloadUrl()
-  # in templates/viewer.html.
+  # https://github.com/smagew/whydiff/releases/download/app-latest/whydiff-mac-<arch>.dmg
+  # (the moving app-latest release published by desktop.yml) and always resolve to the newest
+  # build. Keep these names in sync with appDownloadUrl() in templates/viewer.html.
   artifactName: whydiff-mac-${arch}.${ext}
 # Free ad-hoc signing (no Apple Developer account). electron-builder can't do it —
 # it reads mac.identity as a keychain name and skips when none matches, leaving the
