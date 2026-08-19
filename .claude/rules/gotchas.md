@@ -49,6 +49,14 @@ future agents (and you) read this before touching the area.
   `font-size:0` drop it from the PDF text stream, so readback can't find it — hide it by
   paper colour instead. And style it via `element.style`, never a stylesheet rule, or the
   design gate (`tests/design.mjs`: font ≥ 13px, hex only in the token block) fails.
+- **The locator token must be LETTERS ONLY — no digits.** In some print fonts (the diagram
+  caption font, under Electron `printToPDF`) the digit glyphs lose their ToUnicode mapping and
+  read back from the produced PDF as NUL, so `WDX000WDX` becomes `WDX\0\0\0WDX` and is never
+  found → zero comments, notes silently dropped. This reproduced ONLY on real Electron
+  printToPDF, never on Playwright `page.pdf()` — so it slipped past the e2e; `tests/print-pdf.mjs`
+  now asserts the token matches `^WDX[A-Za-z]+WDX$`. To debug the packaged engine, drive
+  `webContents.printToPDF` from a tiny `electron <script.cjs>` headless run and read the token
+  back with pdfjs — that's how this was caught.
 - **ESM-only deps crash the PACKAGED app at launch.** The main process is bundled to CJS, so a
   static `import` of an ESM-only module (pdfjs-dist v4 is `.mjs`-only) becomes a top-level
   `require()` of a `.mjs` → `ERR_REQUIRE_ESM`, and the app dies on start (not just on the PDF

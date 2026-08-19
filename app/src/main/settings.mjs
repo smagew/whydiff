@@ -34,6 +34,19 @@ export function openSettings(file, storage) {
 
   const clearToken = () => { const data = read(file); delete data.githubToken; write(file, data); return { stored: false, available: available() } }
 
+  // The appearance preference: follow the OS ('system', the default), or pin light/dark.
+  // Plain text — there is nothing secret about a colour scheme — but it lives here so the
+  // app has one settings file rather than two.
+  const THEMES = ['system', 'light', 'dark']
+  const getTheme = () => { const t = read(file).theme; return THEMES.includes(t) ? t : 'system' }
+  const setTheme = (raw) => {
+    const theme = THEMES.includes(raw) ? raw : 'system'
+    const data = read(file)
+    data.theme = theme
+    write(file, data)
+    return theme
+  }
+
   // Decrypt for use in the main process only (e.g. GitHub API calls). Returns null if
   // nothing is stored or the keychain can't decrypt it (e.g. a different machine/user).
   const getToken = () => {
@@ -42,5 +55,5 @@ export function openSettings(file, storage) {
     try { return storage.decryptString(Buffer.from(enc, 'base64')) } catch { return null }
   }
 
-  return { hasToken, tokenStatus, setToken, clearToken, getToken }
+  return { hasToken, tokenStatus, setToken, clearToken, getToken, getTheme, setTheme }
 }

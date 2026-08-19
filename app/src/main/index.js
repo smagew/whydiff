@@ -1,17 +1,26 @@
-import { app, BrowserWindow, ipcMain, dialog, safeStorage, shell } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, nativeTheme, safeStorage, screen, shell } from 'electron'
 import { join, basename, dirname } from 'node:path'
 import { existsSync, statSync, mkdirSync, copyFileSync, rmSync, writeFileSync, readFileSync } from 'node:fs'
 import { openStore, repoNameFromUrl } from './store.mjs'
 import { openSettings } from './settings.mjs'
-import { gitState, rangeForCommit, clone, fetchPrRange } from './git.mjs'
+import { gitState, moreCommits, listBranches, compareRange, rangeForCommit, clone, fetchPrRange } from './git.mjs'
 import { fetchPRs, parseRepo } from './github.mjs'
 import { runAnalysis, serveMap, reviewCounts, exportHtml } from './whydiff.mjs'
 import { checkForUpdate } from './updates.mjs'
 import { annotatePdf } from './pdf-annotate.mjs'
-import { resolvedPath, whichBin } from './pathenv.mjs'
+import { quickPath, resolvedPathAsync, whichBin } from './pathenv.mjs'
+import { openWindowState } from './window-state.mjs'
 
 let store
 let settings
+let winState
+// The login shell's PATH, resolved off the critical path — awaited only by the things that
+// must not guess (running an analysis, cloning, the preflight). See pathenv.mjs.
+let pathReady = Promise.resolve(quickPath())
+// The window paint colour for the current appearance, so a new window doesn't flash white
+// on a dark desktop (or the reverse) before its stylesheet lands.
+const PAPER = { dark: '#14161a', light: '#f6f7f9' }
+const paper = () => (nativeTheme.shouldUseDarkColors ? PAPER.dark : PAPER.light)
 // Map windows and their servers, so closing a map window stops its `serve.mjs`.
 const mapServers = new Set()
 // The currently-running analysis child, so `analyze:cancel` can stop it. One run at a time
@@ -30,12 +39,14 @@ const nodeCmd = () => (app.isPackaged ? process.execPath : 'node')
 const nodeEnv = () => (app.isPackaged ? { ...process.env, ELECTRON_RUN_AS_NODE: '1' } : process.env)
 
 function createWindow() {
+  // Reopen where the user left off — unless that spot is off-screen now (an external
+  // display went away), in which case fall back to the default size, centred.
+  const place = winState.place(screen.getAllDisplays())
   const win = new BrowserWindow({
-    width: 1100,
-    height: 760,
+    ...place,
     minWidth: 720,
     minHeight: 480,
-    backgroundColor: '#14161a',
+    backgroundColor: paper(),
     show: false,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -44,7 +55,13 @@ function createWindow() {
       sandbox: false, // the preload uses ipcRenderer via contextBridge; no node in the page
     },
   })
+  if (place.maximized) win.maximize()
   win.once('ready-to-show', () => win.show())
+  // Save on the settle of a move/resize rather than on every pixel of the drag.
+  let saveTimer = null
+  const remember = () => { clearTimeout(saveTimer); saveTimer = setTimeout(() => winState.remember(win), 400) }
+  for (const ev of ['resize', 'move', 'maximize', 'unmaximize']) win.on(ev, remember)
+  win.on('close', () => { clearTimeout(saveTimer); winState.remember(win) })
   // In dev, electron-vite serves the renderer; in a build it's a file on disk.
   if (process.env.ELECTRON_RENDERER_URL) win.loadURL(process.env.ELECTRON_RENDERER_URL)
   else win.loadFile(join(__dirname, '../renderer/index.html'))
@@ -56,12 +73,30 @@ const isGithubUrl = (u) => /^(https?:\/\/github\.com\/|git@github\.com:)[^/:]+\/
 
 app.whenReady().then(() => {
   // Widen PATH so `claude`/`git` are found when launched from Finder, and point the
-  // runner at the plugin bundled inside the app (in dev it uses the repo root).
-  process.env.PATH = resolvedPath()
+  // runner at the plugin bundled inside the app (in dev it uses the repo root). Asking the
+  // login shell can take seconds on a heavy rc file, so the window opens on the quick PATH
+  // and the real one lands when it lands — every path that spawns a tool awaits `pathReady`.
+  process.env.PATH = quickPath()
+  pathReady = resolvedPathAsync().then((p) => { process.env.PATH = p; return p })
   if (app.isPackaged) process.env.WHYDIFF_PLUGIN_DIR = join(process.resourcesPath, 'whydiff-plugin')
 
   store = openStore(join(app.getPath('userData'), 'projects.json'))
   settings = openSettings(join(app.getPath('userData'), 'settings.json'), safeStorage)
+  winState = openWindowState(join(app.getPath('userData'), 'window.json'))
+
+  // Appearance: 'system' (default) follows the OS, light/dark pin it. Electron drives the
+  // renderer's `prefers-color-scheme` from themeSource, so the stylesheet needs no extra
+  // wiring — and every window repaints its backdrop when the resolved scheme flips.
+  nativeTheme.themeSource = settings.getTheme()
+  nativeTheme.on('updated', () => {
+    for (const w of BrowserWindow.getAllWindows()) if (!w.isDestroyed()) w.setBackgroundColor(paper())
+  })
+  ipcMain.handle('theme:get', () => ({ preference: settings.getTheme(), dark: nativeTheme.shouldUseDarkColors }))
+  ipcMain.handle('theme:set', (_e, pref) => {
+    const saved = settings.setTheme(pref)
+    nativeTheme.themeSource = saved
+    return { preference: saved, dark: nativeTheme.shouldUseDarkColors }
+  })
 
   // Update notifier: check GitHub Releases for a newer app-v* build and let the
   // renderer show a banner. Only in a packaged build — in dev app.getVersion() is the
@@ -131,7 +166,7 @@ app.whenReady().then(() => {
     // opt-in when we actually have one, otherwise serve read-only.
     const canWork = work && isGitRepo(repo)
     const win = new BrowserWindow({
-      width: 1400, height: 900, backgroundColor: '#14161a', title: a.title || project?.name || 'whydiff', autoHideMenuBar: true,
+      width: 1400, height: 900, backgroundColor: paper(), title: a.title || project?.name || 'whydiff', autoHideMenuBar: true,
       // The viewer's in-content PDF button exports THIS analysis (notes → real PDF comments)
       // through the app; give the window the preload bridge and tell it which analysis it is.
       webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: false, additionalArguments: ['--whydiff-analysis-id=' + id] },
@@ -160,7 +195,14 @@ app.whenReady().then(() => {
   }
 
   // ── Phase 3: a local project's git state ────────────────────────────────────
-  ipcMain.handle('project:gitState', (_e, repo) => gitState(repo))
+  // `opts` picks the branch to walk and how many commits to show; the same handler
+  // serves the initial load and every refresh.
+  ipcMain.handle('project:gitState', async (_e, repo, opts) => { await pathReady; return gitState(repo, opts || {}) })
+  ipcMain.handle('project:moreCommits', async (_e, { repo, ...opts }) => { await pathReady; return moreCommits(repo, opts) })
+  ipcMain.handle('project:branches', async (_e, repo) => { await pathReady; return listBranches(repo) })
+  // A comparison of two refs (base...head) — the pipeline has always accepted an arbitrary
+  // range; this is the UI finally being able to name one.
+  ipcMain.handle('project:compareRange', async (_e, { repo, base, head }) => { await pathReady; return compareRange(repo, base, head) })
   ipcMain.handle('project:rangeForCommit', (_e, { repo, hash }) => rangeForCommit(repo, hash))
 
   // Run whydiff for a range (empty = the working tree), streaming progress to the
@@ -169,6 +211,7 @@ app.whenReady().then(() => {
   const lastRunLog = join(app.getPath('userData'), 'last-run.log')
   ipcMain.handle('project:analyze', async (e, { repo, range, projectId, kind, ref, title, full, sections, analysisId }) => {
     const onProgress = (line) => { if (!e.sender.isDestroyed()) e.sender.send('analyze:progress', line) }
+    await pathReady // the shell PATH may still be resolving; a run must not look for `claude` on a guess
     // Preflight: the whole run shells out to `claude` (and `git`). If either is missing, say so
     // up front with a fixable message instead of letting the runner die with a bare exit code.
     if (!whichBin('claude')) throw new Error('Claude Code (the `claude` command) was not found on your PATH. Install it from https://claude.com/claude-code, then reopen this app.')
@@ -204,11 +247,14 @@ app.whenReady().then(() => {
     return true
   })
   // Preflight the external CLIs the app drives, so the UI can warn before the main button is used.
-  ipcMain.handle('preflight:check', () => ({
-    claude: whichBin('claude'),
-    git: whichBin('git'),
-    node: whichBin('node') || (nodeCmd() === process.execPath ? process.execPath : null),
-  }))
+  ipcMain.handle('preflight:check', async () => {
+    await pathReady // answering from the quick PATH would report a false "not found"
+    return {
+      claude: whichBin('claude'),
+      git: whichBin('git'),
+      node: whichBin('node') || (nodeCmd() === process.execPath ? process.execPath : null),
+    }
+  })
   // The full stdout+stderr of the last run — for a "Show log" button (esp. after a failure).
   ipcMain.handle('analyze:lastLog', () => { try { return readFileSync(lastRunLog, 'utf8') } catch { return null } })
 
@@ -327,6 +373,7 @@ app.whenReady().then(() => {
   })
 
   ipcMain.handle('project:clone', async (e, project) => {
+    await pathReady
     const dest = clonePathFor(project)
     if (!existsSync(join(dest, '.git'))) {
       mkdirSync(clonesDir, { recursive: true })
