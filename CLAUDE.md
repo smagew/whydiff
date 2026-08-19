@@ -43,6 +43,34 @@ risks · Standards · Tests**. Diagrams is the default (Code map when a diff cha
 no flow). The aside carries an **Overview | Call graph** switcher and, when a file
 is opened, its drill-down.
 
+## Delivery flow (how we stop shipping half-baked work)
+
+Locked after the PDF-export work went out half-done, round after round, with the
+user finding the flaws. For ANY non-trivial change, follow these steps in order —
+do not jump to code, and do not claim "done" until step 5 passes. This is
+acceptance-first (spec-driven), not a framework: the discipline is the point.
+
+1. **Spec first — an acceptance checklist.** Before coding, write `Done =` as a
+   short list of concrete, checkable outcomes and get it agreed. That list is the
+   contract; build to it, nothing less. (For the PDF: "no wasted header page; each
+   diagram whole, fit to its own page; no leaked annotation frames; notes linked to
+   their anchor, not dumped; the PDF button only where there is content".)
+2. **Standard before invention.** For layout / format / protocol work, find the
+   correct or standard approach first (print page-break rules, footnote-links, …).
+   Do not trial-and-error a solved problem.
+3. **Behaviour → tests.** Every acceptance item that can be mechanised becomes a
+   test — see Testing discipline below (bug → failing test first; assert the
+   invariant, not a proxy).
+4. **Self-review the WHOLE artifact before showing it.** Generate the complete
+   output — every page of the PDF, every tab, every screen — and inspect ALL of it
+   against the checklist as a harsh reviewer. Fix everything found. The reviewer who
+   finds the flaws must be me, not the user. Reading one slice and shipping is the
+   exact failure this rule exists to stop.
+5. **"Done" means the checklist is fully met.** Green tests alone are NOT done
+   (tests pass ≠ the artifact is good). If the list is not fully met, say so
+   plainly: "partial — items X and Y still open", never dress a partial fix as
+   complete.
+
 ## Conventions (enforced — do not relearn them the hard way)
 
 - **Testing discipline (how we stop shipping regressions).** Three rules, learned
