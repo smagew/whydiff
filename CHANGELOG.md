@@ -4,6 +4,24 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.39.0] — 2026-08-19
+
+### Changed
+- **One PDF mechanism, no more `window.print()`.** Real PDF export (notes as real, clickable
+  PDF comments) needs a Chromium we control — which only the desktop app has (Electron). So:
+  - **In the app** the content PDF button exports for real, through the app.
+  - **In the browser / served map / a standalone file** the button stays visible but, on hover
+    and click, says PDF export lives in the desktop app — with a popover and an OS-detected
+    download link (macOS/Windows/Linux → the matching installer from the latest release;
+    unknown OS → the releases page). No degraded browser print.
+- The footer carries a "Download the desktop app" link (same OS-detected target) in the
+  web/served viewer.
+
+### Notes
+- Desktop release artifacts now have stable, version-less names
+  (`whydiff-<os>-<arch>.<ext>`) so `releases/latest/download/…` always resolves to the newest
+  build — keep them in sync with `appDownloadUrl()` in the viewer.
+
 ## [0.38.0] — 2026-08-19
 
 ### Fixed

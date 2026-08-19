@@ -5,13 +5,27 @@ This is the contract: change the PDF pipeline only with this file (and its tests
 you, and update both together. Every acceptance item below names the test that enforces it —
 if an item has no test, it is not "fixed", it is a hope.
 
-There are two print paths:
+## One mechanism, and why the button behaves by context
 
-- **Desktop Export-PDF** (the app, `analysis:exportPdf`) — the real deliverable. Notes become
-  real PDF **comment annotations**; questions become **in-document links**.
-- **Browser Print / Cmd-P** (the viewer's PDF button, or the browser's own print) — a fallback
-  with no PDF-annotation API available, so notes print as **footnotes at their place** and
-  questions as the same in-document links.
+Real PDF export = **print the viewer to PDF bytes in a Chromium we control, then annotate those
+bytes with `pdf-lib`**. The annotate step needs the raw bytes; `window.print()` never hands them
+over, so it is NOT our mechanism — it is dropped. Only a Chromium we drive can give us the bytes,
+and only the **desktop app** has one (Electron). Hence the single pipeline lives in the app, and
+the viewer's PDF button behaves by where it runs:
+
+- **In the desktop app** (`IN_APP`, Electron UA): the content button calls `window.whydiff.exportPdf()`
+  (bridge from the map window's preload) → `analysis:exportPdf` → Electron `printToPDF` →
+  `annotatePdf`. Notes become real PDF **comment annotations**; questions become **in-document
+  links**. This is the real deliverable.
+- **In the browser / served map / a standalone file**: no controlled Chromium, so the button
+  does **not** print. It stays visible, carries an "app only" tooltip, and on click shows a
+  popover with an OS-detected **download link** to the desktop app (`appDownloadUrl()`; the
+  footer carries the same link). We do not ship a headless Chromium to `serve`/CLI — that would
+  add a ~350 MB browser to every plugin user for an optional feature.
+- **A standalone HTML opened as a file, if the user hits Cmd-P themselves**: the browser's own
+  print runs (we can't stop it). `beforeprint` still lays notes out as **footnotes at their
+  place** and questions as in-document links, so that raw print is not ugly — but this is a
+  by-necessity last resort, not an export path we offer.
 
 ## Acceptance checklist (`Done =`)
 

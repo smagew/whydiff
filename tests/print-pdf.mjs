@@ -54,6 +54,24 @@ await page.locator('#tabs .tab[data-pane="stories"]').click(); await page.waitFo
 ok(await disp('.content-tools') === 'none', 'the PDF button should be hidden on an un-generated tab (User stories placeholder)')
 await page.locator('#tabs .tab[data-pane="diagrams"]').click(); await page.waitForTimeout(120)
 
+// Outside the desktop app (this is a plain browser), the PDF button does NOT print: real PDF
+// export (notes as comments) needs the app's Chromium. It stays visible, carries an "app only"
+// tooltip, and on click shows a popover with a download link — never window.print().
+ok(await page.locator('.content-pdf.app-only').count() === 1, 'in the browser the PDF button is marked app-only')
+ok((await text('.content-pdf .cp-tip')).length > 0, 'the button carries an app-only tooltip')
+const clickResult = await page.evaluate(async () => {
+  let printed = false; window.print = () => { printed = true }
+  document.querySelector('.content-pdf').click()
+  await new Promise((r) => setTimeout(r, 50))
+  return { printed, pop: !!document.querySelector('.pdf-pop'), href: document.querySelector('.pdf-pop a.pp-get')?.getAttribute('href') || '' }
+})
+ok(!clickResult.printed, 'the browser PDF button must NOT call window.print()')
+ok(clickResult.pop, 'clicking the browser PDF button shows the get-the-app popover')
+ok(/github\.com\/smagew\/whydiff\/releases/.test(clickResult.href), `the popover offers a release download link (got "${clickResult.href}")`)
+// The footer carries a download CTA to the desktop app.
+ok(await page.locator('.footstrip .fs-app').count() === 1, 'the footer shows a "download the app" link')
+ok(/releases/.test(await page.locator('.footstrip .fs-app').getAttribute('href') || ''), 'the footer link points at the app releases')
+
 // The notes/questions are built at print time (beforeprint), not on load.
 ok(['none', 'MISSING'].includes(await disp('.printnotes')), 'the questions appendix must not be visible on screen')
 await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')))

@@ -124,7 +124,12 @@ app.whenReady().then(() => {
     // --work needs a real git repo to spin up the throwaway worktree; only honour the
     // opt-in when we actually have one, otherwise serve read-only.
     const canWork = work && isGitRepo(repo)
-    const win = new BrowserWindow({ width: 1400, height: 900, backgroundColor: '#14161a', title: a.title || project?.name || 'whydiff', autoHideMenuBar: true })
+    const win = new BrowserWindow({
+      width: 1400, height: 900, backgroundColor: '#14161a', title: a.title || project?.name || 'whydiff', autoHideMenuBar: true,
+      // The viewer's in-content PDF button exports THIS analysis (notes → real PDF comments)
+      // through the app; give the window the preload bridge and tell it which analysis it is.
+      webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: false, additionalArguments: ['--whydiff-analysis-id=' + id] },
+    })
 
     const loadStatic = () => {
       if (existsSync(html)) { win.loadFile(html); return true }
