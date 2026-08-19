@@ -1,4 +1,5 @@
 import { execSync } from 'node:child_process'
+import { accessSync, constants, statSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
@@ -27,4 +28,26 @@ export function resolvedPath() {
   ]
   cached = [...new Set(parts.filter(Boolean))].join(':')
   return cached
+}
+
+// Find an executable by name on a PATH string (defaults to the recovered PATH), the way the
+// shell would — so a preflight can tell the user "Claude Code not found" up front instead of
+// letting the runner fail with a bare exit code. Returns its full path, or null. On Windows we
+// also try the usual executable extensions. No spawning — a pure filesystem lookup, testable.
+export function whichBin(name, pathStr = resolvedPath()) {
+  const win = process.platform === 'win32'
+  const sep = win ? ';' : ':'
+  const exts = win ? (process.env.PATHEXT || '.EXE;.CMD;.BAT').split(';') : ['']
+  for (const dir of (pathStr || '').split(sep)) {
+    if (!dir) continue
+    for (const ext of exts) {
+      const full = join(dir, name + ext)
+      try {
+        if (!statSync(full).isFile()) continue
+        if (!win) accessSync(full, constants.X_OK) // must be executable on POSIX
+        return full
+      } catch { /* not here */ }
+    }
+  }
+  return null
 }

@@ -12,7 +12,16 @@ contextBridge.exposeInMainWorld('api', {
   gitState: (repo) => ipcRenderer.invoke('project:gitState', repo),
   rangeForCommit: (repo, hash) => ipcRenderer.invoke('project:rangeForCommit', { repo, hash }),
   // args: { repo, range, projectId, kind: 'working'|'commit'|'pr', ref, title }
+  // Resolves { analysis } on success, or { cancelled: true } if the user cancelled.
   analyze: (args) => ipcRenderer.invoke('project:analyze', args),
+  // Stop the running analysis (SIGTERM → SIGKILL). Returns true if there was one to stop.
+  cancelAnalyze: () => ipcRenderer.invoke('analyze:cancel'),
+  // { claude, git, node } → each is the resolved path or null. For the startup preflight banner.
+  preflight: () => ipcRenderer.invoke('preflight:check'),
+  // The full stdout+stderr of the last run (or null) — for the "Show log" button.
+  lastRunLog: () => ipcRenderer.invoke('analyze:lastLog'),
+  // Open the Claude Code install page (fixed URL).
+  openClaudeInstall: () => ipcRenderer.invoke('open:claudeInstall'),
   // Progress lines during an analyze; returns an unsubscribe fn.
   onAnalyzeProgress: (cb) => {
     const h = (_e, line) => cb(line)

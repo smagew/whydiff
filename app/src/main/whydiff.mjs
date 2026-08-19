@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process'
+import { writeFileSync } from 'node:fs'
 import { join, resolve, dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -16,7 +17,7 @@ export const pluginDir = () => process.env.WHYDIFF_PLUGIN_DIR || resolve(here, '
  * streams which pass is running to stderr; each line is handed to `onProgress`. On
  * success the map is at <repo>/.whydiff/review-map.json.
  */
-export function runAnalysis(repo, range, { onProgress, runScript, node = 'node', env, timeout = 1_800_000, full = false, sections, progressJson = false } = {}) {
+export function runAnalysis(repo, range, { onProgress, onChild, logPath, runScript, node = 'node', env, timeout = 1_800_000, full = false, sections, progressJson = false } = {}) {
   return new Promise((resolveP, reject) => {
     const script = runScript || join(pluginDir(), 'scripts', 'run.mjs')
     // No range → the working tree (whydiff's default); pass only the repo then.
@@ -27,9 +28,12 @@ export function runAnalysis(repo, range, { onProgress, runScript, node = 'node',
     else if (sections && sections.length) args.push('--sections', sections.join(','))
     if (progressJson) args.push('--progress-json') // emit @stage markers for a host progress UI
     const child = spawn(node, args, { stdio: ['ignore', 'pipe', 'pipe'], env: env || process.env })
-    const kill = setTimeout(() => { child.kill('SIGKILL'); reject(new Error(`analysis timed out after ${Math.round(timeout / 1000)}s`)) }, timeout)
-    let out = '', errTail = '', ebuf = ''
+    onChild?.(child) // hand the child back so the caller can cancel the run (analyze:cancel)
+    let timedOut = false
+    const kill = setTimeout(() => { timedOut = true; child.kill('SIGKILL'); reject(new Error(`analysis timed out after ${Math.round(timeout / 1000)}s`)) }, timeout)
+    let out = '', errTail = '', ebuf = '', fullErr = ''
     child.stderr.on('data', (d) => {
+      fullErr += d
       errTail = (errTail + d).slice(-2000)
       ebuf += d
       const lines = ebuf.split('\n'); ebuf = lines.pop()
@@ -37,8 +41,15 @@ export function runAnalysis(repo, range, { onProgress, runScript, node = 'node',
     })
     child.stdout.on('data', (d) => { out += d })
     child.on('error', (e) => { clearTimeout(kill); reject(new Error(`could not start the runner: ${e.message}`)) })
-    child.on('close', (code) => {
+    child.on('close', (code, signal) => {
       clearTimeout(kill)
+      // Save the whole run for "Show log" — on success AND failure, so a failed run is never a
+      // bare "exit 1" with no trace. Best-effort; a write error must not mask the run's result.
+      if (logPath) { try { writeFileSync(logPath, `# whydiff run — repo=${repo} range=${range || '(working tree)'} full=${!!full} sections=${(sections || []).join(',')}\n# exit=${code} signal=${signal || ''}\n\n=== stderr (progress + errors) ===\n${fullErr}\n=== stdout ===\n${out}\n`) } catch { /* ignore */ } }
+      if (timedOut) return // already rejected by the timeout
+      // A signal-close that isn't the timeout means the caller killed it — a user cancel, not a
+      // failure; surface it as such so the UI doesn't show a scary error.
+      if (signal) { const e = new Error('analysis cancelled'); e.cancelled = true; return reject(e) }
       if (code !== 0) return reject(new Error(`analysis failed (exit ${code})${errTail ? `: ${errTail.trim().split('\n').pop()}` : ''}`))
       resolveP({ mapPath: join(repo, '.whydiff', 'review-map.json'), summary: out.trim() })
     })
