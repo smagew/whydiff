@@ -433,7 +433,7 @@ export function turns(state) {
     // for. It surfaces so the map can mark its place and the panel can read it back.
     if (req.kind === 'note') {
       out.push({
-        anchorKey: req.anchor.key, anchor: req.anchor, at: req.at, kind: 'note',
+        anchorKey: req.anchor.key, anchor: req.anchor, at: req.at, kind: 'note', by: req.by,
         requestId: req.noteId, request: req.text, response: null, steps: [],
         plan: null, proposal: null, decision: null, task: null,
       })

@@ -4,6 +4,28 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.37.0] — 2026-08-19
+
+### Added
+- **Export PDF from the desktop app, with the review carried in the way PDF is meant to carry
+  it.** Notes and questions are different things and now travel differently:
+  - **Notes become real PDF comment annotations** — the kind a reader (Preview, Acrobat,
+    Chrome) shows as a marker on the page and lists in its Comments panel — not a text dump.
+    Each comment lands on the page where its fragment printed. A note on a text/code selection
+    pins to the highlight; a note on a diagram pins to that diagram. Placed by reading each
+    note's real rendered position back out of the produced PDF (a locator glyph → `pdfjs`
+    readback → `pdf-lib` `/Text` annotation), so it survives forced page breaks and diagram
+    fit-scaling instead of guessing coordinates.
+  - **Questions become in-document links** — a small link at the question's place → a
+    "Questions" appendix (question + answer), and a back-link from the appendix to the place.
+    (Chromium keeps same-document links as real internal PDF links.)
+- The browser Print / Cmd-P fallback prints each note as a footnote at its place (no PDF
+  comment API in a plain browser print), and questions as the same in-document links.
+
+### Changed
+- The print appendix is titled **"Questions"** and holds only questions — there is no more
+  combined "Notes & questions" section.
+
 ## [0.36.0] — 2026-08-19
 
 ### Changed

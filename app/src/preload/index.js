@@ -28,6 +28,7 @@ contextBridge.exposeInMainWorld('api', {
   // Export a saved analysis to a self-contained HTML file (notes baked in); returns the
   // chosen path, or null if the user cancelled the save dialog.
   exportAnalysis: (id) => ipcRenderer.invoke('analysis:export', id),
+  exportAnalysisPdf: (id, opts) => ipcRenderer.invoke('analysis:exportPdf', id, opts),
   removeAnalysis: (id) => ipcRenderer.invoke('analysis:remove', id),
 
   // Settings — a GitHub token kept in the OS keychain. The renderer never sees the
