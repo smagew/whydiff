@@ -49,6 +49,12 @@ future agents (and you) read this before touching the area.
   `font-size:0` drop it from the PDF text stream, so readback can't find it — hide it by
   paper colour instead. And style it via `element.style`, never a stylesheet rule, or the
   design gate (`tests/design.mjs`: font ≥ 13px, hex only in the token block) fails.
+- **ESM-only deps crash the PACKAGED app at launch.** The main process is bundled to CJS, so a
+  static `import` of an ESM-only module (pdfjs-dist v4 is `.mjs`-only) becomes a top-level
+  `require()` of a `.mjs` → `ERR_REQUIRE_ESM`, and the app dies on start (not just on the PDF
+  feature). Node/Playwright tests never catch this — only a real bundle does. Load such deps
+  with a runtime `import(/* @vite-ignore */ …)` and `asarUnpack` them. `app/test/packaging.test.mjs`
+  builds the bundle and guards it; this shipped once (whydiff 0.9.0) before the guard existed.
 - **pdfjs in Node: keep `getDocument` options minimal.** `{ data, verbosity: 0 }` works;
   adding `isEvalSupported`/`useSystemFonts` pushes it onto a worker-transfer path that throws
   `DataCloneError` under the fake worker.
