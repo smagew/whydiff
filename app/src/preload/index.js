@@ -9,7 +9,14 @@ contextBridge.exposeInMainWorld('api', {
   removeProject: (id) => ipcRenderer.invoke('projects:remove', id),
 
   // Phase 3 — git state + analyze
-  gitState: (repo) => ipcRenderer.invoke('project:gitState', repo),
+  // opts: { limit, ref } — which branch to walk and how many commits to show.
+  gitState: (repo, opts) => ipcRenderer.invoke('project:gitState', repo, opts),
+  // Another page of commits: { limit, skip, ref } → { commits, more }.
+  moreCommits: (repo, opts) => ipcRenderer.invoke('project:moreCommits', { repo, ...(opts || {}) }),
+  // { current, local: [...], remote: [...] } — the branches offered in the picker.
+  branches: (repo) => ipcRenderer.invoke('project:branches', repo),
+  // The diff range comparing two refs (base...head); throws on an unknown ref.
+  compareRange: (repo, base, head) => ipcRenderer.invoke('project:compareRange', { repo, base, head }),
   rangeForCommit: (repo, hash) => ipcRenderer.invoke('project:rangeForCommit', { repo, hash }),
   // args: { repo, range, projectId, kind: 'working'|'commit'|'pr', ref, title }
   // Resolves { analysis } on success, or { cancelled: true } if the user cancelled.
@@ -45,6 +52,11 @@ contextBridge.exposeInMainWorld('api', {
   tokenStatus: () => ipcRenderer.invoke('settings:tokenStatus'),
   setToken: (token) => ipcRenderer.invoke('settings:setToken', token),
   clearToken: () => ipcRenderer.invoke('settings:clearToken'),
+
+  // Appearance: 'system' | 'light' | 'dark'. Returns { preference, dark } — the stored
+  // choice and what it currently resolves to.
+  getTheme: () => ipcRenderer.invoke('theme:get'),
+  setTheme: (preference) => ipcRenderer.invoke('theme:set', preference),
 
   // About / updates — the running version, a manual update check, and opening a release.
   appVersion: () => ipcRenderer.invoke('app:version'),

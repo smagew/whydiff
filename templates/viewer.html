@@ -3456,7 +3456,11 @@ if (SERVE?.token || EMBEDDED) (() => {
     const manifest = []
     const withNotes = printPlaces.filter((p) => p.willPrint && p.notes && p.notes.length)
     withNotes.forEach((p, i) => {
-      const token = `WDX${String(i).padStart(3, '0')}WDX`
+      // LETTERS ONLY — no digits. In some print fonts the digit glyphs lose their ToUnicode
+      // mapping and read back as NUL ( ) from the produced PDF, so a token like "WDX000WDX"
+      // becomes unfindable ("WDX\0\0\0WDX"). Encoding the index as A–J letters survives the
+      // round-trip. Keep it unique per place.
+      const token = 'WDX' + String(i).replace(/[0-9]/g, (d) => 'ABCDEFGHIJ'[+d]) + 'WDX'
       const glyph = document.createElement('span')
       glyph.className = 'wdx-loc'
       glyph.textContent = token

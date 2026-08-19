@@ -46,6 +46,43 @@ export const applyStageEvent = (stages, { stage, status }) => {
   return next
 }
 
+// How many commits a page holds — the initial load and every "load more" after it.
+export const COMMIT_PAGE = 30
+
+// The branch picker's options, in the order a reviewer looks for them: the checked-out
+// branch first (it is what the working tree belongs to), then the other local branches,
+// then remote-only ones. `group` labels the optgroup; `value` is what git is given.
+export function branchOptions({ current, local = [], remote = [] } = {}) {
+  const seen = new Set()
+  const out = []
+  const push = (value, group) => { if (value && !seen.has(value)) { seen.add(value); out.push({ value, group }) } }
+  push(current, 'Current')
+  for (const b of [...local].sort()) push(b, 'Local')
+  for (const b of [...remote].sort()) push(b, 'Remote')
+  return out
+}
+
+// Filter the loaded commits by a free-text query — subject, author, or hash prefix. Local
+// and instant: it narrows what is already on screen rather than re-running git, which is
+// what "I know the commit is here somewhere" actually needs.
+export function filterCommits(commits, query) {
+  const q = String(query || '').trim().toLowerCase()
+  if (!q) return commits || []
+  return (commits || []).filter((c) =>
+    (c.subject || '').toLowerCase().includes(q) ||
+    (c.author || '').toLowerCase().includes(q) ||
+    (c.hash || '').toLowerCase().startsWith(q) ||
+    (c.short || '').toLowerCase().startsWith(q))
+}
+
+// The one-line description of what a report preset will generate — shown next to the
+// button that runs it, so the cost is stated where the decision is made.
+export const MODE_HINT = {
+  quick: 'Diagrams, Code map & Ops — fastest, fewest tokens',
+  full: 'every section — slower, most tokens',
+  custom: 'core plus the sections you pick',
+}
+
 // Which review-activity pills to show for a saved analysis, given its journal counts.
 // Discussions (question/task threads) and pinned notes; the discussions pill is flagged
 // `attn` when some still need attention (unanswered questions + open work). Empty array

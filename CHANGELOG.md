@@ -4,6 +4,17 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.42.0] — 2026-08-20
+
+### Fixed
+- **Notes now actually become PDF comments in the desktop app.** The locator glyph that pins
+  each note carried a numeric token (`WDX000WDX`); under Electron `printToPDF` the digit glyphs
+  lost their ToUnicode mapping and read back from the produced PDF as NUL (`WDX\0\0\0WDX`), so
+  the readback never found them and every note was silently dropped — zero comments. The token
+  is now letters-only, which survives the round-trip. (Reproduced only on the real Electron
+  print engine, not Playwright's `page.pdf()`; `tests/print-pdf.mjs` now asserts the token is
+  letters-only as the CI guard.)
+
 ## [0.41.0] — 2026-08-19
 
 ### Fixed

@@ -125,6 +125,11 @@ ok(Array.isArray(manifest) && manifest.length === 1, `the manifest should carry 
 ok(manifest[0].anchorKey === 'diagram:0:auth', 'the manifest place is the note anchor')
 ok(manifest[0].notes?.[0]?.contents.includes('PRINT-ME'), 'the manifest carries the note text')
 ok(manifest[0].notes?.[0]?.author === 'ag', 'the manifest carries the note author')
+// The locator token MUST be letters-only. Digits lose their ToUnicode mapping in some print
+// fonts and read back from the produced PDF as NUL ( ), so a token like "WDX000WDX" becomes
+// "WDX\0\0\0WDX" and is never found — the exact bug that shipped zero comments. (Reproduced only
+// on real Electron printToPDF, not Playwright page.pdf, so this format check is the CI guard.)
+ok(manifest.every((m) => /^WDX[A-Za-z]+WDX$/.test(m.token)), `locator tokens must be letters-only (got ${JSON.stringify(manifest.map((m) => m.token))})`)
 ok(await page.locator('.wdx-loc').count() >= 1, 'a locator glyph should be placed for the note')
 const glyphVisible = await page.evaluate(() => { const g = document.querySelector('.wdx-loc'); const s = getComputedStyle(g); return s.display !== 'none' && s.visibility !== 'hidden' && parseFloat(s.fontSize) > 0 })
 ok(glyphVisible, 'the locator glyph must be painted (so it lands in the PDF text stream), not display:none/hidden/0px')
