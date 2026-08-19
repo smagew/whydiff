@@ -1,6 +1,6 @@
 import { app, BrowserWindow, ipcMain, dialog, safeStorage, shell } from 'electron'
 import { join, basename, dirname } from 'node:path'
-import { existsSync, statSync, mkdirSync, copyFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, statSync, mkdirSync, copyFileSync, rmSync, writeFileSync, readFileSync } from 'node:fs'
 import { openStore, repoNameFromUrl } from './store.mjs'
 import { openSettings } from './settings.mjs'
 import { gitState, rangeForCommit, clone, fetchPrRange } from './git.mjs'
@@ -8,12 +8,15 @@ import { fetchPRs, parseRepo } from './github.mjs'
 import { runAnalysis, serveMap, reviewCounts, exportHtml } from './whydiff.mjs'
 import { checkForUpdate } from './updates.mjs'
 import { annotatePdf } from './pdf-annotate.mjs'
-import { resolvedPath } from './pathenv.mjs'
+import { resolvedPath, whichBin } from './pathenv.mjs'
 
 let store
 let settings
 // Map windows and their servers, so closing a map window stops its `serve.mjs`.
 const mapServers = new Set()
+// The currently-running analysis child, so `analyze:cancel` can stop it. One run at a time
+// (the UI disables starting another while one is in flight).
+let analyzeChild = null
 // A fresh loopback port per live map window (serve.mjs binds a fixed port); closing
 // the window frees it, and we never reuse within a session.
 let servePortSeq = 7800
@@ -69,6 +72,9 @@ app.whenReady().then(() => {
     // Only ever open this repo's own release pages — never an arbitrary URL.
     if (/^https:\/\/github\.com\/smagew\/whydiff\/releases\//.test(String(url || ''))) shell.openExternal(String(url))
   })
+  // Open the Claude Code install page — a fixed URL (no renderer-supplied input), for the
+  // preflight banner when `claude` is missing.
+  ipcMain.handle('open:claudeInstall', () => shell.openExternal('https://claude.com/claude-code'))
 
   // Where a project's git actually lives: a local folder is itself; a GitHub project
   // is its on-demand clone under userData/clones/. Used for both live-mode serving
@@ -160,19 +166,51 @@ app.whenReady().then(() => {
   // Run whydiff for a range (empty = the working tree), streaming progress to the
   // window that asked, then save the map into the analyses index and return the
   // stored record.
+  const lastRunLog = join(app.getPath('userData'), 'last-run.log')
   ipcMain.handle('project:analyze', async (e, { repo, range, projectId, kind, ref, title, full, sections, analysisId }) => {
     const onProgress = (line) => { if (!e.sender.isDestroyed()) e.sender.send('analyze:progress', line) }
-    const { mapPath } = await runAnalysis(repo, range || '', { onProgress, full: !!full, sections: sections || [], progressJson: true, node: nodeCmd(), env: nodeEnv() })
-    // analysisId → regenerate that analysis in place (same id + dir, files overwritten);
-    // otherwise record a new one. Fall back to a new record if the id is gone.
-    const rec = (analysisId != null && store.touchAnalysis(analysisId)) || store.addAnalysis({ projectId, kind, ref: ref || '', title: title || '' })
-    const dir = join(analysesDir, String(rec.id))
-    mkdirSync(dir, { recursive: true })
-    copyFileSync(mapPath, join(dir, 'review-map.json'))
-    const html = mapPath.replace(/\.json$/, '.html')
-    if (existsSync(html)) copyFileSync(html, join(dir, 'review-map.html'))
-    return { analysis: rec }
+    // Preflight: the whole run shells out to `claude` (and `git`). If either is missing, say so
+    // up front with a fixable message instead of letting the runner die with a bare exit code.
+    if (!whichBin('claude')) throw new Error('Claude Code (the `claude` command) was not found on your PATH. Install it from https://claude.com/claude-code, then reopen this app.')
+    if (!whichBin('git')) throw new Error('`git` was not found on your PATH. Install git, then reopen this app.')
+    try {
+      const { mapPath } = await runAnalysis(repo, range || '', {
+        onProgress, full: !!full, sections: sections || [], progressJson: true, node: nodeCmd(), env: nodeEnv(),
+        logPath: lastRunLog, onChild: (c) => { analyzeChild = c },
+      })
+      // analysisId → regenerate that analysis in place (same id + dir, files overwritten);
+      // otherwise record a new one. Fall back to a new record if the id is gone.
+      const rec = (analysisId != null && store.touchAnalysis(analysisId)) || store.addAnalysis({ projectId, kind, ref: ref || '', title: title || '' })
+      const dir = join(analysesDir, String(rec.id))
+      mkdirSync(dir, { recursive: true })
+      copyFileSync(mapPath, join(dir, 'review-map.json'))
+      const html = mapPath.replace(/\.json$/, '.html')
+      if (existsSync(html)) copyFileSync(html, join(dir, 'review-map.html'))
+      return { analysis: rec }
+    } catch (err) {
+      if (err && err.cancelled) return { cancelled: true } // a user Cancel, not a failure
+      throw err
+    } finally {
+      analyzeChild = null
+    }
   })
+  // Stop the running analysis. SIGTERM first (let the runner clean up its worktree/temp), then
+  // SIGKILL if it ignores it. runAnalysis sees the signal-close and rejects as cancelled.
+  ipcMain.handle('analyze:cancel', () => {
+    const c = analyzeChild
+    if (!c || c.killed) return false
+    try { c.kill('SIGTERM') } catch {}
+    setTimeout(() => { try { if (c && !c.killed) c.kill('SIGKILL') } catch {} }, 3000)
+    return true
+  })
+  // Preflight the external CLIs the app drives, so the UI can warn before the main button is used.
+  ipcMain.handle('preflight:check', () => ({
+    claude: whichBin('claude'),
+    git: whichBin('git'),
+    node: whichBin('node') || (nodeCmd() === process.execPath ? process.execPath : null),
+  }))
+  // The full stdout+stderr of the last run — for a "Show log" button (esp. after a failure).
+  ipcMain.handle('analyze:lastLog', () => { try { return readFileSync(lastRunLog, 'utf8') } catch { return null } })
 
   // ── Phase 4: the analyses index ─────────────────────────────────────────────
   // Each analysis carries its review counts (notes + discussions from the journal beside

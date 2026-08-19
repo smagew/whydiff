@@ -2,15 +2,21 @@ import React, { useEffect, useState } from 'react'
 import { ReviewCounts } from './ProjectList.jsx'
 import { refLabel, OPTIONAL, plannedStages, statusOf, applyStageEvent } from './logic.mjs'
 
-function StageProgress({ stages, text }) {
+function StageProgress({ stages, text, onCancel, cancelling }) {
+  const cancelBtn = onCancel
+    ? <button className="btn ghost cancel-run" onClick={onCancel} disabled={cancelling}>{cancelling ? 'Cancelling…' : 'Cancel'}</button>
+    : null
   if (!stages || !stages.length) {
-    return <div className="run"><span className="spin" /> <span className="run-txt">{text || 'working…'}</span></div>
+    return <div className="run"><span className="spin" /> <span className="run-txt">{text || 'working…'}</span>{cancelBtn}</div>
   }
   const done = stages.filter((s) => statusOf(s) === 'done').length
   const pct = Math.round((done / stages.length) * 100)
   return (
     <div className="prog">
-      <div className="prog-bar"><span style={{ width: `${pct}%` }} /></div>
+      <div className="prog-head">
+        <div className="prog-bar"><span style={{ width: `${pct}%` }} /></div>
+        {cancelBtn}
+      </div>
       <div className="prog-stages">
         {stages.map((s) => {
           const st = statusOf(s)
@@ -40,9 +46,13 @@ export default function ProjectView({ project, onBack }) {
   const [cloning, setCloning] = useState(false)
   const [cloneMsg, setCloneMsg] = useState('')
   const [analyzing, setAnalyzing] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
   const [progress, setProgress] = useState('')
   const [stages, setStages] = useState(null) // live @stage progress during a run
   const [error, setError] = useState('')
+  const [errorHasLog, setErrorHasLog] = useState(false) // a run failed → offer "Show log"
+  const [logText, setLogText] = useState(null) // the last-run log, shown in a modal when set
+  const [missing, setMissing] = useState(null) // preflight: which CLIs are absent
   // What to generate: 'quick' = core only (cheapest, default), 'full' = every section,
   // 'custom' = the optional passes the user ticks. Opt-in by design — the extra passes
   // cost time and tokens.
@@ -65,6 +75,24 @@ export default function ProjectView({ project, onBack }) {
     refreshAnalyses()
     window.api.resolveProject(project).then((r) => { setResolved(r); if (isLocal || r.cloned) loadRepo(r.repo) })
   }, [project.id])
+  // Preflight the external CLIs once: the main button shells out to `claude` (and `git`), so
+  // warn up front if either is missing rather than letting a run die with a bare exit code.
+  useEffect(() => {
+    window.api.preflight?.().then((p) => {
+      const gone = []
+      if (p && !p.claude) gone.push('claude')
+      if (p && !p.git) gone.push('git')
+      setMissing(gone.length ? gone : null)
+    }).catch(() => {})
+  }, [])
+
+  const cancelAnalyze = async () => {
+    setCancelling(true)
+    try { await window.api.cancelAnalyze() } catch {} // the run's own promise resolves to cancelled
+  }
+  const showLog = async () => {
+    try { setLogText((await window.api.lastRunLog()) || '(no log for the last run)') } catch (e) { setLogText(String(e)) }
+  }
 
   const cloneNow = async () => {
     setError(''); setCloning(true); setCloneMsg('cloning…')
@@ -79,7 +107,7 @@ export default function ProjectView({ project, onBack }) {
   const analyze = async ({ range, kind, ref, title, analysisId }) => {
     const sections = sectionsFor()
     const full = mode === 'full'
-    setError(''); setAnalyzing(true); setProgress('starting the analysis…')
+    setError(''); setErrorHasLog(false); setAnalyzing(true); setCancelling(false); setProgress('starting the analysis…')
     setStages(plannedStages(full ? OPTIONAL.map((o) => o.id) : sections))
     // Route progress: @stage markers drive the bar, everything else is the ticker text.
     const unsub = window.api.onAnalyzeProgress((line) => {
@@ -90,13 +118,18 @@ export default function ProjectView({ project, onBack }) {
       }
     })
     try {
-      const { analysis } = await window.api.analyze({ repo, range, projectId: project.id, kind, ref, title, full, sections, analysisId })
+      const res = await window.api.analyze({ repo, range, projectId: project.id, kind, ref, title, full, sections, analysisId })
+      if (!res || res.cancelled) { setProgress('Analysis cancelled.'); return } // neutral, not an error
       await refreshAnalyses()
       setStages((prev) => (prev ? prev.map((s) => ({ ...s, finished: Math.max(s.finished, s.started || 1), started: s.started || 1 })) : prev))
       setProgress('opening the map…')
-      await window.api.openAnalysis(analysis.id, { work: edits })
+      await window.api.openAnalysis(res.analysis.id, { work: edits })
       setProgress('')
-    } catch (e) { setError(e?.message || String(e)) } finally { unsub(); setAnalyzing(false); setStages(null) }
+    } catch (e) {
+      setError(e?.message || String(e))
+      setErrorHasLog(true) // a real failure left a run log — offer to show it
+      setProgress('') // don't leave a stale progress line beside the error
+    } finally { unsub(); setAnalyzing(false); setCancelling(false); setStages(null) }
   }
   const analyzeCommit = async (c) => analyze({ range: await window.api.rangeForCommit(repo, c.hash), kind: 'commit', ref: c.hash, title: `${project.name} · ${c.short}` })
   const analyzePr = async (pr) => {
@@ -171,10 +204,36 @@ export default function ProjectView({ project, onBack }) {
         </label>
       </div>
 
-      {analyzing ? <StageProgress stages={stages} text={progress} />
+      {missing ? (
+        <div className="banner warn">
+          <span>{missing.includes('claude')
+            ? 'Claude Code (the “claude” command) wasn’t found on your PATH — analysis needs it.'
+            : 'git wasn’t found on your PATH — analysis needs it.'}</span>
+          {missing.includes('claude')
+            ? <button className="btn" onClick={() => window.api.openClaudeInstall?.()}>Install Claude Code</button>
+            : null}
+        </div>
+      ) : null}
+
+      {analyzing ? <StageProgress stages={stages} text={progress} onCancel={cancelAnalyze} cancelling={cancelling} />
         : cloning ? <div className="run"><span className="spin" /> <span className="run-txt">{cloneMsg || 'cloning…'}</span></div>
+        : progress ? <div className="run-txt">{progress}</div>
         : null}
-      {error ? <div className="err">{error}</div> : null}
+      {error ? (
+        <div className="err">
+          <span>{error}</span>
+          {errorHasLog ? <button className="btn ghost" onClick={showLog}>Show log</button> : null}
+        </div>
+      ) : null}
+
+      {logText != null ? (
+        <div className="modal-back" onClick={() => setLogText(null)}>
+          <div className="log-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="log-head"><span>Last run log</span><button className="btn ghost" onClick={() => setLogText(null)}>Close</button></div>
+            <pre className="log-body">{logText}</pre>
+          </div>
+        </div>
+      ) : null}
 
       {needsClone ? (
         <div className="banner">
