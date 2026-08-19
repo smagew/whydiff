@@ -4,6 +4,23 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.36.0] — 2026-08-19
+
+### Changed
+- **The exported PDF is properly laid out now.** Four fixes to how a tab prints:
+  - **No wasted header page.** The big title/intent/stats block is dropped in print (the
+    page's running header already names the document), so content starts on page 1 instead
+    of a near-empty title page.
+  - **One diagram per page, whole.** Each diagram starts on a fresh page (`break-before`)
+    and is scaled to fit that page by its content-fitted viewBox — width when wide, height
+    when tall — so it is never split across a page break or cropped.
+  - **Notes as linked endnotes, not a dump.** Each annotated place carries a small `[N]`
+    link (on the highlight, or in the diagram's caption) to its note; the notes live in an
+    endnotes section, each with a `↩` back-link to its place. A single-tab PDF lists only
+    that tab's notes. (Same-document links, which Chromium keeps as internal PDF links.)
+  - **The PDF button appears only where there is content** — hidden on an un-generated tab
+    (a "Generate" placeholder) — and is no longer cramped against the tab bar.
+
 ## [0.34.0] — 2026-08-19
 
 ### Changed

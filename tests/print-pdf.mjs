@@ -34,37 +34,51 @@ const page = await browser.newPage({ viewport: { width: 1400, height: 1000 } })
 const errors = []
 page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`))
 await page.goto('file://' + html)
-// Let the annotation subsystem seed the threads (so the appendix populates).
 await page.locator('#tabs .tab[data-pane="diagrams"]').click()
 await page.waitForSelector('#pane-diagrams svg', { timeout: 15000 })
-await page.waitForFunction(() => document.querySelector('.printnotes')?.textContent?.includes('PRINT-ME'), null, { timeout: 10000 })
-  .catch(() => fail('the print appendix was not built from the threads'))
 
 const disp = (sel) => page.evaluate((s) => { const e = document.querySelector(s); return e ? getComputedStyle(e).display : 'MISSING' }, sel)
 
-// A visible PDF button in the report header opens the print dialog.
+// The content PDF button is shown on a tab with content, and hidden on an un-generated one.
 ok(await page.locator('.content-pdf').count() === 1, 'the report content should show a PDF button')
+ok(await disp('.content-tools') !== 'none', 'the PDF button should be visible on a content tab (diagrams)')
+await page.locator('#tabs .tab[data-pane="stories"]').click(); await page.waitForTimeout(120)  // User stories is the un-generated (lazy) pane in the example
+ok(await disp('.content-tools') === 'none', 'the PDF button should be hidden on an un-generated tab (User stories placeholder)')
+await page.locator('#tabs .tab[data-pane="diagrams"]').click(); await page.waitForTimeout(120)
+
+// Clicking it preps the tab (async) and opens the print dialog.
 const printed = await page.evaluate(async () => {
   let called = false; window.print = () => { called = true }
   document.querySelector('.content-pdf').click()
-  for (let i = 0; i < 80 && !called; i++) await new Promise((r) => setTimeout(r, 50)) // the handler preps the tab first (async)
+  for (let i = 0; i < 80 && !called; i++) await new Promise((r) => setTimeout(r, 50))
   return called
 })
 ok(printed, 'clicking the PDF button did not open the print dialog (window.print)')
 
-// On screen the appendix is hidden; the tab bar is shown.
-ok(await disp('.printnotes') === 'none', 'the print appendix must be hidden on screen')
-ok(await disp('#tabs') !== 'none', 'the tab bar should be visible on screen')
+// The notes are built at print time (beforeprint), not on load: on screen they are absent.
+ok(await disp('.printnotes') === 'none', 'the print notes must be hidden on screen')
+await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')))
+await page.waitForTimeout(200)
 
-// Switch to print media: chrome drops, the appendix shows.
+// Print media: chrome drops, the endnotes show, linked to/from their place.
 await page.emulateMedia({ media: 'print' })
-for (const sel of ['#tabs', '.rightcol', '.footstrip', '.askpanel']) {
+for (const sel of ['#tabs', '.rightcol', '.footstrip', '.askpanel', '#title', '.kicker']) {
   const d = await disp(sel)
   ok(d === 'none' || d === 'MISSING', `[print] ${sel} should be hidden (got ${d})`)
 }
-ok(await disp('.printnotes') === 'block', 'the notes appendix must print')
+ok(await disp('.printnotes') === 'block', 'the notes endnotes must print')
 const pn = (await page.locator('.printnotes').textContent()) || ''
-ok(/Notes & questions/.test(pn) && pn.includes('PRINT-ME'), `the appendix should carry the title and the note text (got: "${pn.slice(0, 80)}")`)
+ok(/Notes & questions/.test(pn) && pn.includes('PRINT-ME'), `the endnotes should carry the title and the note text (got: "${pn.slice(0, 80)}")`)
+// Every [N] marker links to an endnote that exists (internal PDF links resolve).
+const linkOk = await page.evaluate(() => {
+  const refs = [...document.querySelectorAll('.pnref a, .pn-diagram-notes a')]
+  if (!refs.length) return 'no [N] markers were placed at the annotated places'
+  for (const a of refs) { const id = a.getAttribute('href').slice(1); if (!document.getElementById(id)) return `marker → #${id} has no target` }
+  // and each endnote links back to a place that exists
+  for (const back of document.querySelectorAll('.printnotes .pn-back')) { const id = back.getAttribute('href').slice(1); if (!document.getElementById(id)) return `back-link → #${id} has no target` }
+  return 'ok'
+})
+ok(linkOk === 'ok', `notes links broken: ${linkOk}`)
 
 // Default print shows only the active pane; print-all reveals the inactive ones.
 const hiddenPane = '#pane-story'

@@ -3,40 +3,50 @@
 [![validate](https://github.com/smagew/whydiff/actions/workflows/validate.yml/badge.svg)](https://github.com/smagew/whydiff/actions/workflows/validate.yml)
 [![Claude Code plugin](https://img.shields.io/badge/Claude_Code-plugin-D97757)](https://docs.claude.com/en/docs/claude-code)
 [![desktop: Windows | macOS | Linux](https://img.shields.io/badge/desktop-Windows_%7C_macOS_%7C_Linux-1f6feb)](https://github.com/smagew/whydiff/releases)
-[![coverage](https://img.shields.io/badge/coverage-~95%25_lines-3fb950)](https://github.com/smagew/whydiff/actions/workflows/validate.yml)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**Follow the meaning of a change — the architectural and logical decisions
-behind it — instead of reading thousands of diff lines to reconstruct them.**
+**Follow the meaning of a change — the decisions behind it — instead of reading
+thousands of diff lines to reconstruct them.**
 
-whydiff is a Claude Code plugin that turns any git diff into an interactive
-**review map**: a causal story of *why* each change exists, changes grouped by
-cause instead of by file, diagrams of the flows and data shapes that actually
-changed, the user stories the change actually delivers (and the ones it breaks),
-plus standards / tests / ops reports and a blast radius — every claim one click
-away from the code it came from.
+whydiff turns a git diff into a **change map** you review in a browser: why each
+change exists, what it changed for the people using the product, diagrams of the
+flows it actually altered — and one click from any claim to the code it came from.
 
-An LLM writes code faster than anyone can read it. Reviewing every file line by
-line burns the speed you just gained ("comprehension debt"); skipping the review
-costs you your mental model of the project. whydiff is the third option: read
-the decisions, open the code only where it matters, and let a script — not the
-model — prove that no file went unexplained.
-
-See `PLAN.md` for the problem statement and the design principles.
+*Runs on your machine · one self-contained HTML file · nothing leaves it except
+through your own Claude session ([SECURITY.md](SECURITY.md)).*
 
 <!-- Screenshots carry the version they show: a changed picture gets a new filename,
-     so neither a browser nor GitHub's CDN can keep serving the previous one. When you
-     re-shoot, rename to the version being released and update these links. -->
+     so neither a browser nor GitHub's CDN can keep serving the previous one. -->
 
-![The Code map: files grouped by cause, labeled links between them, a per-language icon on each, and the per-group Overview beside it](assets/code-map-0.15.png)
+![The Code map: files grouped by cause, labeled links between them, and the per-group Overview beside it](assets/code-map-0.15.png)
 
-| Diff-marked diagrams — click a node to open the file | The Summary: a causal walkthrough, every block linked by why |
-|---|---|
-| ![Diagrams tab](assets/diagrams-0.15.png) | ![Summary tab](assets/summary-0.15.png) |
-| **Review** — the merge gate: what blocks, grouped by where each problem came from, a patch waiting to be applied, and the decision manifest | **Options** — two or three ways to deal with a finding, differing in kind, each with its cost, risk and the criterion it would be judged by |
-| ![Review tab](assets/review-0.8.png) | ![Options offered on a test gap](assets/options-0.8.png) |
+An LLM writes code faster than anyone can read it. Reviewing every file line by line
+burns the speed you just gained; skipping the review costs you your mental model of
+the project. whydiff is the third option: read the decisions, open the code only
+where it matters, and let a script — not the model — prove that no file went
+unexplained.
 
-## Usage
+## Install
+
+The repo doubles as a plugin marketplace, so a normal persistent install works:
+
+```
+/plugin marketplace add smagew/whydiff       # or a path to a local clone
+/plugin install whydiff@whydiff
+```
+
+Needs [Claude Code](https://docs.claude.com/en/docs/claude-code). The assembler's
+bundles (mermaid, highlight.js) install themselves on the first run. Later:
+`/plugin marketplace update whydiff` pulls a new version. Plugin skills are
+namespaced, so `/whydiff:whydiff` always works when the bare `/whydiff` is ambiguous.
+
+So a run doesn't ask a dozen times, the plugin ships a `PreToolUse` hook that
+auto-approves **only** its own pipeline: its bundled scripts, read-only `git`, writes
+inside `.whydiff/`, and opening the built map. Anything else — and any command with
+chaining or substitution — goes through the normal permission flow
+(`scripts/approve.mjs` is deliberately short and reviewable).
+
+## Use it
 
 ```
 /whydiff                    # working tree vs HEAD (incl. untracked)
@@ -44,347 +54,135 @@ See `PLAN.md` for the problem statement and the design principles.
 /whydiff main..feature      # any git range
 ```
 
-By default the run **serves** the map on `http://127.0.0.1:<port>/` and opens it in
-your browser, because that is where the report earns its keep: the ask / instruct /
-note panel works, and the optional passes can be added with the **Generate** button.
-Ask for a file to keep — or an artifact to publish — and it also assembles
-`<repo>/.whydiff/<date>-<slug>.html`: one self-contained page (mermaid and the
-syntax highlighter inlined, no network needed), where those live controls are inert.
+The run **serves** the map on `http://127.0.0.1:<port>/` and opens it in your
+browser. Served means live: you can ask about any part of it, pin notes, instruct a
+change, and add the optional passes with a **Generate** button. Ask for a file to
+keep — to send someone, or to publish — and you also get one self-contained
+`.whydiff/<date>-<slug>.html` that needs no server and no network.
 
-The report language follows the conversation language; source code and
-identifiers are always English (see principle 8 in `PLAN.md`).
+The report is written in the language you were speaking; code and identifiers stay
+as they are.
 
-## Install
-
-The repo doubles as a plugin marketplace (`.claude-plugin/marketplace.json`),
-so a normal persistent install works from a local path or from GitHub —
-no `--plugin-dir` needed, the plugin is then available in every session:
-
-```
-/plugin marketplace add smagew/whydiff       # straight from GitHub
-/plugin marketplace add /path/to/whydiff     # or a local clone
-/plugin install whydiff@whydiff
-```
-
-The assembler's bundles (mermaid for the diagrams, highlight.js for the code) are
-installed automatically on first `/whydiff` run (`npm install` inside the plugin
-directory).
-
-Plugin skills are namespaced: invoke as `/whydiff:whydiff` (the bare
-`/whydiff` form also resolves when unambiguous).
-
-### Permissions
-
-The plugin ships a `PreToolUse` hook that auto-approves **only** the
-pipeline's own operations, so a `/whydiff` run doesn't ask a dozen times:
-its bundled scripts (`manifest/validate/assemble/timing.mjs`), read-only git
-(`diff`/`log`/`show`/`ls-files`/`status`), writes into `.whydiff/`, and
-opening the built map. Commands with chaining or substitution
-(`;`, `&`, `|`, `` ` ``, `$(`) are never auto-approved, and everything else
-goes through the normal permission flow (see `scripts/approve.mjs` — it is
-deliberately short and reviewable).
-
-## Desktop app
-
-whydiff also ships as a **desktop app** (macOS · Windows · Linux): pick a project
-— a local folder or a GitHub repo — browse its commits and pull requests, and run
-a review map from a window, with a stage-by-stage progress bar and the
-ask / instruct / Generate panel built in. It reuses this plugin's pipeline
-(`scripts/run.mjs` + `serve.mjs`) and needs Claude Code (`claude`) and `git`
-installed.
-
-Download the installers from the [latest release](https://github.com/smagew/whydiff/releases)
-(`app-vX.Y.Z` tags — separate from the plugin's `vX.Y.Z` releases). The builds are
-**unsigned**: macOS (Apple Silicon) shows a one-time "cannot verify developer"
-prompt — allow it once via **System Settings → Privacy & Security → Open Anyway**;
-Windows SmartScreen → **More info → Run anyway**. Design and phases:
-[docs/desktop-app.md](docs/desktop-app.md).
-
-## Development loop (no push required)
-
-Installing from a marketplace copies the plugin into
-`~/.claude/plugins/cache/…`, so a *copy* is what runs. To test the working tree
-instead, load it directly — `--plugin-dir` reads from disk and overrides an
-installed copy of the same plugin for that session:
-
-```bash
-make check              # contract + viewer + manifest checks, no LLM (~20s)
-make coverage           # run the suite under c8 + print scripts/ coverage
-make preview            # assemble the reference example and open it
-make fixtures           # list the fixture projects
-make run-synthetic      # build a fixture and open Claude with THIS working tree
-make report-synthetic   # per-phase timing of the last run there
-make map-synthetic      # open the HTML map that run produced
-make serve-synthetic    # serve that map with the live ask / Generate UI
-```
-
-Inside the session: `/whydiff HEAD~1..HEAD`. Skill edits apply immediately;
-after editing `agents/` or `hooks/`, run `/reload-plugins`.
-
-**Fixtures** (`tests/fixtures/fixtures.json`) are real diffs from popular
-open-source repos, pinned by SHA and fetched with `--depth 2`, so preparing one
-takes seconds and the diff is always `HEAD~1..HEAD`. Their recorded GitHub
-stats are cross-checked against our own manifest, so a fixture also tests
-`manifest.mjs`:
-
-| fixture | diff | what it exercises |
-|---|---|---|
-| `synthetic` | 10 files, TS/PHP/SQL/MD (generated locally, no network) | scope tags, language dots, `er-diff`, ops/migrations |
-| `quick` | expressjs/express — 3 files | smallest end-to-end sanity run |
-| `feature` | honojs/hono — 4 files | cause groups, story chain, tests tab |
-| `migration` | zulip/zulip — 8 files, Django migration | schema diagram, cross-layer edges |
-| `big` | mastodon/mastodon — 63 files, Rails migration | classifier sharding, verify-pattern, blast radius |
-
-Fixtures land in `.fixtures/` (gitignored); `make clean-fixtures` removes them.
-`synthetic` and `quick` are a few hundred KB to ~2 MB; `migration` and `big`
-pull ~150–200 MB each because those repos have large trees even at depth 2.
-
-Prerequisites: `npm install` (mermaid + highlight.js for the assembler) and
-`npx playwright install chromium` (for `npm test`).
-
-To update an installed copy after new commits: `/plugin marketplace update whydiff`.
-
-Releasing: `make bump BUMP=<patch|minor|major>` moves the version everywhere it
-lives and opens a `CHANGELOG.md` entry; merging that to `main` tags `vX.Y.Z` and
-publishes a GitHub Release automatically (`.github/workflows/release.yml`, from the
-CHANGELOG section). Installed users only receive updates when the version changes —
-the `version-guard` check enforces the bump. See `RELEASING.md`.
-
-## Layout
-
-```
-.claude-plugin/plugin.json   # plugin manifest
-skills/whydiff/SKILL.md      # the /whydiff pipeline (orchestration)
-skills/whydiff-work/SKILL.md # /whydiff-work: do the tasks agreed in a review
-agents/                      # analysis passes: 2 core (always) + 4 optional (on demand)
-  classifier.md              #   core: intent, groups, files, edges, ops
-  diagrammer.md              #   core: diff-marked mermaid diagrams
-  summariser.md              #   optional: the Summary (causal walkthrough / story)
-  standards-reviewer.md      #   optional: project-convention findings + blast radius
-  tests-analyst.md           #   optional: fixed behaviors + gap analysis
-  story-writer.md            #   optional: user stories + a verdict on each
-hooks/hooks.json             # PreToolUse hook wiring (see Permissions)
-scripts/
-  gather.mjs                 # step 1: manifest + diff.patch + timing, in one command
-  manifest.mjs               # deterministic diff manifest from git
-  shards.mjs                 # balances the classifier split against a time budget
-  merge.mjs                  # agent output files → review-map.json
-  validate.mjs               # structure + manifest-vs-git cross-check
-  assemble.mjs               # review-map.json + viewer template → HTML
-  run.mjs                    # standalone headless runner (drives claude -p, validates, assembles)
-  serve.mjs                  # optional: serve the map + answer questions via claude -p
-  timing.mjs                 # per-run timing log + timing-report.md
-  approve.mjs                # auto-approves only this pipeline's own calls
-  review.mjs                 # the review journal: append-only log + its projection
-  rebind.mjs                 # re-attaches the journal to a regenerated map
-  lib.mjs                    # shared validation/git/fragment helpers
-  version.mjs                # make bump: the version in all 4 places + a CHANGELOG entry
-  check-version.mjs          # the version guard: a shipped change must ride a bump
-templates/viewer.html        # the generic viewer (i18n, mermaid, 7 tabs + Review when served)
-templates/viewer-logic.mjs   # the viewer's pure helpers, unit-tested; inlined at assemble
-app/                         # the desktop app (Electron) — see app/README.md
-schema/review-map.schema.json# the generator↔viewer contract
-examples/rate-limit/         # hand-authored reference sample (synthetic project)
-tests/merge.mjs              # merge contract: git wins over the model
-tests/shards.mjs             # shard planner: balance, coverage, budget overflow
-tests/smoke.mjs              # assemble + headless-browser check of the viewer
-tests/diagram-fallback.mjs   # an invalid diagram shows the fallback, not mermaid's bomb
-tests/viewer-logic.mjs       # the viewer's extracted pure helpers, in node
-tests/generate-progress.mjs  # the generation bar: a fair estimate, never a fake 100%
-tests/export-notes.mjs       # assemble --journal: notes travel into the export, read-only
-tests/print-pdf.mjs          # print: chrome dropped, active tab only, notes appendix
-tests/serve.mjs              # serve contract: token gating, ask/instruct/options, Review tab
-tests/review.mjs             # review journal: refusals, task states, coverage, migration
-tests/work.mjs               # serve --work: worktree isolation, patch, apply gate
-tests/work-harden.mjs        # serve --work: reclaim/prune worktrees, moved-on vs applied
-tests/work-rerun.mjs         # serve --work: re-run a moved-on patch, rebase, apply
-tests/notes.mjs              # notes on the map (a bare remark pins an annotation)
-tests/diagram-notes.mjs      # diagram annotations: click-to-ask, persisted badges/regions
-tests/rebind.mjs             # rebinding: moved / stale / revived, and idempotence
-tests/run.mjs                # run.mjs: drives claude -p, validates, assembles, exit codes
-tests/assemble-degrade.mjs   # assemble degrades a missing embedFull file (serve stays up)
-tests/approve.mjs            # approve hook: only the pipeline's own calls
-tests/design.mjs             # design system: tokens, contrast band, shadows, measure
-```
-
-## What the map answers
+## What you read there
 
 | Question | Where it lands |
 |---|---|
-| What decisions were made, and why this one led to the next? | **Summary** — causal story, each block linked by a *why* (an optional pass; Generate it, or ask for it at run time) |
-| What changed for the people using this, and did it actually land? | **User stories** — one story per outside-visible capability, each with a `delivered` / `partial` / `broken` / `regressed` verdict read off the code |
-| Which flows / data shapes actually changed? | **Diagrams** — one diff-marked graph per changed flow; `er-diff` for schema migrations |
-| Which parts of the project are touched? | Scope tags + language dots above the tabs |
-| Does it follow this project's conventions? | **Standards** — findings with the convention they deviate from |
-| What is now guaranteed, and what is still uncovered? | **Tests** — fixed behaviors vs gap analysis |
-| What do I do at deploy time? | **Ops & risks** — env/migrations/deploy + blast radius |
-| Was anything left unexplained? | **Files** — N of N manifest, proven by `validate.mjs` |
-| I have a question about *this* bit | `serve.mjs` — select a story, Summary block(s), a diagram node or any text and ask; answered by `claude -p` against the real repo. Local-only, see below |
-| This bit should change | `serve.mjs` — the same panel, switched to **Instruct**: Claude replies with a *plan* (files, what proves it done, blast radius, open questions) that you agree to or turn down. Agreeing opens a task in the review journal; nothing is edited |
-| What are my options for this problem? | **Options** — the third panel mode, offered only on a problem the map found: two or three ways to deal with it that differ in *kind* (point fix / at the root / pin it instead), each with cost, risk, blast radius and the criterion it would be judged by. Choosing one opens the task |
-| Can I merge this yet? | **Review** — the verdict line says what still blocks, grouped by where the problem came from, with unanswered questions in the same list. One button copies the agreed queue as a prompt for your session |
+| Which flows and data shapes actually changed? | **Diagrams** — one diff-marked graph per changed flow; an `er-diff` for a schema migration |
+| What was changed, and why does this bit exist? | **Code map** — files grouped by *cause*, not by folder, with labeled links between them |
+| What changed for the people using this, and did it land? | **User stories** — one per outside-visible capability, each with a `delivered` / `partial` / `broken` / `regressed` verdict read off the code |
+| What was decided, and why did one decision lead to the next? | **Summary** — a causal walkthrough, every block linked by a *why* |
+| What do I do at deploy time? | **Ops & risks** — env, migrations, deploy steps, and the blast radius outside the diff |
+| Does it follow this project's own conventions? | **Standards** — each finding with the convention it deviates from |
+| What is guaranteed now, and what is still uncovered? | **Tests** — fixed behaviours vs. gap analysis, not a coverage percent |
+| Was anything left unexplained? | The file manifest: N of N, proven by `validate.mjs` rather than asserted by the model |
 
-### Asking — and instructing — from inside the map
+A default run builds the first two tabs and Ops; the rest are one **Generate** click
+away, so a quick look stays quick.
 
-The assembled report is a single self-contained file, and a published artifact's
-CSP blocks every outgoing request — so the page has no way to reach a model on its
-own. `scripts/serve.mjs` trades that self-containment for a live answer:
+| Diff-marked diagrams — click a node to open the file | The Summary: a causal walkthrough |
+|---|---|
+| ![Diagrams tab](assets/diagrams-0.15.png) | ![Summary tab](assets/summary-0.15.png) |
+| **Review** — the merge gate: what blocks, and the decision manifest | **Options** — two or three ways to deal with a finding, each with its cost |
+| ![Review tab](assets/review-0.8.png) | ![Options offered on a test gap](assets/options-0.8.png) |
 
-```bash
-node scripts/serve.mjs .whydiff/review-map.json --repo . --port 7777
-```
+## Working in the map
 
-Anchors are a user-story card, a Summary block (⌘/Ctrl-click several to ask about the
-set), a diagram — click a node, drag a rectangle to anchor a *region* of it, or take the
-whole diagram — or any text selection. Answers land in `.whydiff/review.log.jsonl` — the
-review journal — and come back on the next serve.
+Select a story card, a Summary block, a diagram node (or drag a rectangle over part
+of a diagram), or any text — and the panel opens in one of four modes:
 
-Each question leaves a numbered pin where it was asked — selected text stays
-highlighted, like a comment in a document — and a bookmark in the left rail at the
-height of its anchor; bookmarks for other tabs stack at the top and switch tab when
-clicked. The answer streams, showing the model's steps while it works and folding
-them away once it replies.
+- **Ask** — a question about *this* place, answered by `claude -p` against the real
+  repo. The answer leaves a numbered pin where you asked, and a bookmark in the rail.
+- **Note** — a plain remark pinned there. No model involved.
+- **Instruct** — say what should change; the reply is a *plan* (files, what proves it
+  done, what could break, what must be answered first) you agree to or turn down.
+- **Options** — offered on a problem the map found: two or three ways to deal with it
+  that differ in kind (fix the symptom / fix the invariant / pin it with a test), each
+  with cost, risk and the criterion it would be judged by.
 
-The ask UI is gated on a token this server injects, so it is **absent** — not
-broken — in the file on disk and in the published artifact. `tests/serve.mjs`
-asserts exactly that, with the CLI stubbed so the suite never calls a model.
+Nothing is edited. The CLI runs under a read-only allowlist, and everything you agree
+to becomes a task in an append-only **review journal** (`.whydiff/review.log.jsonl`)
+that survives the tab closing and a regenerated map.
 
-The panel has a second mode, **Instruct**: instead of asking about the anchored
-place, say what should change there. The reply is a **plan** — file by file, what
-will prove it done, what could break, what must be answered first — and two
-buttons: agree, which opens a task in the journal, or not now, which is recorded so
-the offer is not made again. Nothing is executed and nothing is edited: the CLI is
-spawned with a read-only allowlist *and* an explicit deny list for the editing tools,
-the shell and subagents, and the task is a queue your own Claude Code session
-drains. The design is in [`docs/review-loop.md`](docs/review-loop.md).
+Those tasks collect in a **Review** tab, which is a merge gate rather than a to-do
+list: `blocking N` (or `nothing blocking`), cards grouped by where each problem came
+from, unanswered questions in the same list, and a **decision manifest** — `decided
+3/7` — that names the findings nobody has answered instead of quietly dropping them.
 
-A fourth mode needs no model at all: **Note** pins a plain remark on the anchored place —
-a diagram node, a region, a Summary block, a text selection — kept in the same journal, so
-the reading you did travels with the report (into an export or a PDF, below).
+Then pick where the work happens:
 
-Those decisions collect in a **Review** tab, which exists only on the served copy.
-It is a merge gate rather than a to-do list: the header says `blocking N` — or
-`nothing blocking`, when that is true — cards are grouped by where the problem came
-from (your instructions, a broken user story, a standards finding, a test gap),
-questions nobody answered sit in the same list, and every card links back to the
-place in the report it came from. Declining asks for a reason, because the journal
-refuses a decline without one. **Copy the queue as a prompt** hands the agreed tasks
-to your session, with each acceptance criterion attached — where
-[`/whydiff-work`](skills/whydiff-work/SKILL.md) picks them up.
+- **In your session** — *Copy the queue as a prompt* hands the agreed tasks, with
+  their acceptance criteria, to [`/whydiff-work`](skills/whydiff-work/SKILL.md): one
+  task at a time, ordinary permissions, and `verified` only with a command and its
+  real output.
+- **In the map** — `serve.mjs --work` (opt-in) adds *do it in a worktree*: an agent
+  works the task in a throwaway `git worktree`, never in your checkout, and hands
+  back a patch you read before **apply** puts it in your tree.
 
-The header also carries the **decision manifest** — `decided 3/7` — and the findings
-nobody has answered are listed, not just counted. It is the same guarantee as the
-file manifest, applied to decisions: every problem the map reported either has a
-decision or is openly undecided.
-
-### Doing the agreed work in the report itself
-
-`serve.mjs --work` (opt-in) adds one button to an agreed task: **do it in a
-worktree**. An agent works the task in a throwaway `git worktree` seeded from your
-working tree as it stands — never in your checkout — and hands back a patch. The
-patch is shown as a change to read, and reaches your tree only through **apply**.
-
-```bash
-node scripts/serve.mjs .whydiff/review-map.json --repo . --work
-```
-
-That closes the loop this tool exists for: an LLM edit does not land in the tree
-without having been looked at as a change. A patch that no longer applies is
-reported, never forced; a run that produced nothing says so and hands the task back
-rather than recording a resolution it does not have. Without `--work` the endpoints
-are refused outright — that server reads and plans, and says so on startup.
-
-Worktree isolation protects your **files**, not your machine: the worker can run
-commands (that is how it runs the test its criterion names), which is exactly why
-the mode is opt-in.
-
-### Doing the agreed work in your session
-
-`/whydiff-work` is the other half of the loop: it drains the queue in your own
-session — full context, ordinary permission flow, nothing running behind an HTTP
-endpoint. One task at a time, oldest first:
-
-```bash
-R="node scripts/review.mjs .whydiff"
-$R --next                              # the next task, its criterion, its discussion
-$R --start <taskId>                    # claim it, so the page shows it as taken
-$R --resolve <taskId> --patch .whydiff/tasks/<taskId>.patch --files a,b
-$R --verify <taskId> --evidence "npm test -t refunds → 1 passed"
-```
-
-Two rules the skill keeps and the journal enforces. **The spec is the boundary** —
-work that turns out to need something nobody agreed to stops and reports instead of
-widening. And **verification is earned, not asserted**: `done` means changed,
-`verified` needs the command and its real output, and only a `test` criterion is the
-working session's to close — a `story` or `finding` criterion is closed by
-regenerating the map and seeing it flip, `manual` by the reviewer.
-
-## Pipeline (what /whydiff does)
-
-1. `gather.mjs` — one command: a deterministic manifest + `diff.patch` from git
-   (incl. untracked), with timing. (Wraps `manifest.mjs`.)
-2. The main model reads the diff and writes a briefing for the agents.
-3. `shards.mjs` — splits the classifier's file list so the slowest shard fits a
-   wall-clock budget. A shard's runtime is set by how many bytes it writes and
-   nothing else, so the split is arithmetic, not judgment.
-4. The analysis passes run in parallel; **each writes its own JSON file** and
-   returns one line (nobody retypes an agent's answer). Two are **core** and always
-   run — `classifier` and `diagrammer` (Code map, Diagrams, Ops). The four
-   **optional** passes — `summariser` (Summary), `story-writer` (user stories),
-   `standards-reviewer`, `tests-analyst` — run only when asked for: up front
-   (`/whydiff … full`, or a chosen subset) or later from the viewer's **Generate**
-   button. A default run stays lean.
-5. `merge.mjs` — combines those files into `review-map.json`. Anything a script can
-   know comes from the script: line counts and new-file flags from git, code
-   fragments from the patch. The model supplies only what it alone can — the
-   causal narrative and the per-file *why*.
-6. `validate.mjs` — structural integrity + cross-check against the real diff;
-   errors are fixed and re-validated until clean (completeness is proven by
-   script, never asserted by the LLM).
-7. `assemble.mjs` — self-contained HTML with the mermaid bundle inlined.
+The design of that loop is in [`docs/review-loop.md`](docs/review-loop.md).
 
 ## Sharing a review
 
-A map is a **single self-contained HTML file** — the mermaid bundle and every asset
-are inlined, so it opens in any browser, offline, with no server and no dependency
-on Claude. That makes it portable: the review travels as a file, not as a link to
-something you have to keep running.
-
-Produce one from a `review-map.json` (the `/whydiff` run leaves it in `.whydiff/`):
+A map is a **single self-contained HTML file** — assets inlined, no server, no
+dependency on Claude — so the review travels as a file, not as a link to something
+you keep running:
 
 ```bash
 node scripts/assemble.mjs .whydiff/review-map.json --out review.html
 node scripts/assemble.mjs .whydiff/review-map.json --out review.html \
-  --journal .whydiff                    # …with the review's notes and tasks baked in
+  --journal .whydiff                     # …with the notes and decisions baked in
 ```
 
-With `--journal` the notes, the questions with their answers and the Review tab's tasks
-are folded into the page, so the discussion reads offline as well. That export is
-**view-only**: badges and frames render and read back, but every affordance that would
-ask, decide or run work is gone — there is no server behind them.
+With `--journal` the notes, questions with their answers and the Review tab travel
+along, and the export opens **view-only** — everything that would ask, decide or run
+work is gone, because there is no server behind it. For pages rather than a file,
+every report has a **PDF** button: it prints the tab you are on, on a light palette,
+with a *Notes & questions* appendix at the end.
 
-To hand over pages instead of a file, the report carries a **PDF** button in its tab bar:
-it saves the tab you are on — with a *Notes & questions* appendix — through the print
-dialog, on a light palette (ink on paper), with the interactive chrome dropped.
+It comes out a few MB, so attaching it to a message works: **Slack** and **Telegram**
+take the `.html` as-is; for **email**, zip it first — many filters block a bare HTML
+attachment.
 
-It comes out a few MB — well under every messaging limit — so **hand it to a
-teammate by attaching it to a message**:
+The map can quote your diff and code, so treat it like the source itself. whydiff
+never uploads it anywhere; sharing is your deliberate act.
 
-- **Slack** (1 GB/file) and **Telegram** (2 GB) take the `.html` as-is; the
-  recipient opens it in a browser.
-- **Email** works too (Gmail 25 MB), but many mail filters block a bare `.html`
-  attachment as a phishing risk — **zip it first** and it goes through.
+## Desktop app
 
-Privacy: the map can quote your diff and code, so treat it like the source itself.
-Send it only to people you'd show the code to, over a channel you trust. whydiff
-never uploads it anywhere — sharing is your deliberate act, and there is no
-whydiff-hosted link or third-party host in the loop.
+whydiff also ships as a desktop app (macOS · Windows · Linux): pick a project — a
+local folder or a GitHub repo — browse its commits and pull requests, and run a map
+from a window, with progress and the ask / instruct / Generate panel built in. It
+drives this same pipeline and needs `claude` and `git` installed.
 
-## Project docs
+Installers are on the [latest release](https://github.com/smagew/whydiff/releases)
+(`app-vX.Y.Z` tags). The builds are **unsigned**: macOS shows a one-time "cannot
+verify developer" — allow it via **System Settings → Privacy & Security → Open
+Anyway**; Windows SmartScreen → **More info → Run anyway**.
 
-- [CONTRIBUTING.md](CONTRIBUTING.md) — scope, conventions, how a change lands
+## How it works
+
+```mermaid
+flowchart LR
+  D["git diff"] --> M["manifest<br/>(deterministic)"]
+  M --> C["classifier"]
+  M --> G["diagrammer"]
+  M -.-> O["optional passes:<br/>summary · stories<br/>standards · tests"]
+  C --> J["review-map.json"]
+  G --> J
+  O -.-> J
+  J --> V["validate<br/>vs the real diff"]
+  V --> H["served map<br/>· self-contained HTML"]
+```
+
+Everything a script can know comes from the script — file lists, line counts, code
+fragments, and the manifest check that every changed file is accounted for. The model
+supplies only what it alone can: the causal story and the per-file *why*. The
+contract between the two halves is `schema/review-map.schema.json`.
+
+## Docs
+
+- [PLAN.md](PLAN.md) — the problem statement and the design principles
+- [CONTRIBUTING.md](CONTRIBUTING.md) — scope, the development loop, how a change lands
 - [ROADMAP.md](ROADMAP.md) — where whydiff is going (one core, many hosts)
-- [docs/desktop-app.md](docs/desktop-app.md) — the desktop app: design, stack, phases
 - [SECURITY.md](SECURITY.md) — what runs locally, and how to report a vulnerability
-- [RELEASING.md](RELEASING.md) — versioning and the auto-release flow
-- [CHANGELOG.md](CHANGELOG.md) — per-version notes
+- [docs/review-loop.md](docs/review-loop.md) — asking, deciding, and doing the work
+- [docs/desktop-app.md](docs/desktop-app.md) — the desktop app: design, stack, phases
+- [RELEASING.md](RELEASING.md) · [CHANGELOG.md](CHANGELOG.md) — versioning and per-version notes

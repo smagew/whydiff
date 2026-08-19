@@ -282,7 +282,8 @@
   .help-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   /* PDF button in a right-aligned toolbar at the top of the content, so it reads as "save
      this section", not "print the page", and reserves its own row (never over content). */
-  .content-tools { display: flex; justify-content: flex-end; margin-bottom: 8px; }
+  .content-tools { display: flex; justify-content: flex-end; margin: 2px 0 16px; }
+  .content-tools[hidden] { display: none; }
   .content-pdf { display: inline-flex; align-items: center; gap: 5px;
     font: inherit; font-size: 13px; font-weight: 500; cursor: pointer; color: var(--muted);
     border: 1px solid var(--line); background: none; border-radius: 4px; padding: 4px 9px;
@@ -1054,8 +1055,15 @@
   .printnotes .pn-title { font-size: 15px; font-weight: 500; margin: 0 0 12px; }
   .printnotes .pn-item { border-top: 1px solid var(--line); padding: 10px 0; break-inside: avoid; }
   .printnotes .pn-anchor { font-family: var(--mono); font-size: 13px; color: var(--muted); margin-bottom: 4px; overflow-wrap: anywhere; }
+  .printnotes .pn-anchor .pn-back { color: var(--accent); text-decoration: none; font-weight: 500; margin-right: 6px; }
   .printnotes .pn-q { font-size: 13.5px; font-weight: 500; }
   .printnotes .pn-a, .printnotes .pn-note { font-size: 13.5px; margin-top: 4px; }
+  /* A [N] link at an annotated place (text selection, or a diagram's caption) pointing at
+     its endnote — shown only in print (Chromium keeps in-document # links in the PDF). */
+  .pnref { display: none; font-size: 13px; vertical-align: super; line-height: 0; margin-left: 2px; }
+  .pnref a { color: var(--accent); text-decoration: none; font-weight: 500; }
+  .diagram .pn-diagram-notes { display: none; }
+  @media print { .diagram .pn-diagram-notes { display: block; font-family: var(--mono); font-size: 13px; color: var(--muted); margin: 4px 0 0; } }
   @media print {
     /* Every interactive/overlay bit is hidden — including the code-map connector layer
        (#edges) and its floating link labels (#elabels/.elabel), the palette swatches
@@ -1063,7 +1071,8 @@
        page as overlapping debris. */
     #tabs, #scopebar, #consistency, .footstrip, .aside-toggle, .help-btn, .themepick, .toggle,
     .askpanel, .askbar, .rail, .rc-grip, .rc-grip-pill, .rightcol, .modebar, .content-tools,
-    #edges, #elabels, .elabels, .elabel, .dg-badges,
+    #edges, #elabels, .elabels, .elabel, .dg-badges, .dg-region,
+    .kicker, #title, .sub, #statbar,
     #diagramsHint, #blastHint, .dg-actions, [data-pop] { display: none !important; }
     /* Clamp the whole reading column to the paper width. The PDF renderer lays out at the
        on-screen viewport width and crops to the page, so a full-width column would spill
@@ -1073,15 +1082,20 @@
     .board, .layout { display: block; }
     .main-panel { border: none; padding: 0; }
     body.print-all .pane[hidden] { display: block !important; }
-    .group, .node, .diagram, .ustory, .finding, .tkcard, .brow, .step { break-inside: avoid; }
+    .group, .ustory, .finding, .tkcard, .brow, .step { break-inside: avoid; }
     pre, .codebox, .cl, .diagram .mermaid-box { white-space: pre-wrap; overflow: visible; }
-    /* Fit a diagram to the page instead of clipping it off the right edge. fitDiagrams
-       sized the SVG in px for the on-screen column (wider than the paper), so clamp the box
-       to a PHYSICAL width the paper can hold and let the SVG scale to it by its viewBox. */
-    .diagram, .diagram .mermaid-box { max-width: 180mm !important; overflow: visible !important; }
-    .diagram .mermaid-box svg { width: 100% !important; max-width: 100% !important; height: auto !important; }
+    /* Each diagram gets its own page — start on a fresh page, kept whole — and is scaled to
+       fit that page (width when wide, height when tall) by its (re-fitted) viewBox, centred.
+       Standard print fragmentation: break-before per diagram + fit-to-one-page so a tall one
+       is never split mid-node. */
+    #pane-diagrams .diagram { break-before: page; break-inside: avoid; max-width: 100% !important; overflow: visible !important; }
+    #pane-diagrams .diagram:first-of-type { break-before: auto; }
+    .diagram .mermaid-box { max-width: 100% !important; overflow: visible !important; text-align: center; }
+    .diagram .mermaid-box svg { width: auto !important; height: auto !important; max-width: 100% !important; max-height: 225mm !important; margin: 0 auto; }
+    /* Endnotes: the review notes, linked to/from their place in the report. */
     .printnotes { display: block; break-before: page; }
     .printnotes:empty { display: none; }
+    .pnref { display: inline !important; }
     /* Print the surface/tint/diagram colours faithfully (browsers drop backgrounds by
        default). The palette is switched to a light one before printing, so this yields
        ink on paper, not a black page. */
@@ -1779,6 +1793,18 @@ function setTab(id) {
     diagramsRendered = true
     requestAnimationFrame(runDiagrams)
   }
+  updatePdfBtn(id)
+}
+// The content PDF button belongs to real content: on an un-generated section (its pane is
+// just the "Generate" placeholder) there is nothing to save, so hide it there.
+function updatePdfBtn(id) {
+  const tools = document.querySelector('.content-tools')
+  if (!tools) return
+  const pane = document.getElementById('pane-' + id)
+  // A whole-section "Generate" placeholder means nothing to save. (`.lazy-inline` is the
+  // blast-radius teaser inside Ops, which DOES have content — don't hide there.)
+  const empty = !pane || !!pane.querySelector('.lazy:not(.lazy-inline)')
+  tools.hidden = empty
 }
 // mermaid's own themes ship their own palette and their own font stack — grey
 // boxes, black labels, Trebuchet. Feeding 'base' the page's tokens is what keeps
@@ -2788,6 +2814,7 @@ async function preparePrint({ tab = null, all = false } = {}) {
   if (tab && tab !== 'diagrams') setTab(tab)
   document.body.classList.toggle('print-all', !!all)
   await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
+  window.__whydiffBuildPrintNotes?.()  // endnotes + [N] links for the scope being printed
   fitDiagramsForPrint()
 }
 // mermaid often lays a node out past its own viewBox (e.g. the flowchart's 429 node sits
@@ -2817,9 +2844,10 @@ window.addEventListener('beforeprint', () => {
   // PDF button ran preparePrint first, beginPrintPalette is a no-op and the light diagrams
   // are already in place; a raw Cmd-P still gets light text/code and fitted diagrams.)
   beginPrintPalette()
+  window.__whydiffBuildPrintNotes?.()
   fitDiagramsForPrint()
 })
-window.addEventListener('afterprint', endPrintPalette)
+window.addEventListener('afterprint', () => { endPrintPalette(); document.querySelectorAll('.pnref, .pn-diagram-notes').forEach((e) => e.remove()) })
 
 // quiet ships; safe is the token block's own two-hue pair, so it is the one
 // spelling that clears the attribute rather than setting it.
@@ -3237,22 +3265,66 @@ if (SERVE?.token || EMBEDDED) (() => {
     if (wrapped.length > 1) wrapped[wrapped.length - 1].dataset.askPinHere = key
   }
 
-  // The print-only "Notes & questions" appendix: the review threads rendered into the page
-  // so they travel into the PDF (the panel itself is chrome and never prints). Built into
-  // .wrap once and refreshed with the marks; hidden on screen, shown by the print CSS.
+  // The print-only notes for the PDF: each annotated PLACE gets a number, a [N] link is put
+  // AT that place (a text highlight, or a diagram's caption), and the note text lives in an
+  // endnotes section — each entry linking back to its place. Same-document # links, which
+  // Chromium keeps as internal links in the PDF, so the reader jumps between the note and
+  // where it belongs instead of reading a disconnected dump. Rebuilt just before printing.
   let printNotesEl = null
-  const renderPrintNotes = () => {
+  const buildPrintNotes = () => {
+    document.querySelectorAll('.pnref, .pn-diagram-notes').forEach((e) => e.remove())
     if (!printNotesEl) { printNotesEl = document.createElement('section'); printNotesEl.className = 'printnotes'; document.querySelector('.wrap')?.appendChild(printNotesEl) }
-    if (!threads.length) { printNotesEl.innerHTML = ''; return }
-    const item = (t) => {
-      const anchor = `<div class="pn-anchor">${esc(`${t.anchor?.kind || ''} · ${t.anchor?.label || t.anchorKey}`.slice(0, 200))}</div>`
-      const body = t.kind === 'note'
-        ? `<div class="pn-note md">${mdToHtml(t.request)}</div>`
-        : `<div class="pn-q">${esc(t.request || L.proposeAsked)}</div>${t.response ? `<div class="pn-a md">${mdToHtml(t.response)}</div>` : ''}`
-      return `<div class="pn-item">${anchor}${body}</div>`
+    printNotesEl.innerHTML = ''
+    const printAll = document.body.classList.contains('print-all')
+    // Group threads by place, resolve each place's host element, and keep only those that
+    // will actually print (host in the visible tab, or print-all) — so a single-tab PDF
+    // lists just that tab's notes, not the whole review's.
+    const places = [], byKey = new Map()
+    for (const t of threads) {
+      if (byKey.has(t.anchorKey)) { byKey.get(t.anchorKey).threads.push(t); continue }
+      let host = document.querySelector(`[data-anchor="${CSS.escape(t.anchorKey)}"]`)
+      const dg = /^diagram:(\d+)/.exec(t.anchorKey)
+      if (!host && dg) host = document.querySelector(`#pane-diagrams .diagram[data-anchor="diagram:${dg[1]}"]`)
+      const paneEl = host?.closest('.pane')
+      const willPrint = !!host && (!paneEl || !paneEl.hidden || printAll)
+      const p = { key: t.anchorKey, anchor: t.anchor, threads: [t], host, isDiagram: !!dg, willPrint }
+      byKey.set(t.anchorKey, p); places.push(p)
     }
-    printNotesEl.innerHTML = `<h2 class="pn-title">${esc(L.printNotesTitle)} (${threads.length})</h2>` + threads.map(item).join('')
+    const shown = places.filter((p) => p.willPrint)
+    if (!shown.length) return
+    // A [N] link at each place: on a text/code selection or block it goes on the highlight;
+    // on a diagram node/region it goes in that diagram's caption (the badge itself doesn't
+    // print). The place element gets an id so the endnote can link back to it.
+    const diagramRefs = new Map()  // diagram card element → [n, …]
+    shown.forEach((p, i) => {
+      p.n = i + 1
+      if (!p.host.id) p.host.id = `panchor-${p.n}`
+      p.anchorId = p.host.id
+      if (p.isDiagram && p.host.classList.contains('diagram')) {
+        if (!diagramRefs.has(p.host)) diagramRefs.set(p.host, [])
+        diagramRefs.get(p.host).push(p.n)
+      } else {
+        const ref = document.createElement('sup'); ref.className = 'pnref'
+        ref.innerHTML = `<a href="#pnote-${p.n}">${p.n}</a>`
+        p.host.appendChild(ref)
+      }
+    })
+    for (const [card, ns] of diagramRefs) {
+      const line = document.createElement('p'); line.className = 'pn-diagram-notes'
+      line.innerHTML = `${esc(L.printNotesTitle)}: ` + ns.map((n) => `<a href="#pnote-${n}">[${n}]</a>`).join(' ')
+      ;(card.querySelector('.dg-head') || card).appendChild(line)
+    }
+    const entry = (p) => {
+      const back = p.anchorId ? `<a class="pn-back" href="#${p.anchorId}">${p.n} ↩</a>` : `<b>${p.n}</b> `
+      const label = esc(`${p.anchor?.kind || ''} · ${p.anchor?.label || p.key}`.slice(0, 160))
+      const body = p.threads.map((t) => t.kind === 'note'
+        ? `<div class="pn-note md">${mdToHtml(t.request)}</div>`
+        : `<div class="pn-q">${esc(t.request || L.proposeAsked)}</div>${t.response ? `<div class="pn-a md">${mdToHtml(t.response)}</div>` : ''}`).join('')
+      return `<div class="pn-item" id="pnote-${p.n}"><div class="pn-anchor">${back}${label}</div>${body}</div>`
+    }
+    printNotesEl.innerHTML = `<h2 class="pn-title">${esc(L.printNotesTitle)}</h2>` + shown.map(entry).join('')
   }
+  window.__whydiffBuildPrintNotes = buildPrintNotes
 
   // ── markers ────────────────────────────────────────────────────────────────
   const refreshMarks = () => {
@@ -3298,7 +3370,8 @@ if (SERVE?.token || EMBEDDED) (() => {
     }
     layoutRail()
     drawDiagramMarks() // a new question or note may have annotated a diagram place
-    renderPrintNotes() // keep the print appendix in sync with the threads
+    // The print notes are built at print time (buildPrintNotes on beforeprint/preparePrint),
+    // not here — they depend on the print scope (which tab / print-all).
   }
 
   // ── left rail: bookmarks at the height of their anchor ─────────────────────
