@@ -4,6 +4,16 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.38.0] — 2026-08-19
+
+### Fixed
+- **A note on a diagram no longer wrecks the browser-print PDF.** In the Print / Cmd-P
+  fallback the note's footnote was placed inside the diagram's flex header row: several notes
+  piled into a narrow right-hand column over the "Questions" line, and the swollen header
+  pushed a tall diagram's image onto the next page (title orphaned on one page, diagram on the
+  next). The footnote now sits below the diagram as a clean full-width block, so the header
+  stays small and the diagram prints whole with its title.
+
 ## [0.37.0] — 2026-08-19
 
 ### Added

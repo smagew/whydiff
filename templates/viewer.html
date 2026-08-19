@@ -3352,13 +3352,15 @@ if (SERVE?.token || EMBEDDED) (() => {
       line.innerHTML = `${esc(L.printQuestionsTitle)}: ` + ns.map((n) => `<a href="#pq-${n}">[${n}]</a>`).join(' ')
       ;(card.querySelector('.dg-head') || card).appendChild(line)
     }
-    // The browser fallback: print each note as a footnote at its place.
+    // The browser fallback: print each note as a footnote at its place. On a diagram the
+    // block goes at the BOTTOM of the card (below the diagram), never into the flex `.dg-head`
+    // (which would squeeze the notes into a narrow right column and inflate the header enough
+    // to break a tall diagram onto the next page). On a text/code place it follows the host.
     if (inlineNotes) for (const p of shown) {
       if (!p.notes.length) continue
       const box = document.createElement('div'); box.className = 'pn-inline-note'
       box.innerHTML = p.notes.map((t) => `<div class="md"><span class="pn-note-tag">${esc(L.printNoteLabel)}</span>${mdToHtml(t.request)}</div>`).join('')
-      if (p.isDiagram && p.host.classList.contains('diagram')) (p.host.querySelector('.dg-head') || p.host).appendChild(box)
-      else p.host.appendChild(box)
+      p.host.appendChild(box)
     }
     // The Questions appendix.
     if (qEntries.length) {
