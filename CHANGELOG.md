@@ -4,6 +4,20 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.46.0] — 2026-08-20
+
+### Changed
+- **"Code map" is now "Files" — an IDE-style browser.** A navigator on the left carries the
+  mode switcher with three modes — **Overview** (the cause-grouped list, default), **Files
+  list** (a flat list of every file), and **Call graph** — and the selected file's view fills
+  the **main content area** beside it (no longer the right sidebar). Entering the tab lands on
+  the first file; clicking a file anywhere (any mode, a cross-link, a call-graph card) opens it
+  in that main view. **Call graph** renders the card-map (cards + connector edges) and the
+  dependency tree **full-width** in the main column — a 2D map needs the width — with the file
+  view beneath it. The exported PDF now follows the open file view (the file's diff/content),
+  with the navigator chrome and the map hidden in print. Spec + acceptance checklist in
+  `docs/files-tab.md`; goals guarded by `tests/files-tab.mjs`.
+
 ## [0.45.0] — 2026-08-20
 
 ### Fixed

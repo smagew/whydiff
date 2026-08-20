@@ -86,17 +86,19 @@ const shownInPop = await popup.evaluate(() => [...document.querySelectorAll('#pa
 if (shownInPop !== 1) fail(`pop-out should show exactly one diagram, showed ${shownInPop}`)
 await popup.close()
 
-// A sidebar action re-opens a manually collapsed aside — otherwise the click lands in
-// a force-hidden column and looks like nothing happened.
+// Files tab (IDE layout): the navigator (Overview | Files list | Call graph) is on the left,
+// the selected file's view fills the main content area. Entering the tab shows the first file.
 await page.locator('#tabs .tab[data-pane="files"]').click()
-await page.waitForTimeout(150)
-await page.locator('#asideToggle').click()
-await page.waitForTimeout(100)
-const asideCollapsed = () => page.evaluate(() => document.querySelector('.layout').classList.contains('aside-collapsed'))
-if (!(await asideCollapsed())) fail('the aside did not collapse on the toggle')
-await page.locator('#pane-files .node').first().click()
 await page.waitForTimeout(200)
-if (await asideCollapsed()) fail('a code-map drill-down did not re-open the collapsed aside')
+const firstView = (await page.locator('#filesView h3').textContent()) || ''
+if (!firstView.includes('/')) fail(`Files tab did not show the first file's view by default (got "${firstView}")`)
+// Clicking a different file (from the flat Files-list mode) opens it in the content area.
+await page.locator('#filesModebar .files-mode-btn[data-filesmode="list"]').click()
+await page.waitForTimeout(150)
+await page.locator('#filesList .files-flat-row').nth(1).click()
+await page.waitForTimeout(200)
+const secondView = (await page.locator('#filesView h3').textContent()) || ''
+if (!secondView.includes('/') || secondView === firstView) fail(`clicking a file in Files list did not open its view in the content area (got "${secondView}")`)
 
 // ── second pass: the user-stories tab ────────────────────────────────────────
 // Tabs are addressed by data-pane, not by index, so adding a tab cannot silently
