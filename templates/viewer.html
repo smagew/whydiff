@@ -490,7 +490,13 @@
      · hovering a CARD fades the labels lying on it (markOccluders), so a card can always be
        read in full — and they come straight back when the pointer leaves;
      · hovering a LABEL quiets the others, so one is never read through another. */
-  .elabels .elabel.occluded { opacity: 0; pointer-events: none; }
+  /* Faded, but NOT out of reach: the label lying on a card is exactly the one whose
+     description you want, and the only way to it is across the card that fades it. It keeps
+     its hit area, so pointing at where it was brings it back — the card's hover ends the
+     moment the pointer is over the label, which clears the fade. Taking pointer-events away
+     here made those popovers unreachable. */
+  .elabels .elabel.occluded { opacity: 0; }
+  .elabels .elabel.occluded:hover { opacity: 1; }
   .elabels:hover .elabel { opacity: .12; }
   .elabels .elabel:hover { opacity: 1; }
   .elabel-pop { display: none; position: absolute; top: calc(100% + 6px); left: 50%; transform: translateX(-50%);
