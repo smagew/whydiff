@@ -1887,11 +1887,13 @@ function setTab(id) {
   for (const b of tabsEl.children) b.classList.toggle('active', b.dataset.pane === id)
   for (const [pid] of PANES) document.getElementById('pane-' + pid).hidden = pid !== id
   if (id === 'files') requestAnimationFrame(drawEdges)
-  // Mermaid renders lazily on first open: hidden panes have no layout to measure.
-  if (id === 'diagrams' && !diagramsRendered && window.mermaid) {
-    diagramsRendered = true
-    requestAnimationFrame(runDiagrams)
-  }
+  // Mermaid renders lazily on first open: a hidden pane has no layout to measure — rendering
+  // into display:none yields NaN transforms and a broken diagram. Schedule a render when
+  // Diagrams becomes the shown tab; runDiagramsOnce bails while the pane is still hidden and
+  // latches diagramsRendered ONLY after a real (visible) render — so if a render is scheduled
+  // and then the tab is switched away (e.g. flashTab after a Generate), it does not render into
+  // the hidden pane, and opening Diagrams later renders it properly instead of leaving it broken.
+  if (id === 'diagrams' && !diagramsRendered && window.mermaid) requestAnimationFrame(runDiagrams)
   updatePdfBtn(id)
 }
 // The content PDF button belongs to real content: on an un-generated section (its pane is
@@ -1963,7 +1965,11 @@ let dgChain = Promise.resolve()
 function runDiagrams() { dgChain = dgChain.catch(() => {}).then(() => runDiagramsOnce()); return dgChain }
 async function runDiagramsOnce() {
   if (!window.mermaid) return
-  const pres = [...document.querySelectorAll('#pane-diagrams pre.mermaid')]
+  // Never render into a hidden pane: mermaid measures the container, and display:none gives it
+  // zero/NaN geometry → "translate(undefined, NaN)" and a broken diagram that then sticks.
+  const pane = document.getElementById('pane-diagrams')
+  if (!pane || pane.hidden) return
+  const pres = [...pane.querySelectorAll('pre.mermaid')]
   if (!pres.length) return
   mermaid.initialize(mermaidTheme())
   // Render each diagram on its own so a bad one (the generator can emit bad mermaid)
@@ -1991,6 +1997,7 @@ async function runDiagramsOnce() {
     }
   }
   fitDiagrams()
+  diagramsRendered = true // latch only after a real (visible) render, so a hidden-pane bail retries on open
 }
 
 // Grow each diagram toward the width of its row so it reads more comfortably, but cap
