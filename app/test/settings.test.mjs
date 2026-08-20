@@ -49,9 +49,12 @@ console.log('OK: settings (token encrypted on disk, round-trips, clears, refuses
 // ── appearance ───────────────────────────────────────────────────────────────
 // The theme preference lives in the same file but is plain text — there is nothing secret
 // about a colour scheme, and it must survive a keychain that refuses to work.
-ok(s.getTheme() === 'system', 'appearance defaults to following the OS')
+// Dark out of the box: it is the appearance the map windows are designed in, and following
+// the OS is something the user opts into rather than something we assume.
+ok(s.getTheme() === 'dark', 'appearance defaults to dark')
 ok(s.setTheme('light') === 'light', 'setTheme returns what it stored')
 ok(s.getTheme() === 'light', 'the choice persists')
 ok(openSettings(file, fakeStore).getTheme() === 'light', 'and survives a reopen')
-ok(s.setTheme('nonsense') === 'system', 'an unknown value falls back to system rather than sticking')
-ok(openSettings(file, unavailable).getTheme() === 'system', 'the theme is readable with no keychain at all')
+ok(s.setTheme('system') === 'system', 'following the OS stays available as a choice')
+ok(s.setTheme('nonsense') === 'dark', 'an unknown value falls back to the default rather than sticking')
+ok(openSettings(file, unavailable).getTheme() === 'dark', 'the theme is readable with no keychain at all')
