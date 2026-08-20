@@ -333,6 +333,30 @@
   .ovg-view:hover { border-color: var(--accent); color: var(--accent); }
   .ovg-view:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   /* aside sub-tabs: Overview | Call graph */
+  /* Files tab: IDE layout — a navigator on the left (mode switcher + list/map), the selected
+     file's view in the main area on the right. */
+  .files-layout { display: flex; gap: 20px; align-items: flex-start; }
+  .files-nav { flex: none; width: 340px; min-width: 240px; align-self: stretch; }
+  .files-main { flex: 1 1 auto; min-width: 0; }
+  /* Call graph fills the main column full-width; the file view sits beneath it. */
+  .files-callfull { margin: 0 0 16px; }
+  .files-view { min-width: 0; }
+  .files-view:empty::before { content: attr(data-empty); color: var(--muted); font-size: 13px; }
+  .files-modebar { display: flex; gap: 4px; margin: 0 0 14px; border-bottom: 1px solid var(--line); }
+  .files-mode-btn { font: inherit; font-family: var(--mono); font-size: 13px; cursor: pointer; padding: 6px 9px;
+    border: none; border-bottom: 2px solid transparent; background: none; color: var(--muted); }
+  .files-mode-btn:hover { color: var(--accent); }
+  .files-mode-btn.on { color: var(--ink); border-bottom-color: var(--accent); }
+  .files-mode-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  /* the flat Files-list mode */
+  .files-flat { display: flex; flex-direction: column; gap: 1px; }
+  .files-flat-row { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; font: inherit;
+    font-size: 13px; cursor: pointer; background: none; border: none; border-radius: 4px; padding: 5px 8px; color: var(--ink-2); }
+  .files-flat-row:hover { color: var(--accent); }
+  .files-flat-row.active { color: var(--accent); background: var(--accent-bg); }
+  .files-flat-row .ff-path { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .files-flat-row .ff-stat { flex: none; font-family: var(--mono); font-size: 13px; }
+  @media (max-width: 900px) { .files-layout { flex-direction: column; } .files-nav { width: auto; } }
   .aside-subtabs { display: flex; gap: 4px; margin: 0 0 14px; }
   .aside-subtab { font: inherit; font-family: var(--mono); font-size: 13px; cursor: pointer; padding: 4px 10px;
     border-radius: 5px; border: 1px solid var(--line); background: var(--surface-2); color: var(--muted); }
@@ -1129,6 +1153,7 @@
     #tabs, #scopebar, #consistency, .footstrip, .aside-toggle, .help-btn, .themepick, .toggle,
     .askpanel, .askbar, .rail, .rc-grip, .rc-grip-pill, .rightcol, .modebar, .content-tools,
     #edges, #elabels, .elabels, .elabel, .dg-badges, .dg-region,
+    .files-nav, .files-modebar, #filesCall,
     .kicker, #title, .sub, #statbar,
     #diagramsHint, #blastHint, .dg-actions, .dg-zoom, [data-pop] { display: none !important; }
     /* Clamp the whole reading column to the paper width. The PDF renderer lays out at the
@@ -1206,18 +1231,36 @@
       </div>
 
       <div id="pane-files" class="pane" hidden>
-        <div class="files-hint">
-          <label class="toggle"><input type="checkbox" id="allEdges" checked> <span id="edgesToggleLabel"></span></label>
-          <small style="color:var(--muted)" id="filesHintText"></small>
+        <div class="files-modebar" id="filesModebar" role="tablist"></div>
+        <div class="files-layout" id="filesLayout">
+          <!-- Left navigator: Overview / Files list (narrow). Hidden in Call graph mode,
+               where the map takes the full width of the main column. -->
+          <nav class="files-nav" id="filesNav">
+            <div class="files-nav-body" id="filesNavBody">
+              <!-- Overview list (mode=overview) -->
+              <div id="filesOverview" class="files-mode"></div>
+              <!-- Flat files list (mode=list) -->
+              <div id="filesList" class="files-mode" hidden></div>
+            </div>
+          </nav>
+          <div class="files-main" id="filesMain">
+            <!-- Call graph: the card-map + the dependency tree render FULL-WIDTH here, above the
+                 file view (mode=callgraph). A 2D map needs the width; a card click opens the file
+                 below it. -->
+            <div id="filesCall" class="files-mode files-callfull" hidden>
+              <div class="files-hint">
+                <label class="toggle"><input type="checkbox" id="allEdges" checked> <span id="edgesToggleLabel"></span></label>
+                <small style="color:var(--muted)" id="filesHintText"></small>
+              </div>
+              <div id="map">
+                <svg id="edges" aria-hidden="true"></svg>
+                <div class="groups" id="groups"></div>
+              </div>
+              <div id="callTree"></div>
+            </div>
+            <section class="files-view" id="filesView" aria-live="polite"></section>
+          </div>
         </div>
-        <div id="map">
-          <svg id="edges" aria-hidden="true"></svg>
-          <div class="groups" id="groups"></div>
-        </div>
-        <details class="manifest">
-          <summary id="manifestSummary"></summary>
-          <div id="manifestRows"></div>
-        </details>
       </div>
     </section>
 
@@ -1271,7 +1314,7 @@ const I18N = {
     statLines: 'lines', statGroups: 'cause groups',
     statAttention: 'files need careful reading', statEnv: 'env changes',
     consistency: 'Manifest entries missing a description on the map: ',
-    tabs: { story: 'Summary', tasks: 'Review', stories: 'User stories', diagrams: 'Diagrams', standards: 'Standards', tests: 'Tests', ops: 'Ops & risks', files: 'Code map' },
+    tabs: { story: 'Summary', tasks: 'Review', stories: 'User stories', diagrams: 'Diagrams', standards: 'Standards', tests: 'Tests', ops: 'Ops & risks', files: 'Files' },
     tasksHint: 'What is still unsettled about this change: work you agreed to, plans you turned down, questions nobody has answered, and problems the map found that nobody has decided about. Nothing here runs on its own.',
     reviewOpen: 'Review', reviewBack: 'Report', reviewTitle: 'Everything still unsettled about this change',
     reviewOpenTitle: 'Leave the report and open the review: agreed work, turned-down plans, open questions, undecided findings',
@@ -1343,7 +1386,7 @@ const I18N = {
     viewChange: 'view', viewChangeTitle: 'Show the change with its explanation',
     callGraphTab: 'Call graph', callGraphEmpty: 'This change has no tracked connections between files.',
     fold: (name) => `Collapse/expand: ${name}`,
-    overviewTag: 'Overview', overviewTitle: 'How to read this map',
+    overviewTag: 'Overview', filesListTab: 'Files list', overviewTitle: 'How to read this map',
     overviewBody: 'The <b>Logic</b> tab reads top to bottom: each block exists <i>because of</i> the previous one. Click any file on any tab — details and code appear in the inspector. Groups are reviewer roles:',
     helpLink: 'how to read this map',
     scopeTitle: (s) => `Highlight only "${s}" files on the Files tab`,
@@ -1424,7 +1467,7 @@ const I18N = {
     statLines: 'строк', statGroups: 'групп причин',
     statAttention: 'файла внимательного чтения', statEnv: 'env-изменений',
     consistency: 'В манифесте есть файлы без описания на карте: ',
-    tabs: { story: 'Сводка', tasks: 'Ревью', stories: 'User stories', diagrams: 'Диаграммы', standards: 'Стандарты', tests: 'Тесты', ops: 'Операции и риски', files: 'Карта кода' },
+    tabs: { story: 'Сводка', tasks: 'Ревью', stories: 'User stories', diagrams: 'Диаграммы', standards: 'Стандарты', tests: 'Тесты', ops: 'Операции и риски', files: 'Файлы' },
     tasksHint: 'Что по этому изменению ещё не решено: задачи, на которые вы согласились, отклонённые планы, вопросы без ответа и находки карты, по которым никто не принял решения. Само здесь ничего не запускается.',
     reviewOpen: 'Ревью', reviewBack: 'Отчёт', reviewTitle: 'Всё, что по этому изменению ещё не решено',
     reviewOpenTitle: 'Выйти из отчёта в ревью: согласованные задачи, отклонённые планы, открытые вопросы, нерешённые находки',
@@ -1496,7 +1539,7 @@ const I18N = {
     viewChange: 'разбор', viewChangeTitle: 'Показать изменение с описанием',
     callGraphTab: 'Граф вызовов', callGraphEmpty: 'В этом изменении нет отслеженных связей между файлами.',
     fold: (name) => `Свернуть/развернуть: ${name}`,
-    overviewTag: 'Обзор', overviewTitle: 'Как читать эту карту',
+    overviewTag: 'Обзор', filesListTab: 'Список файлов', overviewTitle: 'Как читать эту карту',
     overviewBody: 'Вкладка <b>«Логика»</b> читается сверху вниз: каждый блок существует <i>из-за</i> предыдущего. Клик по файлу в любой вкладке — детали и код в инспекторе. Группы — это роли:',
     helpLink: 'как читать карту',
     scopeTitle: (s) => `Подсветить только файлы «${s}» на вкладке «Файлы»`,
@@ -1865,7 +1908,9 @@ document.querySelector('.main-panel')?.prepend(contentTools)
 // column full width; a cross-link or a diagram node still reveals the aside on
 // demand for a file drill-down (revealAside), and it collapses again on Back or a
 // tab change (see closeDrill).
-const ASIDE_TABS = new Set(['files'])
+// No tab uses the outer right-column aside by default now — the Files tab has its own
+// nav+view split, and other tabs reveal the aside on demand for a cross-link drill-down.
+const ASIDE_TABS = new Set()
 const layoutEl = document.querySelector('.layout')
 let currentTab = defaultTab
 // Toggling the aside changes the reading column's width, so refit the diagrams to it.
@@ -1886,7 +1931,13 @@ function setTab(id) {
   applyAside(id)
   for (const b of tabsEl.children) b.classList.toggle('active', b.dataset.pane === id)
   for (const [pid] of PANES) document.getElementById('pane-' + pid).hidden = pid !== id
-  if (id === 'files') requestAnimationFrame(drawEdges)
+  if (id === 'files') {
+    requestAnimationFrame(drawEdges)
+    // The file view fills the main area: show the current file (a cross-tab drill may have set
+    // one), else land on the first file. showFile routes into #filesView while this tab is active.
+    const path = currentFile || (typeof allPaths !== 'undefined' ? allPaths[0] : null)
+    if (path) showFile(path)
+  }
   // Mermaid renders lazily on first open: a hidden pane has no layout to measure — rendering
   // into display:none yields NaN transforms and a broken diagram. Schedule a render when
   // Diagrams becomes the shown tab; runDiagramsOnce bails while the pane is still hidden and
@@ -2461,6 +2512,7 @@ for (const g of RM.groups) {
     if (!f) continue
     const el = document.createElement('button')
     el.className = 'node'
+    el.dataset.path = path
     const lang = langOf(path)
     const links = crossLinks[path]
     const linksHTML = links?.length ? `<span class="node-links">${links.map(l =>
@@ -2487,6 +2539,9 @@ function anchorEl(path) {
   return groupEls[gid]?.classList.contains('collapsed') ? headEls[gid] : nodeEls[path]
 }
 function drawEdges() {
+  // The card-map lives in the Call-graph mode of the Files tab; skip when that mode is not
+  // shown (a hidden pane has no layout, so connectors would compute at 0,0).
+  if (document.getElementById('filesCall')?.hidden) return
   const map = document.getElementById('map')
   const mapBox = map.getBoundingClientRect()
   svg.innerHTML = ''
@@ -2634,15 +2689,16 @@ allEdges.addEventListener('change', () => { SESSION.set('allEdges', allEdges.che
 allEdges.checked = !BIG_MAP
 syncAllEdges()
 
-const manifestRows = document.getElementById('manifestRows')
-document.getElementById('manifestSummary').textContent = L.manifestSummary(RM.manifest.length)
+// The flat "Files list" navigator mode: every file, in manifest order. (Kept in the var
+// `manifestRows` so the read-progress logic that toggles `.seen`/reads its children is unchanged.)
+const manifestRows = document.getElementById('filesList')
 for (const [path, add, del, gid, isNew] of RM.manifest) {
   const row = document.createElement('button')
-  row.className = 'mrow'
+  row.className = 'files-flat-row'
   row.dataset.path = path
   row.style.setProperty('--mc', gcolor(gid))
-  row.innerHTML = `${fileIconSVG(path)}<span class="mpath">${esc(path)}${isNew ? ` <span class="mnew">${L.newMark}</span>` : ''}</span>
-    <span class="mstat"><span class="a">+${add}</span> <span class="d">−${del}</span></span>`
+  row.innerHTML = `${fileIconSVG(path)}<span class="ff-path">${esc(path)}${isNew ? ` <span class="mnew">${L.newMark}</span>` : ''}</span>
+    <span class="ff-stat"><span class="a">+${add}</span> <span class="d">−${del}</span></span>`
   row.addEventListener('click', () => showFile(path))
   manifestRows.appendChild(row)
 }
@@ -2674,31 +2730,57 @@ function setAsideWide(on) {
 // other tab the aside was revealed just for this drill-down, so collapse it again
 // rather than leaving the Overview | Call graph switcher on a tab that shouldn't
 // carry it.
+// Back out of a cross-tab drill-down (the on-demand aside). On the Files tab the file view is
+// the main content and stays put — you pick another file from the navigator, so there is
+// nothing to "close".
 function closeDrill() {
-  if (ASIDE_TABS.has(currentTab)) showOverview()
-  else applyAside(currentTab)
+  if (currentTab === 'files') return
+  applyAside(currentTab)
 }
-function showFile(path) {
+const filesView = document.getElementById('filesView')
+let currentFile = null
+// The file's view — path, why, diff, in/out links, Open-full-file. `back` adds the Back button
+// used only in the cross-tab aside drill-down.
+function fileViewHTML(path, { back = false } = {}) {
   const f = RM.files[path]
-  if (!f) return
+  if (!f) return ''
   const g = RM.groups.find(g => g.id === fileGroup[path])
-  revealAside()
-  setAsideWide(true)
-  setActive(path)
   const hasFull = !!RM.fullFiles?.[path]
-  inspector.innerHTML = `
-    <div class="actions actions-top"><button class="btn btn-back">${L.back}</button></div>
+  return `
+    ${back ? `<div class="actions actions-top"><button class="btn btn-back">${L.back}</button></div>` : ''}
     <p class="insp-tag" style="color:${gcolor(g?.id)}">${esc(g?.tag || '')}</p>
     <h3>${esc(path)}</h3>
     <div class="why">${prose(f.why)}</div>
     ${codeboxHTML(path, f)}
     ${relsHTML(path)}
     <div class="actions">
-      ${hasFull ? `<button class="btn primary" id="openFull">${L.openFull}</button>` : ''}
-      <button class="btn btn-back">${L.back}</button>
+      ${hasFull ? `<button class="btn primary" data-openfull="${esc(path)}">${L.openFull}</button>` : ''}
+      ${back ? `<button class="btn btn-back">${L.back}</button>` : ''}
     </div>`
-  if (hasFull) document.getElementById('openFull').addEventListener('click', () => openFull(path))
-  inspector.querySelectorAll('.btn-back').forEach(b => b.addEventListener('click', closeDrill))
+}
+function markFilesActive(path) {
+  for (const r of manifestRows.children) r.classList.toggle('active', r.dataset.path === path)
+  for (const r of document.querySelectorAll('#filesOverview .ovg-file')) {
+    r.classList.toggle('active', r.querySelector('[data-gofile]')?.dataset.gofile === path)
+  }
+}
+function showFile(path) {
+  const f = RM.files[path]
+  if (!f) return
+  currentFile = path
+  setActive(path)
+  if (currentTab === 'files') {
+    // Files tab: the file view fills the MAIN content area beside the navigator.
+    filesView.innerHTML = fileViewHTML(path, { back: false })
+    markFilesActive(path)
+  } else {
+    // A cross-link from another tab (Standards/Tests/a diagram node): drill into the aside.
+    revealAside()
+    setAsideWide(true)
+    inspector.innerHTML = fileViewHTML(path, { back: true })
+    inspector.querySelectorAll('.btn-back').forEach(b => b.addEventListener('click', closeDrill))
+  }
+  for (const b of document.querySelectorAll('[data-openfull]')) b.onclick = () => openFull(b.dataset.openfull)
 }
 function showGroup(g) {
   revealAside()
@@ -2817,28 +2899,22 @@ function gotoFile(path) {
   if (gid) groupEls[gid]?.classList.remove('collapsed')
   showFile(path)
 }
-// Jump the reading column to a group block (overview title → its section on Files).
+// A group name reveals the card-map (Call-graph mode) and scrolls to that group's block.
 function jumpToGroup(gid) {
+  if (currentTab !== 'files') setTab('files')
+  if (typeof setFilesMode === 'function') setFilesMode('callgraph')
   const sec = groupEls[gid]
   if (!sec) return
-  if (currentTab !== 'files') setTab('files')
   sec.classList.remove('collapsed')
   requestAnimationFrame(() => {
     sec.scrollIntoView({ behavior: 'smooth', block: 'start' })
     sec.classList.remove('flash'); void sec.offsetWidth; sec.classList.add('flash')
   })
 }
-// Scroll the reading column to a file's node block (overview path → its card on Files).
+// Clicking a file anywhere opens its file view in the main content area.
 function jumpToFile(path) {
-  const gid = fileGroup[path]
   if (currentTab !== 'files') setTab('files')
-  if (gid) groupEls[gid]?.classList.remove('collapsed')
-  const el = nodeEls[path]
-  if (!el) return
-  requestAnimationFrame(() => {
-    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash')
-  })
+  showFile(path)
 }
 document.addEventListener('click', (e) => {
   const sv = e.target.closest('[data-asideview]')
@@ -3237,7 +3313,24 @@ addEventListener('keydown', (e) => {
   if (/^[1-9]$/.test(k) && TAB_KEYS[+k - 1]) return go(() => setTab(TAB_KEYS[+k - 1]))
 })
 
-showOverview()
+// ── Files tab navigator: mode switcher (Overview | Files list | Call graph) + content ──
+const filesModebar = document.getElementById('filesModebar')
+const FILES_MODES = [['overview', L.overviewTag], ['list', L.filesListTab], ['callgraph', L.callGraphTab]]
+filesModebar.innerHTML = FILES_MODES.map(([m, label]) => `<button type="button" class="files-mode-btn" data-filesmode="${m}">${esc(label)}</button>`).join('')
+document.getElementById('filesOverview').innerHTML = overviewGroupsHTML()
+document.getElementById('callTree').innerHTML = callGraphHTML()
+function setFilesMode(mode) {
+  for (const b of filesModebar.children) b.classList.toggle('on', b.dataset.filesmode === mode)
+  document.getElementById('filesOverview').hidden = mode !== 'overview'
+  document.getElementById('filesList').hidden = mode !== 'list'
+  document.getElementById('filesCall').hidden = mode !== 'callgraph'
+  // Call graph takes the whole width: hide the narrow navigator so the 2D map has room; the file
+  // view stays below the map in the main column.
+  document.getElementById('filesNav').hidden = mode === 'callgraph'
+  if (mode === 'callgraph') requestAnimationFrame(drawEdges) // the map needs a visible layout to place connectors
+}
+filesModebar.addEventListener('click', (e) => { const b = e.target.closest('[data-filesmode]'); if (b) setFilesMode(b.dataset.filesmode) })
+setFilesMode('overview')
 refreshSeen()
 // The default-visible pane in the HTML is the first one; sync the reading area to
 // the chosen default tab (Diagrams, or the Code map when there are none).

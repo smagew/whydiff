@@ -39,7 +39,9 @@ for (const width of [1400, 1100, 900]) {
   page.on('pageerror', (e) => errs.push(String(e.message)))
   await page.goto('file://' + htmlPath)
   await page.waitForTimeout(1200)
-  await page.locator('.tab', { hasText: 'Code map' }).click()
+  await page.locator('.tab', { hasText: 'Files' }).click()
+  // The card-map (nodes + connector edge labels) now lives in the Call graph mode of the Files tab.
+  await page.locator('#filesModebar .files-mode-btn[data-filesmode="callgraph"]').click()
   await page.waitForTimeout(600)
   const at = (m) => `[${width}px] ${m}`
 
