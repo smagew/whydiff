@@ -87,7 +87,9 @@ acceptance-first (spec-driven), not a framework: the discipline is the point.
      spans variants (diagram types, palettes, OS, window sizes, reduced-motion),
      verify the one that actually breaks — not the convenient one — and cover it.
      Never write "works on all X" from one sample.
-- **Design system** (`tests/design.mjs` fails the build otherwise): hex colours
+- **Design system** (`tests/design.mjs` fails the build otherwise) — it covers BOTH
+  surfaces, `templates/viewer.html` and the desktop shell's
+  `app/src/renderer/styles.css`, because the two windows sit side by side: hex colours
   live only in the token block on `:root`/`[data-p=…]` — nowhere else;
   `border-radius` ≤ 5px for any single value; font-size ≥ 13px everywhere; no
   `text-transform: uppercase`; no drop shadows on non-overlays; one level of box

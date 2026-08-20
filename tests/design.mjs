@@ -40,6 +40,41 @@ for (const w of ['successfully', 'simply', 'seamless', 'leverage', 'unlock']) {
 }
 if (!/prefers-reduced-motion/.test(tpl)) fail('no prefers-reduced-motion block')
 
+// ── the desktop shell ────────────────────────────────────────────────────────
+// The app window and a map window sit side by side on the same desktop, so the shell obeys
+// the same system as the viewer. Same rules, applied statically to its one stylesheet: the
+// shell has no generated content, so there is nothing here to check in a browser.
+{
+  const css = readFileSync(join(root, 'app', 'src', 'renderer', 'styles.css'), 'utf8')
+  const where = 'app/src/renderer/styles.css'
+  // Everything above the reset is the token block: `:root` plus its light-scheme override.
+  const tokens = css.indexOf('* { box-sizing: border-box; }')
+  if (tokens === -1) fail(`${where}: no reset marker, so the token block cannot be delimited`)
+  const body = css.slice(tokens).replace(/\/\*[\s\S]*?\*\//g, '')
+  const colour = /#[0-9a-fA-F]{3,8}\b|\brgba?\(\s*\d/g
+
+  const strayColour = [...body.matchAll(colour)].map(m => m[0])
+  if (strayColour.length) fail(`${where}: colour literal outside the token block: ${[...new Set(strayColour)].join(', ')} — use a token`)
+  const radii = [...body.matchAll(/border-radius: ([0-9.]+)px/g)].map(m => +m[1]).filter(r => r > 5 && r !== 0)
+  if (radii.length) fail(`${where}: border-radius above 5px: ${[...new Set(radii)].join(', ')}`)
+  const small = [...body.matchAll(/font-size: ([0-9.]+)px/g)].map(m => +m[1]).filter(v => v < 13)
+  if (small.length) fail(`${where}: type below 13px: ${[...new Set(small)].join(', ')}`)
+  const heavy = [...body.matchAll(/font-weight: (\d+)/g)].map(m => +m[1]).filter(w => w !== 400 && w !== 500)
+  if (heavy.length) fail(`${where}: weights outside 400/500: ${[...new Set(heavy)].join(', ')}`)
+  if (/text-transform: uppercase/.test(body)) fail(`${where}: ALL CAPS label`)
+  if (/0\.5px solid/.test(body)) fail(`${where}: sub-pixel hairline border`)
+  if (!/prefers-reduced-motion/.test(css)) fail(`${where}: no prefers-reduced-motion block (it animates a spinner and a progress bar)`)
+  // A shadow is for things that float above the page. Named explicitly, so a new one has to
+  // be argued for rather than copied in.
+  const OVERLAYS = ['.rowmenu-pop', '.log-modal', '.modal-back']
+  for (const rule of body.split('}')) {
+    if (!/box-shadow:\s*(?!none)/.test(rule)) continue
+    const selector = rule.split('{')[0].trim()
+    if (!OVERLAYS.some(o => selector.includes(o))) fail(`${where}: shadow on a non-overlay: ${selector}`)
+  }
+  console.log('✓ design: the desktop shell obeys the same tokens, radii, type and shadow rules')
+}
+
 // ── rendered ─────────────────────────────────────────────────────────────────
 const work = mkdtempSync(join(tmpdir(), 'whydiff-design-'))
 const rm = JSON.parse(readFileSync(join(root, 'examples', 'rate-limit', 'review-map.json'), 'utf8'))

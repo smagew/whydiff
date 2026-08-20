@@ -45,3 +45,13 @@ ok(threw, 'setToken must refuse when the keychain is unavailable')
 ok(s2.tokenStatus().available === false && s2.tokenStatus().stored === false, 'status reflects unavailable keychain')
 
 console.log('OK: settings (token encrypted on disk, round-trips, clears, refuses plaintext without a keychain)')
+
+// ── appearance ───────────────────────────────────────────────────────────────
+// The theme preference lives in the same file but is plain text — there is nothing secret
+// about a colour scheme, and it must survive a keychain that refuses to work.
+ok(s.getTheme() === 'system', 'appearance defaults to following the OS')
+ok(s.setTheme('light') === 'light', 'setTheme returns what it stored')
+ok(s.getTheme() === 'light', 'the choice persists')
+ok(openSettings(file, fakeStore).getTheme() === 'light', 'and survives a reopen')
+ok(s.setTheme('nonsense') === 'system', 'an unknown value falls back to system rather than sticking')
+ok(openSettings(file, unavailable).getTheme() === 'system', 'the theme is readable with no keychain at all')
