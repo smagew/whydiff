@@ -147,6 +147,19 @@ const region = async (dgIndex, sel, label) => {
   await page.evaluate(() => document.getElementById('asideReopen')?.click())
   await page.waitForTimeout(500)
   covers(await frameActors(dgIndex, sel), 'after sidebar toggle')
+  // Zoom must not desync the frame from its nodes: zooming rescales the SVG, so the frame must
+  // redraw at the new scale; and once zoomed the box scrolls, so panning must keep them aligned.
+  const dgSel = `#pane-diagrams .diagram[data-anchor="diagram:${dgIndex}"]`
+  await page.locator(`${dgSel} .dg-zoom [data-dg-zoom="in"]`).click()
+  await page.locator(`${dgSel} .dg-zoom [data-dg-zoom="in"]`).click()
+  await page.waitForTimeout(400)
+  covers(await frameActors(dgIndex, sel), 'after zoom in')
+  await page.evaluate((s) => { const b = document.querySelector(`${s} .mermaid-box`); b.scrollLeft += 50; b.scrollTop += 30 }, dgSel)
+  await page.waitForTimeout(200)
+  covers(await frameActors(dgIndex, sel), 'after zoom + pan (scroll)')
+  await page.locator(`${dgSel} .dg-zoom [data-dg-fit]`).click()
+  await page.waitForTimeout(300)
+  covers(await frameActors(dgIndex, sel), 'after fit reset')
 }
 
 await region(0, '#pane-diagrams .diagram[data-anchor="diagram:0"] svg .node', 'flowchart')  // flowchart nodes
