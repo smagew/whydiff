@@ -5,6 +5,13 @@ future agents (and you) read this before touching the area.
 
 ## Viewer (`templates/viewer.html`)
 
+- **The design gate covers the desktop shell too.** `tests/design.mjs` checks
+  `app/src/renderer/styles.css` with the same rules it applies to the viewer (radius ≤ 5px,
+  font ≥ 13px, weights 400/500, colour literals only above the `* { box-sizing… }` marker,
+  shadows only on the named overlays, a `prefers-reduced-motion` block). Both appearances
+  live in that one token block — Electron drives the renderer's `prefers-color-scheme` from
+  `nativeTheme.themeSource`, so the Light/Dark/System switch needs no class plumbing, and a
+  colour hard-coded outside the block silently breaks one of the two themes.
 - **Design test is a hard gate.** `tests/design.mjs` fails the build on: any
   single `border-radius` > 5px, any `font-size` < 13px, `text-transform: uppercase`,
   a hex colour outside the `:root`/`[data-p]` token block, a shadow on a
@@ -76,6 +83,24 @@ future agents (and you) read this before touching the area.
 - **Diagram comments pin to the caption, not the node** — by design (the glyph never goes
   inside the fit-scaled SVG). Text-selection comments pin exactly. Don't "fix" this without a
   robust in-SVG anchor.
+
+## Desktop app (`app/`)
+
+- **Asking the login shell for PATH is slow — never on the critical path.** `$SHELL -lic`
+  costs whatever the user's rc files cost (~0.8s here, seconds on a heavy zshrc). The window
+  opens on `quickPath()` (inherited PATH ∪ the usual bin dirs) and `pathReady` resolves the
+  real one in the background; anything that spawns `claude`/`git` — analyze, clone, the
+  preflight — must `await pathReady` first, or it reports a false "not found".
+- **Electron is the only way to test the theme.** Playwright's `colorScheme` emulation proves
+  the CSS, not the wiring: the app's Light/Dark/System switch works through
+  `nativeTheme.themeSource`, which only exists in a real Electron run. Drive it with a tiny
+  `electron <script.cjs>` harness that requires `out/main/index.js`, calls the IPC, and reads
+  `getComputedStyle(document.body).backgroundColor` back.
+- **A stretched link cannot wrap another control.** The project row opens the project AND has
+  a Remove button. A `<button>` row wrapping a `<span onClick>` looked fine and was
+  unreachable by keyboard; a button inside a button is invalid. The row is a plain element,
+  the name is a button with a stretched `::after`, and Remove is a sibling button with
+  `z-index` above it.
 
 ## Generator (`scripts/`, `agents/`, `skills/`)
 

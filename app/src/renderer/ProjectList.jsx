@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import RowMenu from './RowMenu.jsx'
 import { refLabel, reviewPills } from './logic.mjs'
 
 // The project list: add a local folder or a GitHub URL, and open one to review it.
@@ -52,13 +53,20 @@ export default function ProjectList({ onOpen }) {
   const [ver, setVer] = useState('') // the running app version, for the About footer
   const [checking, setChecking] = useState(false)
   const [checkMsg, setCheckMsg] = useState('') // result of a manual "Check for updates"
+  const [busyId, setBusyId] = useState(null) // "<id>:html" | "<id>:pdf" — one export at a time
+  const [theme, setThemeState] = useState('system') // 'system' | 'light' | 'dark'
 
   const refresh = async () => {
     setProjects(await window.api.listProjects())
     setLatest(await window.api.latestAnalyses(8))
     setToken(await window.api.tokenStatus())
   }
-  useEffect(() => { refresh(); window.api.appVersion?.().then(setVer).catch(() => {}) }, [])
+  // A rejected call here used to leave an empty screen with nothing said; show the reason.
+  useEffect(() => {
+    refresh().catch((e) => setError(e?.message || String(e)))
+    window.api.appVersion?.().then(setVer).catch(() => {})
+    window.api.getTheme?.().then((t) => setThemeState(t?.preference || 'system')).catch(() => {})
+  }, [])
   // Check for a newer app build once, and remember a dismissal per version so the
   // banner doesn't nag — until an even newer one ships.
   useEffect(() => {
@@ -80,8 +88,14 @@ export default function ProjectList({ onOpen }) {
     finally { setChecking(false) }
   }
   const openAnalysis = async (id) => { setError(''); try { await window.api.openAnalysis(id, { work: edits }) } catch (e) { setError(e?.message || String(e)) } }
-  const exportAnalysis = async (id) => { setError(''); try { await window.api.exportAnalysis(id) } catch (e) { setError(e?.message || String(e)) } }
-  const exportAnalysisPdf = async (id) => { setError(''); try { await window.api.exportAnalysisPdf(id) } catch (e) { setError(e?.message || String(e)) } }
+  // An export takes seconds (the PDF one serves the map and prints it off-screen). Mark the
+  // row as working so it reads as in-flight and cannot be fired a second time.
+  const runExport = async (id, kind) => {
+    setError(''); setBusyId(`${id}:${kind}`)
+    try { await (kind === 'pdf' ? window.api.exportAnalysisPdf(id) : window.api.exportAnalysis(id)) }
+    catch (e) { setError(e?.message || String(e)) } finally { setBusyId(null) }
+  }
+  const pickTheme = async (t) => { setThemeState(t); try { await window.api.setTheme?.(t) } catch {} }
   const saveToken = () => guard(async () => { setToken(await window.api.setToken(tokenInput.trim())); setTokenInput(''); setShowToken(false) })
   const clearToken = () => guard(async () => { setToken(await window.api.clearToken()) })
 
@@ -106,7 +120,7 @@ export default function ProjectList({ onOpen }) {
                 for it (assetUrl null), fall back to the release page. */}
             <button className="btn" title={upd.assetUrl ? 'Download the installer for this computer' : 'Open the release page'} onClick={() => window.api.openRelease(upd.assetUrl || upd.url)}>Download</button>
             {upd.assetUrl && <button className="btn ghost" title="All downloads" onClick={() => window.api.openRelease(upd.url)}>All files</button>}
-            <span className="x" title="Dismiss" onClick={dismissUpd}>✕</span>
+            <button className="x" type="button" aria-label="Dismiss this update notice" title="Dismiss" onClick={dismissUpd}>✕</button>
           </span>
         </div>
       )}
@@ -149,33 +163,37 @@ export default function ProjectList({ onOpen }) {
 
       {error ? <div className="err">{error}</div> : null}
 
-      <section className="list">
+      <section className="sec list">
         {projects.length === 0 ? (
           <div className="empty">No projects yet. Add a local folder or a GitHub repo to start.</div>
         ) : (
           projects.map((p) => (
-            <button className="row row-btn" key={p.id} onClick={() => onOpen(p)} title="Open">
+            /* The whole row opens the project, but Remove has to be its own control — a
+               button inside a button is invalid, and the ✕ span it replaces could not be
+               reached by keyboard at all. The open button is stretched over the row
+               (::after, in the stylesheet) so the big click target survives. */
+            <div className="row row-open" key={p.id}>
               <span className={`tag ${p.kind}`}>{p.kind}</span>
               <div className="meta">
-                <div className="name">{p.name}</div>
+                <button className="rowlink name" onClick={() => onOpen(p)}>{p.name}</button>
                 <div className="loc">{p.kind === 'local' ? p.path : p.url}</div>
               </div>
-              <span className="x" title="Remove" onClick={(e) => remove(e, p.id)}>✕</span>
-            </button>
+              <button className="x" type="button" aria-label={`Remove ${p.name}`} title="Remove" onClick={(e) => remove(e, p.id)}>✕</button>
+            </div>
           ))
         )}
       </section>
 
       {latest.length > 0 && (
-        <>
+        <section className="sec">
           <div className="sec-head">
-            <div className="sec-title">Latest analyses</div>
+            <h2 className="sec-title">Latest analyses</h2>
             <label className="opt-full sm">
               <input type="checkbox" checked={edits} onChange={(e) => setEdits(e.target.checked)} />
               <span>Allow edits <span className="hint">— work a fix in a worktree (uses tokens)</span></span>
             </label>
           </div>
-          <section className="list">
+          <div className="list">
             {latest.map((a) => (
               <div className="row" key={a.id}>
                 <span className={`tag ${a.kind === 'working' ? 'local' : ''}`}>{a.kind}</span>
@@ -185,18 +203,29 @@ export default function ProjectList({ onOpen }) {
                 </div>
                 <ReviewCounts counts={a.counts} />
                 <button className="btn" onClick={() => openAnalysis(a.id)}>View</button>
-                <button className="btn ghost" title="Export a shareable HTML file with the notes baked in" onClick={() => exportAnalysis(a.id)}>Export</button>
-                <button className="btn ghost" title="Export a PDF: notes become real PDF comments, questions become links" onClick={() => exportAnalysisPdf(a.id)}>PDF</button>
+                <RowMenu
+                  label={`More actions for ${a.projectName}`}
+                  items={[
+                    { label: 'Export HTML', title: 'A shareable HTML file with the notes baked in', disabled: !!busyId, busy: busyId === `${a.id}:html`, onSelect: () => runExport(a.id, 'html') },
+                    { label: 'Export PDF', title: 'Notes become real PDF comments, questions become links', disabled: !!busyId, busy: busyId === `${a.id}:pdf`, onSelect: () => runExport(a.id, 'pdf') },
+                  ]}
+                />
               </div>
             ))}
-          </section>
-        </>
+          </div>
+        </section>
       )}
 
       <footer className="about">
         <span className="about-ver">whydiff{ver ? ` ${ver}` : ''}</span>
         <button className="btn ghost" disabled={checking} onClick={checkNow}>{checking ? 'Checking…' : 'Check for updates'}</button>
         {checkMsg ? <span className="about-msg">{checkMsg}</span> : null}
+        <span className="about-gap" />
+        <span className="seg" role="radiogroup" aria-label="Appearance">
+          {[['system', 'System'], ['light', 'Light'], ['dark', 'Dark']].map(([v, label]) => (
+            <button key={v} role="radio" aria-checked={theme === v} className={`seg-btn ${theme === v ? 'on' : ''}`} onClick={() => pickTheme(v)}>{label}</button>
+          ))}
+        </span>
       </footer>
     </>
   )

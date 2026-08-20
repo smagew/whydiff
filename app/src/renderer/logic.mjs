@@ -62,6 +62,19 @@ export function branchOptions({ current, local = [], remote = [] } = {}) {
   return out
 }
 
+// What the compare fields start on. The useful default is "what my branch adds on top of
+// the integration branch", so base is the first mainline branch the repo actually has and
+// head is what is being browsed — never the same ref on both sides, which compares nothing.
+const MAINLINE = ['main', 'master', 'develop', 'origin/main', 'origin/master']
+export function defaultCompare(branches, browsing) {
+  const all = [...(branches?.local || []), ...(branches?.remote || [])]
+  const head = browsing || branches?.current || 'HEAD'
+  const base = MAINLINE.find((m) => all.includes(m) && m !== head)
+    || all.find((b) => b !== head)
+    || head
+  return { base, head }
+}
+
 // Filter the loaded commits by a free-text query — subject, author, or hash prefix. Local
 // and instant: it narrows what is already on screen rather than re-running git, which is
 // what "I know the commit is here somewhere" actually needs.

@@ -11,7 +11,7 @@
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "start": "electron-vite preview",
-    "test": "node test/store.test.mjs && node test/git.test.mjs && node test/whydiff.test.mjs && node test/github.test.mjs && node test/settings.test.mjs && node test/updates.test.mjs && node test/renderer.test.mjs && node test/pdf-annotate.test.mjs && node test/packaging.test.mjs && node test/analyze-control.test.mjs",
+    "test": "node test/store.test.mjs && node test/git.test.mjs && node test/git-browse.test.mjs && node test/whydiff.test.mjs && node test/github.test.mjs && node test/settings.test.mjs && node test/window-state.test.mjs && node test/updates.test.mjs && node test/renderer.test.mjs && node test/analyze-control.test.mjs && node test/pdf-annotate.test.mjs && node test/packaging.test.mjs",
     "dist:mac": "electron-vite build && electron-builder --mac",
     "dist:linux": "electron-vite build && electron-builder --linux",
     "dist:win": "electron-vite build && electron-builder --win",
