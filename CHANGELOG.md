@@ -4,6 +4,16 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.44.1] — 2026-08-20
+
+### Fixed
+- **A link label you can point at again.** A code-map label sits on top of the file card it
+  connects, so the only route to it is across that card — and crossing the card is what fades
+  the label out of the way. The fade also dropped the label's hit area, so it vanished before
+  the pointer arrived and its popover (the full title and description, the reason the pill is
+  allowed to ellipsise) could not be opened at all. The fade stays; the hit area does not go
+  away, so pointing at where the label was brings it straight back.
+
 ## [0.44.0] — 2026-08-20
 
 ### Fixed

@@ -107,6 +107,38 @@ for (const width of [1400, 1100, 900]) {
     [...document.querySelectorAll('.elabel')].filter((l) => +getComputedStyle(l).opacity > 0.5).length)
   ok(backAgain > 0, at('the labels did not come back after the pointer left the card'))
 
+  // …and the label it faded is still REACHABLE. A label lying on a card is exactly the one
+  // whose popover you want, and the only way to it is across the card — which is what fades
+  // it. Fading must not also take the label out of the pointer's reach: moving onto it brings
+  // it back and opens its description. (This is the bug the fade shipped with.)
+  const reach = await page.evaluate(() => {
+    const hit = (a, r) => !(a.right <= r.left || a.left >= r.right || a.bottom <= r.top || a.top >= r.bottom)
+    for (const l of document.querySelectorAll('.elabel')) {
+      const lr = l.getBoundingClientRect()
+      if (!lr.width) continue
+      for (const n of document.querySelectorAll('#map .node')) {
+        const nr = n.getBoundingClientRect()
+        if (nr.width && hit(lr, nr)) return { x: lr.left + lr.width / 2, y: lr.top + lr.height / 2, cardX: nr.left + 24, cardY: nr.top + 6 }
+      }
+    }
+    return null
+  })
+  ok(reach, at('no label lies on a card, so reachability cannot be checked'))
+  await page.mouse.move(reach.cardX, reach.cardY)   // land on the card first, as a hand does
+  await page.waitForTimeout(300)
+  await page.mouse.move(reach.x, reach.y, { steps: 12 }) // …then travel to the label
+  await page.waitForTimeout(400)
+  const reached = await page.evaluate(() => {
+    const l = document.querySelector('.elabel:hover')
+    const pop = document.querySelector('.elabel:hover .elabel-pop')
+    return { hovered: !!l, opacity: l ? +getComputedStyle(l).opacity : 0, popover: !!pop && getComputedStyle(pop).display !== 'none' }
+  })
+  ok(reached.hovered, at('a label lying on a card cannot be pointed at — the card-hover fade takes it out of reach'))
+  ok(reached.opacity > 0.9, at(`the label came back only partly (opacity ${reached.opacity})`))
+  ok(reached.popover, at('the label is reachable but its description does not open'))
+  await page.mouse.move(2, 2)
+  await page.waitForTimeout(250)
+
   // 2. Hovering a label quiets the others.
   const visible = page.locator('.elabel').filter({ has: page.locator('.elabel-t') })
   await visible.first().hover()
