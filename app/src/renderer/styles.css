@@ -78,7 +78,7 @@ body {
 .mark { flex: none; width: auto; height: 36px; border-radius: 5px; }
 /* The prompt chevron. 500 is as heavy as this design system goes, so the weight it reads
    with comes from the accent, not from a bolder face. */
-.chev { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 500; color: var(--accent); margin-right: 2px; }
+.chev { flex: none; width: 17px; height: 17px; color: var(--accent); margin: 0 1px 0 2px; }
 .sub { color: var(--muted); margin-top: 4px; }
 
 .add { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }

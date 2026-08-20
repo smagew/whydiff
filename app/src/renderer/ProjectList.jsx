@@ -19,6 +19,13 @@ const NoteIcon = () => (
   </svg>
 )
 
+const ChevronMark = () => (
+  <svg className="chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.75"
+    strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M5 3.5 L10.5 8 L5 12.5" />
+  </svg>
+)
+
 const GithubIcon = () => (
   <svg className="ico" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
     <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38
@@ -140,9 +147,11 @@ export default function ProjectList({ onOpen }) {
 
       <header className="head">
         <div className="brand">
-          <img className="mark" src={LOGO} alt="" width="23" height="24" />
-          {/* The prompt chevron: this is a tool you point at a repository. */}
-          <span className="chev" aria-hidden="true">&gt;</span>whydiff
+          <img className="mark" src={LOGO} alt="" width="35" height="36" />
+          {/* The prompt chevron: this is a tool you point at a repository. Drawn, not typed —
+              the design system caps type at weight 500, and a stroke gives it real thickness. */}
+          <ChevronMark />
+          whydiff
         </div>
         <div className="sub">Pick a project to review — its changes, mapped.</div>
       </header>
