@@ -4,6 +4,21 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.43.0] — 2026-08-20
+
+### Changed
+- **Diagram controls are a clean, consistent set now.** The header's OS-dependent glyphs
+  (`⧉`, `?`) are replaced by proper inline-SVG icon buttons in the existing pill style — **Fit
+  to width** (↔) and **Open in its own window** (⧉) — and each diagram gains a floating **zoom
+  in / out** control over its bottom-right corner (the learnable spot). Zoom past fit and the
+  diagram scrolls, so you pan by scrolling — no d-pad. Fit resets it. All within the design
+  system (canvas-toned buttons, ≤5px radius, tokens only); hidden in print.
+
+### Fixed
+- The diagram control icons live in a wrapper *around* the diagram box, not inside it, so their
+  `<svg>`s are never mistaken for the diagram's own SVG (which had misplaced the annotation
+  frames and would have mis-scaled on zoom).
+
 ## [0.42.0] — 2026-08-20
 
 ### Fixed

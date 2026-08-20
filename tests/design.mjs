@@ -267,7 +267,7 @@ for (const palette of ['slate', 'graphite', 'bond']) {
               delBg: toRgb(t('--del-bg')), delEdge: toRgb(t('--del-edge')),
               sunken: toRgb(t('--sunken')) },
       plainFill: plain ? getComputedStyle(plain).fill : null,
-      svgFont: getComputedStyle(document.querySelector('#pane-diagrams svg')).fontFamily,
+      svgFont: getComputedStyle(document.querySelector('#pane-diagrams .mermaid-box svg')).fontFamily,
       labelFont: (() => { const l = document.querySelector('#pane-diagrams .nodeLabel')
         return l ? getComputedStyle(l).fontFamily : null })(),
       inlineStyled: [...document.querySelectorAll('#pane-diagrams svg [style*="fill:#"]')].length,

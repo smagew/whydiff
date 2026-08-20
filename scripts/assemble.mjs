@@ -74,14 +74,26 @@ const stripDiagramColour = (src) => String(src).split('\n')
   .filter(l => !/^\s*classDef\s/.test(l) && !/^\s*style\s+\S+\s+.*(?:fill|stroke|color)\s*:/.test(l))
   .join('\n').replace(/\n{3,}/g, '\n\n').trimEnd()
 const diagrams = rm.diagrams || []
+// Feather-style icons (stroke = currentColor), so the diagram controls read as one clean set
+// instead of OS-dependent glyphs. Kept here (not the viewer) because they live in the diagram
+// card markup the assembler emits.
+const ICON = {
+  fit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h18"/><path d="M7 8l-4 4 4 4"/><path d="M17 8l4 4-4 4"/></svg>',
+  pop: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M21 3l-9 9"/><path d="M10 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-4"/></svg>',
+  zin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M11 8v6M8 11h6"/><path d="M20.5 20.5l-4-4"/></svg>',
+  zout: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M8 11h6"/><path d="M20.5 20.5l-4-4"/></svg>',
+}
 const diagramsHtml = diagrams.map(d => `
   <div class="diagram">
     <div class="dg-head">
       <h3>${esc(d.title)}</h3>
-      <span class="dg-actions"><button class="dg-btn" data-pop>⧉</button></span>
+      <span class="dg-actions">
+        <button class="dg-btn dg-fit" data-dg-fit type="button" title="Fit to width">${ICON.fit}</button>
+        <button class="dg-btn" data-pop type="button" title="Open in its own window">${ICON.pop}</button>
+      </span>
     </div>
     ${d.caption ? `<p class="cap">${prose(d.caption)}</p>` : ''}
-    <div class="mermaid-box"><pre class="mermaid">${esc(stripDiagramColour(d.mermaid))}</pre></div>
+    <div class="mermaid-wrap"><div class="mermaid-box"><pre class="mermaid">${esc(stripDiagramColour(d.mermaid))}</pre></div><div class="dg-zoom"><button class="dg-btn" data-dg-zoom="in" type="button" title="Zoom in">${ICON.zin}</button><button class="dg-btn" data-dg-zoom="out" type="button" title="Zoom out">${ICON.zout}</button></div></div>
     ${(d.files || []).length ? `<div class="step-files">${d.files.map(p =>
       `<button class="fchip" data-goto="${esc(p)}">${esc(p.split('/').slice(-2).join('/'))}</button>`).join('')}</div>` : ''}
   </div>`).join('\n')
