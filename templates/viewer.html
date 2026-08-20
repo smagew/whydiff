@@ -399,9 +399,11 @@
   .mermaid-wrap { position: relative; }
   .dg-zoom { position: absolute; right: 8px; bottom: 8px; z-index: 5; display: flex; flex-direction: column; gap: 5px; }
   .dg-zoom .dg-btn { background: var(--canvas); cursor: pointer; }
-  /* Zoomed past fit: the box scrolls, so you pan by scrolling; bounded height keeps a tall
-     zoom inside the viewport instead of growing the page. */
-  .mermaid-box.dg-zoomed { overflow: auto; max-height: 78vh; cursor: default; }
+  /* Zoom mode: the box is a bounded scroll viewport (height set inline to the zoom), so you pan
+     by scrolling and a tall zoom never stretches the page. The SVG is uncapped and left-aligned
+     so it can exceed the box width and the scroll math is simple. */
+  .diagram .mermaid-box.dg-zoomed { overflow: auto; cursor: default; }
+  .diagram .mermaid-box.dg-zoomed > svg { max-width: none !important; margin: 0; }
   .diagram .cap { margin: 0 0 10px; font-size: 13px; color: var(--muted); }
   /* Crosshair over the field says "drag to select a region"; a node overrides it
      with a pointer to say "click me". Together they make the diagram's two
@@ -435,6 +437,9 @@
      discussion, redrawn from the journal on every render (mermaid re-lays-out the
      SVG, so pixel geometry is recomputed from the covered nodes each time). */
   .dg-region { position: absolute; z-index: 4; pointer-events: none; border: 1.5px dashed var(--line-strong); border-radius: 3px; }
+  /* The framed region, drawn INTO the diagram SVG for the PDF export so it scales with the
+     diagram and shows in the printed file (the HTML .dg-region overlay does not print). */
+  .wdx-region { fill: none; stroke: var(--accent); stroke-width: 1.5px; stroke-dasharray: 5 4; vector-effect: non-scaling-stroke; }
   /* The badge(s) at an annotated node or region: a small square with a chat or a
      note glyph. Clickable — opens that place's thread. */
   .dg-badges { position: absolute; z-index: 6; display: inline-flex; gap: 3px; }
@@ -1995,7 +2000,7 @@ function fitDiagrams() {
   // clip the diagram off the right edge of the page.
   if (typeof matchMedia === 'function' && matchMedia('print').matches) return
   for (const box of pane.querySelectorAll('.mermaid-box')) {
-    if (box.dataset.dgZoom) continue // the user set an explicit zoom — don't clobber it on resize
+    if (box.classList.contains('dg-zoomed')) continue // the user set an explicit zoom — don't clobber it on resize
     const svg = box.querySelector('svg')
     if (!svg) continue
     const natural = svg.viewBox?.baseVal?.width || 0
@@ -2010,46 +2015,78 @@ function fitDiagrams() {
   window.__whydiffDrawMarks?.()
 }
 
-// The fit-to-width baseline for a box (what fitDiagrams would set) — the floor for zoom-out.
-function dgFitWidth(box, svg) {
-  const natural = svg.viewBox?.baseVal?.width || 0
-  const avail = box.clientWidth - 20
-  return (!natural || avail <= 0) ? 0 : Math.min(avail, natural * DIAGRAM_MAX_SCALE)
-}
-// Zoom a diagram over its canvas. Multiplies the current width, clamped to [fit, natural×4];
-// at fit it clears the zoom (back to the responsive fit). When zoomed the box scrolls, so you
-// pan by scrolling (trackpad / two-finger) — no d-pad. Marks redraw for the new scale.
-const DG_ZOOM_STEP = 1.3, DG_ZOOM_MAX = 4
-function zoomDiagram(box, dir) {
-  const svg = box.querySelector('svg'); if (!svg) return
-  const natural = svg.viewBox?.baseVal?.width || 0
-  const fit = dgFitWidth(box, svg); if (!fit) return
-  const cur = parseFloat(svg.style.width) || svg.getBoundingClientRect().width || fit
-  let next = dir === 'in' ? cur * DG_ZOOM_STEP : cur / DG_ZOOM_STEP
-  next = Math.max(fit, Math.min(next, (natural || fit) * DG_ZOOM_MAX))
-  const zoomed = next > fit + 1
-  svg.style.width = Math.round(next) + 'px'
-  box.dataset.dgZoom = zoomed ? '1' : ''
-  box.classList.toggle('dg-zoomed', zoomed)
+// ── diagram pan / zoom ─────────────────────────────────────────────────────────
+// A real zoom layer over the mermaid SVG. Absolute scale k = the SVG renders at k×natural.
+// Zooming just resizes the SVG (width; height follows the viewBox aspect) inside a bounded
+// scroll box, so: a diagram bigger than the screen can be shrunk until it fits WHOLE (k<1),
+// zoomed in for detail (up to ×6), panned by scrolling, and the box height stays a bounded
+// viewport so a tall zoom scrolls instead of stretching the page (no scroll-jump). getScreenCTM
+// reflects the scaled SVG, so the annotation marks redraw onto the same nodes.
+const DG_ZMAX = 6, DG_ZMIN = 0.05
+const dgVpH = () => Math.round((typeof window !== 'undefined' ? window.innerHeight : 800) * 0.8)
+function dgNatural(svg) { const v = svg.viewBox?.baseVal; if (v && v.width) return { w: v.width, h: v.height }; try { const b = svg.getBBox(); return { w: b.width, h: b.height } } catch { return { w: 0, h: 0 } } }
+function dgSvg(box) { return box.querySelector('svg') }
+function dgApply(box, k) {
+  const svg = dgSvg(box); if (!svg) return
+  const nat = box.__dgNat || (box.__dgNat = dgNatural(svg)); if (!nat.w) return
+  k = Math.max(DG_ZMIN, Math.min(k, DG_ZMAX))
+  box.__dgK = k
+  box.classList.add('dg-zoomed')
+  svg.style.maxWidth = 'none'
+  svg.style.width = Math.round(k * nat.w) + 'px' // height follows via the viewBox aspect (height:auto)
+  box.style.height = Math.min(dgVpH(), Math.round(k * nat.h) + 20) + 'px'
   window.__whydiffDrawMarks?.()
+  return k
 }
-function fitDiagram(box) {
-  const svg = box.querySelector('svg'); if (svg) svg.style.width = ''
-  box.dataset.dgZoom = ''; box.classList.remove('dg-zoomed')
+function dgCurrentK(box) {
+  if (box.__dgK) return box.__dgK
+  const svg = dgSvg(box); const nat = svg && (box.__dgNat || (box.__dgNat = dgNatural(svg)))
+  return (svg && nat?.w) ? (svg.getBoundingClientRect().width || nat.w) / nat.w : 1
+}
+function dgFitScreenK(box) {
+  const svg = dgSvg(box); const nat = svg && dgNatural(svg); if (!nat?.w) return 1
+  return Math.min((box.clientWidth - 24) / nat.w, (dgVpH() - 24) / nat.h) // whole diagram inside the viewport, with margin
+}
+// Zoom by a factor, holding the point (fx,fy) in the box viewport still (cursor for a wheel,
+// centre for a button).
+function dgZoomBy(box, factor, fx, fy) {
+  const svg = dgSvg(box); const nat = svg && (box.__dgNat || (box.__dgNat = dgNatural(svg))); if (!nat?.w) return
+  const k0 = dgCurrentK(box), k1 = Math.max(DG_ZMIN, Math.min(k0 * factor, DG_ZMAX))
+  if (Math.abs(k1 - k0) < 1e-4) return
+  const r = box.getBoundingClientRect()
+  fx = fx == null ? r.width / 2 : fx; fy = fy == null ? r.height / 2 : fy
+  const cx = (box.scrollLeft + fx) / k0, cy = (box.scrollTop + fy) / k0
+  dgApply(box, k1)
+  box.scrollLeft = cx * k1 - fx; box.scrollTop = cy * k1 - fy
+}
+function dgFit(box, mode) {
+  const svg = dgSvg(box); if (!svg) return
+  if (mode === 'screen') { dgApply(box, dgFitScreenK(box)); box.scrollLeft = box.scrollTop = 0; return }
+  // 'width' → leave zoom mode entirely, back to the responsive fit-to-width default
+  box.classList.remove('dg-zoomed'); box.__dgK = 0; box.style.height = ''
+  svg.style.maxWidth = ''; svg.style.width = ''
   fitDiagrams()
 }
 ;(() => {
-  const pane = document.getElementById('pane-diagrams')
-  if (!pane) return
-  // A click on Fit / Zoom drives the diagram it belongs to.
+  const pane = document.getElementById('pane-diagrams'); if (!pane) return
+  const boxOf = (el) => el.closest('.diagram')?.querySelector('.mermaid-box')
   pane.addEventListener('click', (e) => {
     const zb = e.target.closest?.('[data-dg-zoom]')
-    if (zb) { e.stopPropagation(); const box = zb.closest('.diagram')?.querySelector('.mermaid-box'); if (box) zoomDiagram(box, zb.dataset.dgZoom); return }
+    if (zb) { e.stopPropagation(); const box = boxOf(zb); if (box) dgZoomBy(box, zb.dataset.dgZoom === 'in' ? 1.3 : 1 / 1.3); return }
     const fb = e.target.closest?.('[data-dg-fit]')
-    if (fb) { e.stopPropagation(); const box = fb.closest('.diagram')?.querySelector('.mermaid-box'); if (box) fitDiagram(box) }
+    if (fb) { e.stopPropagation(); const box = boxOf(fb); if (box) dgFit(box, fb.dataset.dgFit || 'width') }
   })
-  // The zoom pill sits inside the box, whose mousedown starts a region-select. Swallow the
-  // mousedown on the pill (capture, before the box handler) so clicking + / − never begins a drag.
+  // Ctrl/⌘ + wheel — and a trackpad pinch, which the browser reports as ctrlKey — zooms at the
+  // cursor; a plain wheel scrolls (pans) a zoomed box natively. Left-drag stays region-select.
+  pane.addEventListener('wheel', (e) => {
+    if (!(e.ctrlKey || e.metaKey)) return
+    const box = e.target.closest?.('.mermaid-box'); if (!box) return
+    e.preventDefault()
+    const r = box.getBoundingClientRect()
+    dgZoomBy(box, e.deltaY < 0 ? 1.12 : 1 / 1.12, e.clientX - r.left, e.clientY - r.top)
+  }, { passive: false })
+  // The zoom pill sits over the box; swallow its mousedown so clicking a control never starts a
+  // region-select drag.
   pane.addEventListener('mousedown', (e) => { if (e.target.closest?.('.dg-zoom')) e.stopPropagation() }, true)
 })()
 let fitRAF = 0
@@ -3035,7 +3072,7 @@ window.addEventListener('beforeprint', () => {
   window.__whydiffBuildPrintNotes?.()
   fitDiagramsForPrint()
 })
-window.addEventListener('afterprint', () => { endPrintPalette(); document.body.classList.remove('wdx-comments'); document.querySelectorAll('.pnref, .pn-diagram-notes, .pn-inline-note, .wdx-loc').forEach((e) => e.remove()) })
+window.addEventListener('afterprint', () => { endPrintPalette(); document.body.classList.remove('wdx-comments'); document.querySelectorAll('.pnref, .pn-diagram-notes, .pn-inline-note, .wdx-loc, #pane-diagrams svg .wdx-loc-svg, #pane-diagrams svg .wdx-region').forEach((e) => e.remove()) })
 
 // quiet ships; safe is the token block's own two-hue pair, so it is the one
 // spelling that clears the attribute rather than setting it.
@@ -3558,26 +3595,60 @@ if (SERVE?.token || EMBEDDED) (() => {
   // fit-scaling (the position is read from the finished PDF, never computed here). The glyph
   // is painted (so it lands in the PDF text stream) but paper-coloured and tiny, styled INLINE
   // only — never a stylesheet rule, which would trip the design gate's font-size/colour checks.
+  const SVGNS = 'http://www.w3.org/2000/svg'
+  const svgEl = (tag, attrs) => { const e = document.createElementNS(SVGNS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); return e }
+  // Place one locator per annotated place, EXACTLY where the note was left, so the app's comment
+  // lands there (readback finds each locator's real printed position). A note on a diagram node
+  // or region gets an SVG locator injected INTO the diagram's SVG at the node/region, so it
+  // re-fits and scales WITH the diagram through print (unlike an HTML overlay pinned to screen
+  // px). A region also gets its outline drawn as an SVG rect, so the framed area is visible in
+  // the PDF. A text/code selection keeps its glyph in the highlight. The SVG glyph is paper-
+  // coloured (invisible) but painted; sized via inline attributes (never a stylesheet rule).
   const placeLocators = () => {
-    document.querySelectorAll('.wdx-loc').forEach((e) => e.remove())
-    const bg = getComputedStyle(document.body).backgroundColor || 'white'
+    document.querySelectorAll('.wdx-loc, #pane-diagrams svg .wdx-loc-svg, #pane-diagrams svg .wdx-region').forEach((e) => e.remove())
+    const paper = getComputedStyle(document.body).backgroundColor || 'white'
     const manifest = []
     const withNotes = printPlaces.filter((p) => p.willPrint && p.notes && p.notes.length)
     withNotes.forEach((p, i) => {
-      // LETTERS ONLY — no digits. In some print fonts the digit glyphs lose their ToUnicode
-      // mapping and read back as NUL ( ) from the produced PDF, so a token like "WDX000WDX"
-      // becomes unfindable ("WDX\0\0\0WDX"). Encoding the index as A–J letters survives the
-      // round-trip. Keep it unique per place.
+      // LETTERS ONLY — digits lose their ToUnicode mapping in some print fonts and read back as
+      // NUL, so "WDX000WDX" becomes unfindable. A-J letters survive the round-trip.
       const token = 'WDX' + String(i).replace(/[0-9]/g, (d) => 'ABCDEFGHIJ'[+d]) + 'WDX'
-      const glyph = document.createElement('span')
-      glyph.className = 'wdx-loc'
-      glyph.textContent = token
-      glyph.style.cssText = `font-size:6px;color:${bg};user-select:none;`
-      // On a diagram the glyph goes in the caption (never inside the fit-scaled SVG, which
-      // would move it); on a text/code place it goes at the START of the host (the highlight's
-      // top-left), so the comment lands on the fragment, not after it.
-      if (p.isDiagram && p.host.classList.contains('diagram')) (p.host.querySelector('.dg-head') || p.host).appendChild(glyph)
-      else p.host.insertBefore(glyph, p.host.firstChild)
+      const dg = /^diagram:(\d+)(?::(.+))?$/.exec(p.key)
+      const box = p.isDiagram ? p.host.querySelector?.('.mermaid-box') : null
+      const svg = box && box.querySelector('svg')
+      let placed = false
+      if (dg && svg) {
+        const fs = Math.max(8, (svg.viewBox && svg.viewBox.baseVal && svg.viewBox.baseVal.width || 400) / 50)
+        const tail = dg[2] || ''
+        if (/^region:/.test(tail) && p.anchor && p.anchor.rect && (p.anchor.rect.w > 1.5 || p.anchor.rect.h > 1.5)) {
+          // Region: the stored rect is already in SVG user space. Draw the outline (visible) and
+          // drop the locator at its corner - both scale with the diagram.
+          const r = p.anchor.rect, pad = fs * 0.6
+          svg.appendChild(svgEl('rect', { class: 'wdx-region', x: r.x - pad, y: r.y - pad, width: r.w + 2 * pad, height: r.h + 2 * pad, rx: 3 }))
+          const tx = svgEl('text', { class: 'wdx-loc-svg', x: r.x, y: r.y - pad - 2, 'font-size': fs, fill: paper }); tx.textContent = token
+          svg.appendChild(tx); placed = true
+        } else {
+          // Node: match the label slug, convert its screen position to SVG user coords, drop the
+          // locator there.
+          const node = dgNodes(box).find((n) => nslug(nodeText(n).slice(0, 90)).slice(0, 40) === tail)
+          const ctm = svg.getScreenCTM && svg.getScreenCTM()
+          if (node && ctm) {
+            const b = node.getBoundingClientRect()
+            const pt = new DOMPoint(b.left + b.width / 2, b.top).matrixTransform(ctm.inverse())
+            const tx = svgEl('text', { class: 'wdx-loc-svg', x: pt.x, y: pt.y, 'font-size': fs, fill: paper }); tx.textContent = token
+            svg.appendChild(tx); placed = true
+          }
+        }
+      }
+      if (!placed) {
+        // Text/code selection (or a diagram anchor we could not resolve): an HTML glyph at the
+        // start of the highlighted host, so the comment lands on the fragment.
+        const glyph = document.createElement('span')
+        glyph.className = 'wdx-loc'; glyph.textContent = token
+        glyph.style.cssText = `font-size:6px;color:${paper};user-select:none;`
+        if (p.isDiagram && p.host.classList.contains('diagram')) (p.host.querySelector('.dg-head') || p.host).appendChild(glyph)
+        else p.host.insertBefore(glyph, p.host.firstChild)
+      }
       manifest.push({
         token, anchorKey: p.key,
         notes: p.notes.map((t) => ({ contents: t.request || '', author: t.by || 'whydiff', nm: `${p.key}::${t.requestId || ''}` })),

@@ -1,17 +1,12 @@
 #!/usr/bin/env node
-// END-TO-END PDF comments, on the REAL engine. This is the join the two cheaper suites cannot
-// cover on their own: tests/print-pdf.mjs checks the viewer contract (split, manifest, painted
-// glyph) but never prints; app/test/pdf-annotate.test.mjs checks the pdf-lib/pdfjs mechanics on
-// a hand-crafted PDF but never runs the viewer or Chromium. Here we drive the actual pipeline —
-// assemble → real Chromium page.pdf() (the same engine as Electron printToPDF) → annotatePdf —
-// and assert the locator glyphs SURVIVE a real print and become real /Text comments on the
-// pages their fragments landed on. If a future change breaks the glyph (hidden by print CSS,
-// too small to render, caption restructured) or the printToPDF geometry, this fails.
+// END-TO-END PDF comments on the REAL engine — placed EXACTLY where the note was left.
 //
-// It imports the app's annotate module directly, so it spans both dep trees (playwright from
-// the plugin, pdf-lib/pdfjs from app/). It is therefore NOT in `npm test`; run it with
-// `make pdf-e2e` (its own CI job installs both trees). See docs/pdf-export.md.
-
+// Requirements (the reviewer's, made explicit): a note's comment lands AT its anchor — a
+// diagram region at the framed area, a diagram node at the node, a text/code selection at the
+// highlight — never dumped at the caption; the framed region's OUTLINE is drawn into the PDF;
+// and a text/code highlight prints as it shows in the report. Placement is asserted by the
+// GOAL, not a pixel proxy: two regions at different heights in one diagram must yield comments
+// at different, order-preserving positions (a caption-dump would put them at the same spot).
 import { readFileSync, writeFileSync, mkdtempSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
@@ -27,15 +22,22 @@ const ok = (c, m) => { if (!c) fail(m) }
 const work = mkdtempSync(join(tmpdir(), 'whydiff-pdfc-'))
 const rm = JSON.parse(readFileSync(join(root, 'examples', 'rate-limit', 'review-map.json'), 'utf8'))
 for (const f of Object.values(rm.files)) delete f.embedFull
+// Diagram 0 is a tall flowchart (known viewBox), so we can place regions at known, far-apart
+// heights; diagram 1 is a second diagram, to prove a comment lands on its own page too.
+rm.diagrams = [
+  { kind: 'flow-diff', title: 'Pipeline', caption: 'watch the offline backoff decision here', mermaid: 'flowchart TD\n' + Array.from({ length: 16 }, (_, i) => `  N${i}["stage ${i} of the pipeline"] --> N${i + 1}["stage ${i + 1} of the pipeline"]`).join('\n') },
+  { kind: 'flow-diff', title: 'Second diagram', caption: 'another flow', mermaid: 'flowchart TD\n  A["alpha"] --> B["beta"]' },
+]
 writeFileSync(join(work, 'review-map.json'), JSON.stringify(rm))
 const ev = (o) => JSON.stringify({ at: '2026-08-15T00:00:00Z', by: 'ag', ...o })
-// A note on each of the two diagrams (they print on their own pages), plus a question on the
-// first — so we can assert one comment per diagram-page AND that the question stays a link.
+const region = (dg, x, y, w, h) => ({ kind: 'diagram-region', key: `diagram:${dg}:region:${Math.round(x)}-${Math.round(y)}-${Math.round(w)}-${Math.round(h)}`, rect: { x, y, w, h }, nodes: [] })
 writeFileSync(join(work, 'review.log.jsonl'), [
-  ev({ type: 'note.added', noteId: 'n1', kind: 'note', anchor: { kind: 'diagram-node', key: 'diagram:0:auth', label: 'Auth' }, text: 'NOTE-ONE: the auth gate before the limiter.' }),
-  ev({ type: 'note.added', noteId: 'n2', kind: 'note', anchor: { kind: 'diagram-node', key: 'diagram:1:store', label: 'Store' }, text: 'NOTE-TWO: does the store TTL match the window?' }),
-  ev({ type: 'note.added', noteId: 'q1', kind: 'question', anchor: { kind: 'diagram-node', key: 'diagram:0:limiter', label: 'Rate limiter' }, text: 'Where does the bucket state live?' }),
-  ev({ type: 'note.added', noteId: 'a1', kind: 'answer', replyTo: 'q1', anchor: { kind: 'diagram-node', key: 'diagram:0:limiter', label: 'Rate limiter' }, text: 'In Redis, keyed by user id.' }),
+  ev({ type: 'note.added', noteId: 'r1', kind: 'note', anchor: region(0, 30, 40, 200, 70), text: 'TOP-REGION note' }),
+  ev({ type: 'note.added', noteId: 'r2', kind: 'note', anchor: region(0, 30, 760, 200, 70), text: 'BOTTOM-REGION note' }),
+  ev({ type: 'note.added', noteId: 'r3', kind: 'note', anchor: region(1, 10, 10, 120, 50), text: 'SECOND-DIAGRAM note' }),
+  ev({ type: 'note.added', noteId: 's1', kind: 'note', anchor: { kind: 'selection', key: 'sel:cap', quote: 'offline backoff decision' }, text: 'TEXT-SELECTION note' }),
+  ev({ type: 'note.added', noteId: 'q1', kind: 'question', anchor: region(0, 30, 400, 180, 60), text: 'a question, stays a link' }),
+  ev({ type: 'note.added', noteId: 'a1', kind: 'answer', replyTo: 'q1', anchor: region(0, 30, 400, 180, 60), text: 'answered' }),
 ].join('\n') + '\n')
 
 const html = join(work, 'review-map.html')
@@ -49,35 +51,44 @@ await page.goto('file://' + html)
 await page.locator('#tabs .tab[data-pane="diagrams"]').click()
 await page.waitForSelector('#pane-diagrams .mermaid-box svg', { timeout: 15000 })
 
-// The app's exact export path: prepare the diagrams tab for comments, get the manifest, print.
 const manifest = await page.evaluate(() => window.__whydiffPreparePrint({ tab: 'diagrams', forComments: true }))
-await page.waitForTimeout(400)
-ok(Array.isArray(manifest) && manifest.length === 2, `expected 2 note places in the manifest, got ${JSON.stringify(manifest)?.slice(0, 160)}`)
+await page.waitForTimeout(500)
+ok(Array.isArray(manifest) && manifest.length === 4, `expected 4 note places (3 region + 1 selection), got ${manifest?.length}`)
+
+// EXACT placement is engaged, not a caption dump: each diagram region got an SVG outline + an
+// SVG locator injected INTO the diagram; the text selection got an HTML glyph IN its highlight.
+const marks = await page.evaluate(() => ({
+  regionRects: document.querySelectorAll('#pane-diagrams svg .wdx-region').length,
+  svgLocs: document.querySelectorAll('#pane-diagrams svg .wdx-loc-svg').length,
+  glyphInQuote: document.querySelectorAll('.askquote .wdx-loc').length,
+  askquotes: document.querySelectorAll('.askquote').length,
+}))
+ok(marks.regionRects === 3, `3 region outlines must be drawn into the diagrams (got ${marks.regionRects})`)
+ok(marks.svgLocs === 3, `3 region locators must be SVG-native, not caption glyphs (got ${marks.svgLocs})`)
+ok(marks.glyphInQuote === 1, `the text-selection locator must sit in its highlight (got ${marks.glyphInQuote})`)
+ok(marks.askquotes >= 1, 'the selected text must be highlighted (and so prints in the PDF)')
+
 const pdf = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '0.4in', bottom: '0.4in', left: '0.4in', right: '0.4in' }, preferCSSPageSize: false })
 await browser.close()
 if (errors.length) fail('page errors:\n' + errors.join('\n'))
 
-// Inject the comments and read them back out of the produced bytes.
 const warnings = []
 const { bytes, added, located, total } = await annotatePdf(pdf, manifest, { warn: (m) => warnings.push(m) })
-ok(total === 2, `2 locator tokens, got ${total}`)
-ok(located === 2, `BOTH glyphs must survive a real Chromium print and be found by readback — located ${located}/${total} (warnings: ${warnings.join('; ')})`)
-ok(added === 2, `2 comments injected, got ${added}`)
+ok(total === 4 && located === 4, `all 4 locators must survive a real print and be found (located ${located}/${total}; warnings: ${warnings.join('; ')})`)
+ok(added === 4, `4 comments injected, got ${added}`)
 
-const comments = await readComments(bytes)
-ok(comments.length === 2, `the produced PDF must hold 2 /Text comments, got ${comments.length}`)
-ok(comments.every((c) => c.hasPopup), 'each comment has a popup')
-const one = comments.find((c) => c.contents.includes('NOTE-ONE'))
-const two = comments.find((c) => c.contents.includes('NOTE-TWO'))
-ok(one && two, 'both note texts became comment /Contents')
-// The two diagrams print on their own pages (break-before: page), so their comments must land
-// on different pages — a real check that the position was read from the paginated PDF.
-ok(one.pageIndex !== two.pageIndex, `each diagram's comment must land on its own page (both on ${one.pageIndex})`)
-ok(one.author === 'ag' && two.author === 'ag', 'the note author travels into /T')
+const cs = await readComments(bytes)
+const by = (frag) => cs.find((c) => c.contents.includes(frag))
+const top = by('TOP-REGION'), bottom = by('BOTTOM-REGION'), second = by('SECOND-DIAGRAM'), text = by('TEXT-SELECTION')
+ok(top && bottom && second && text, `all four notes became comments (${cs.map((c) => c.contents.slice(0, 12))})`)
+// GOAL: placement tracks the anchor. The two regions sit far apart in ONE diagram, so their
+// comments must be on the same page but at clearly different heights, top ABOVE bottom (PDF y
+// grows upward). A caption dump would put them at the same y.
+ok(top.pageIndex === bottom.pageIndex, 'both diagram-0 region comments are on diagram 0’s page')
+ok(top.y - bottom.y > 80, `the top-region comment must sit well above the bottom-region one — placement tracks the anchor, not the caption (top y=${Math.round(top.y)}, bottom y=${Math.round(bottom.y)})`)
+ok(second.pageIndex !== top.pageIndex, 'the second diagram’s comment lands on its own page')
+// The question stays a link, never a comment.
+ok(!cs.some((c) => /stays a link/.test(c.contents)), 'a question must not become a comment')
 
-// The question must NOT be a comment (it is a link); no comment carries the question text.
-ok(!comments.some((c) => /bucket state/.test(c.contents)), 'a question must stay a link, never a comment')
-
-// Save for eyeballing on failure triage.
 writeFileSync(join(work, 'out.pdf'), Buffer.from(bytes))
-console.log(`OK: PDF comments e2e — ${added} notes became real /Text comments on their own diagram pages (located ${located}/${total}), the question stayed a link, through real Chromium print`)
+console.log(`OK: PDF comments e2e — ${added} comments land AT their anchors (regions with drawn outlines, a text highlight), placement tracks the anchor not the caption, on their own pages, through real Chromium print`)

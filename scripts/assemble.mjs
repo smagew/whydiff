@@ -89,12 +89,12 @@ const diagramsHtml = diagrams.map(d => `
     <div class="dg-head">
       <h3>${esc(d.title)}</h3>
       <span class="dg-actions">
-        <button class="dg-btn dg-fit" data-dg-fit type="button" title="Fit to width">${ICON.fit}</button>
+        <button class="dg-btn dg-fit" data-dg-fit="width" type="button" title="Fit to width">${ICON.fit}</button>
         <button class="dg-btn" data-pop type="button" title="Open in its own window">${ICON.pop}</button>
       </span>
     </div>
     ${d.caption ? `<p class="cap">${prose(d.caption)}</p>` : ''}
-    <div class="mermaid-wrap"><div class="mermaid-box"><pre class="mermaid">${esc(stripDiagramColour(d.mermaid))}</pre></div><div class="dg-zoom"><button class="dg-btn" data-dg-zoom="in" type="button" title="Zoom in">${ICON.zin}</button><button class="dg-btn" data-dg-zoom="out" type="button" title="Zoom out">${ICON.zout}</button><button class="dg-btn" data-dg-fit type="button" title="Fit to width">${ICON.reset}</button></div></div>
+    <div class="mermaid-wrap"><div class="mermaid-box"><pre class="mermaid">${esc(stripDiagramColour(d.mermaid))}</pre></div><div class="dg-zoom"><button class="dg-btn" data-dg-zoom="in" type="button" title="Zoom in">${ICON.zin}</button><button class="dg-btn" data-dg-zoom="out" type="button" title="Zoom out">${ICON.zout}</button><button class="dg-btn" data-dg-fit="screen" type="button" title="Fit the whole diagram on screen">${ICON.reset}</button></div></div>
     ${(d.files || []).length ? `<div class="step-files">${d.files.map(p =>
       `<button class="fchip" data-goto="${esc(p)}">${esc(p.split('/').slice(-2).join('/'))}</button>`).join('')}</div>` : ''}
   </div>`).join('\n')

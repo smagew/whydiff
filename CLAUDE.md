@@ -52,6 +52,17 @@ user finding the flaws. For ANY non-trivial change, follow these steps in order 
 do not jump to code, and do not claim "done" until step 5 passes. This is
 acceptance-first (spec-driven), not a framework: the discipline is the point.
 
+**This applies to "small" interactive UI too — that exemption is the recurring trap.**
+A zoom button, a resize handler, a drag — these went out as first-pass hacks (scale the
+`width` and toggle overflow; place marks once and never on reflow) that "rendered" but did
+not *work*, and the user found it every time. So for anything interactive (zoom/pan, drag,
+resize, sticky/anchored overlays): (a) name the standard mechanism first — transform-based
+pan/zoom, `ResizeObserver`, pointer capture — do not invent a width/scroll approximation;
+(b) the acceptance test asserts the **user goal** ("a diagram taller than the screen can be
+shrunk until the whole of it is visible"; "the frame still covers the same nodes after a
+resize"), **never a pixel proxy** ("width grew by 200px" passed while the diagram still
+overflowed the screen). "It renders" and "the number changed" are not acceptance.
+
 1. **Spec first — an acceptance checklist.** Before coding, write `Done =` as a
    short list of concrete, checkable outcomes and get it agreed. That list is the
    contract; build to it, nothing less. (For the PDF: "no wasted header page; each

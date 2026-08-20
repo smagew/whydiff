@@ -4,6 +4,26 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.44.0] — 2026-08-20
+
+### Fixed
+- **A note's PDF comment lands exactly where the note was left — not at the caption.** Diagram
+  locators are now SVG `<text>` injected into the diagram's SVG at the node's centre (or the
+  region's stored user-space rect), so they scale and re-fit WITH the diagram; a text/code
+  selection keeps its glyph in the highlight. Two notes at different heights in one diagram now
+  land at different, order-preserving comment positions instead of clustering at the top.
+- **The framed region is drawn into the PDF**, as an SVG outline at the region — so a fragment
+  you circled in a diagram is visible in the exported PDF, at the right place and scale.
+- **Highlighted text/code prints** in the PDF as it shows in the report (the selection
+  highlight is not hidden in print) — so a note on selected text/code shows both the highlight
+  and its comment.
+
+### Changed
+- **Real transform pan/zoom for diagrams** (replaces the width+scroll hack): shrink a diagram
+  bigger than the screen until the whole of it is visible (Fit-the-whole-diagram), zoom in for
+  detail (ctrl/⌘+wheel, pinch, or the ⊕/⊖ buttons), pan by scrolling — smooth, no page jump.
+  Header ↔ = fit-to-width; the diagram control buttons are clean icons, a bit larger.
+
 ## [0.43.0] — 2026-08-20
 
 ### Changed

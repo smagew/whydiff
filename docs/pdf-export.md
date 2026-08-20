@@ -42,7 +42,8 @@ the viewer's PDF button behaves by where it runs:
 | 1 | No wasted header page — content starts on page 1 (title/intent/stats hidden in print). | `tests/print-pdf.mjs` (`#title`, `.kicker` hidden in print media) |
 | 2 | Each diagram starts on its own page, whole, scaled to fit that page (never split, never clipped past its SVG). | `tests/print-pdf.mjs` (no `.node` hangs past the SVG edge after `beforeprint`) |
 | 3 | **Notes → real PDF `/Text` comment annotations** (marker on the page, listed in the reader's Comments panel), each on the page where its fragment printed. | `app/test/pdf-annotate.test.mjs` (injection + coordinate) · `tests/pdf-comments.mjs` (real print, one comment per diagram page, `located == total`) |
-| 4 | A note on a text/code selection pins to the highlight; a note on a diagram pins to that diagram's caption. | see **Known limitations** — text pinning is exact; diagram pinning is caption-level by design |
+| 4 | **A note's comment lands at its EXACT anchor** — a text/code selection at the highlight, a diagram node at the node, a diagram region at the framed area — never at the caption or top of the diagram. | `tests/pdf-comments.mjs` (comments on different anchors land at different, anchor-tracking positions) |
+| 4a | **The framed region is drawn into the PDF** (an outline at the region), and **text/code highlights print** as they show in the report — everything highlighted in the report is visible in the PDF. | `tests/pdf-comments.mjs` (region `<rect>` injected; `.askquote` highlight prints) |
 | 5 | **Questions → an in-document link** at the place + a **"Questions"** appendix (question + answer), linked both ways. | `tests/print-pdf.mjs` (link targets + back-links resolve; appendix titled "Questions") |
 | 6 | There is **no combined "Notes & questions"** heading anywhere. | `tests/print-pdf.mjs` |
 | 7 | The PDF button appears only where there is content (hidden on an un-generated tab). | `tests/print-pdf.mjs` (`.content-tools` hidden on the lazy tab) |
@@ -97,10 +98,12 @@ a `pageRanges` that could drop a page a glyph lives on.
 
 ## Known limitations (honest, not bugs to hide)
 
-- **Diagram comments pin to the diagram, not the exact node/region.** The glyph is placed in the
-  diagram's caption, never inside the fit-scaled SVG, so a note on a diagram lands at that
-  diagram's header. Text/code-selection notes pin exactly to the highlight. Node-precise diagram
-  pinning is deliberately out of scope (it needs a robust in-SVG anchor that survives scaling).
+- **How exact placement works (not a limitation — the mechanism).** Diagram locators are SVG
+  `<text>` injected INTO the diagram's SVG at the node's centre (screen→user coords via
+  `getScreenCTM().inverse()`) or the region's stored user-space rect, so they scale and re-fit
+  WITH the diagram; the region's outline is an SVG `<rect>` (`.wdx-region`) drawn there too.
+  Text/code locators are an HTML glyph in the highlight. If a diagram node/region can't be
+  resolved, the glyph falls back to the caption rather than being lost.
 - **Comments are top-level, flat.** A question's reply thread is not modelled as PDF `/IRT`
   reply chains; each note is one `/Text`.
 - **Real comments are desktop-only.** A plain browser print has no annotation API; that path
