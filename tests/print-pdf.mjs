@@ -130,9 +130,11 @@ ok(manifest[0].notes?.[0]?.author === 'ag', 'the manifest carries the note autho
 // "WDX\0\0\0WDX" and is never found — the exact bug that shipped zero comments. (Reproduced only
 // on real Electron printToPDF, not Playwright page.pdf, so this format check is the CI guard.)
 ok(manifest.every((m) => /^WDX[A-Za-z]+WDX$/.test(m.token)), `locator tokens must be letters-only (got ${JSON.stringify(manifest.map((m) => m.token))})`)
-ok(await page.locator('.wdx-loc').count() >= 1, 'a locator glyph should be placed for the note')
-const glyphVisible = await page.evaluate(() => { const g = document.querySelector('.wdx-loc'); const s = getComputedStyle(g); return s.display !== 'none' && s.visibility !== 'hidden' && parseFloat(s.fontSize) > 0 })
-ok(glyphVisible, 'the locator glyph must be painted (so it lands in the PDF text stream), not display:none/hidden/0px')
+// The note is on a diagram NODE, so its locator is an SVG <text> injected into the diagram at
+// the node (exact placement), not an HTML caption glyph.
+ok(await page.locator('#pane-diagrams svg .wdx-loc-svg').count() >= 1, 'a diagram-node note must get an SVG locator at the node (exact placement)')
+const glyphPainted = await page.evaluate(() => { const g = document.querySelector('#pane-diagrams svg .wdx-loc-svg'); const s = getComputedStyle(g); return s.display !== 'none' && s.visibility !== 'hidden' && parseFloat(s.fontSize) > 0 })
+ok(glyphPainted, 'the SVG locator must be painted (so it lands in the PDF text stream)')
 ok(await page.locator('.pn-inline-note').count() === 0, 'the inline note footnote must be suppressed in the comment path (the app makes a real PDF comment)')
 
 // A wide diagram must FIT the page: mermaid can lay a node out past its SVG viewBox (clipped),
