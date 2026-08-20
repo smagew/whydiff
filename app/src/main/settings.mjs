@@ -34,13 +34,16 @@ export function openSettings(file, storage) {
 
   const clearToken = () => { const data = read(file); delete data.githubToken; write(file, data); return { stored: false, available: available() } }
 
-  // The appearance preference: follow the OS ('system', the default), or pin light/dark.
-  // Plain text — there is nothing secret about a colour scheme — but it lives here so the
-  // app has one settings file rather than two.
+  // The appearance preference: 'dark' out of the box, or 'light'/'system' once chosen. Dark is
+  // the default because that is the appearance the map windows are designed in and the one the
+  // app is read in beside a terminal; following the OS is offered, not assumed. Plain text —
+  // there is nothing secret about a colour scheme — but it lives here so the app has one
+  // settings file rather than two.
   const THEMES = ['system', 'light', 'dark']
-  const getTheme = () => { const t = read(file).theme; return THEMES.includes(t) ? t : 'system' }
+  const DEFAULT_THEME = 'dark'
+  const getTheme = () => { const t = read(file).theme; return THEMES.includes(t) ? t : DEFAULT_THEME }
   const setTheme = (raw) => {
-    const theme = THEMES.includes(raw) ? raw : 'system'
+    const theme = THEMES.includes(raw) ? raw : DEFAULT_THEME
     const data = read(file)
     data.theme = theme
     write(file, data)

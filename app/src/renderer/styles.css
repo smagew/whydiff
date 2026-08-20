@@ -72,7 +72,13 @@ body {
 .wrap { max-width: 1080px; margin: 0 auto; padding: 32px 28px 64px; }
 
 .head { margin-bottom: 24px; }
-.brand { font-size: 22px; font-weight: 500; letter-spacing: 0.2px; }
+.brand { display: flex; align-items: center; gap: 9px; font-size: 22px; font-weight: 500; letter-spacing: 0.2px; }
+/* The app mark carries its own ground, so it needs no per-theme variant — only the corner
+   radius the rest of the shell uses. */
+.mark { flex: none; width: auto; height: 36px; border-radius: 5px; }
+/* The prompt chevron. 500 is as heavy as this design system goes, so the weight it reads
+   with comes from the accent, not from a bolder face. */
+.chev { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 500; color: var(--accent); margin-right: 2px; }
 .sub { color: var(--muted); margin-top: 4px; }
 
 .add { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
@@ -285,6 +291,15 @@ body {
 .about-ver { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .about-msg { color: var(--ink-2); }
 .about-gap { flex: 1; }
+/* A square, quiet control for a single glyph — the repo link, and anything like it later. */
+.iconbtn {
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
+  width: 28px; height: 28px; padding: 0; border: 1px solid transparent; border-radius: 5px;
+  background: none; color: var(--muted); cursor: pointer;
+  transition: color 0.12s, border-color 0.12s;
+}
+.iconbtn:hover { color: var(--accent); border-color: var(--line); }
+.iconbtn .ico { width: 16px; height: 16px; margin: 0; }
 
 /* update notifier banner */
 .update-banner { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 0 0 18px; padding: 10px 14px; background: var(--accent-bg); border: 1px solid var(--accent); border-radius: 5px; color: var(--ink); font-size: 13px; }

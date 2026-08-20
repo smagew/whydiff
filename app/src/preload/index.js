@@ -29,6 +29,8 @@ contextBridge.exposeInMainWorld('api', {
   lastRunLog: () => ipcRenderer.invoke('analyze:lastLog'),
   // Open the Claude Code install page (fixed URL).
   openClaudeInstall: () => ipcRenderer.invoke('open:claudeInstall'),
+  // Open the project's repository (fixed URL) — the footer's GitHub mark.
+  openGithub: () => ipcRenderer.invoke('open:github'),
   // Progress lines during an analyze; returns an unsubscribe fn.
   onAnalyzeProgress: (cb) => {
     const h = (_e, line) => cb(line)

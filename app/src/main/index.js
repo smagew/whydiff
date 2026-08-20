@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, nativeTheme, safeStorage, screen, shell } from 'electron'
+import { app, BrowserWindow, Menu, ipcMain, dialog, nativeTheme, safeStorage, screen, shell } from 'electron'
 import { join, basename, dirname } from 'node:path'
 import { existsSync, statSync, mkdirSync, copyFileSync, rmSync, writeFileSync, readFileSync } from 'node:fs'
 import { openStore, repoNameFromUrl } from './store.mjs'
@@ -19,6 +19,7 @@ let winState
 let pathReady = Promise.resolve(quickPath())
 // The window paint colour for the current appearance, so a new window doesn't flash white
 // on a dark desktop (or the reverse) before its stylesheet lands.
+const REPO_URL = 'https://github.com/smagew/whydiff/'
 const PAPER = { dark: '#14161a', light: '#f6f7f9' }
 const paper = () => (nativeTheme.shouldUseDarkColors ? PAPER.dark : PAPER.light)
 // Map windows and their servers, so closing a map window stops its `serve.mjs`.
@@ -68,6 +69,72 @@ function createWindow() {
   return win
 }
 
+/**
+ * Check for a newer build from the menu. A menu item conventionally answers in a dialog
+ * rather than by changing the page — it can be invoked from any screen, including one with
+ * no banner to show — so this is the whole interaction: up to date, a newer version with a
+ * Download button, or a plain "could not check".
+ */
+async function checkUpdateFromMenu() {
+  if (!app.isPackaged) {
+    // In dev app.getVersion() is the source package.json, so every release looks newer.
+    await dialog.showMessageBox({ type: 'info', message: 'Update checks run in the installed app.', detail: 'This is a development build.' })
+    return
+  }
+  const r = await checkForUpdate({ currentVersion: app.getVersion(), platform: process.platform, arch: process.arch })
+  if (!r) {
+    await dialog.showMessageBox({ type: 'warning', message: "Couldn't check for updates.", detail: 'Check your connection and try again.' })
+    return
+  }
+  if (!r.available) {
+    await dialog.showMessageBox({ type: 'info', message: "You're on the latest version.", detail: `whydiff ${r.current}` })
+    return
+  }
+  const { response } = await dialog.showMessageBox({
+    type: 'info',
+    message: `whydiff ${r.latest} is available.`,
+    detail: `You have ${r.current}.`,
+    buttons: ['Download', 'Later'],
+    defaultId: 0,
+    cancelId: 1,
+  })
+  if (response === 0) shell.openExternal(r.assetUrl || r.url)
+}
+
+// The application menu. Built from roles so editing, window management and the platform's own
+// conventions stay intact; we add only what is ours — the update check (in the app menu on
+// macOS, under Help elsewhere, which is where each platform's users look) and the repository.
+function buildMenu() {
+  const mac = process.platform === 'darwin'
+  const checkItem = { label: 'Check for Updates…', click: () => checkUpdateFromMenu() }
+  const repoItem = { label: 'whydiff on GitHub', click: () => shell.openExternal(REPO_URL) }
+  const template = [
+    ...(mac ? [{
+      label: app.name,
+      submenu: [
+        { role: 'about' },
+        { type: 'separator' },
+        checkItem,
+        { type: 'separator' },
+        { role: 'services' },
+        { type: 'separator' },
+        { role: 'hide' }, { role: 'hideOthers' }, { role: 'unhide' },
+        { type: 'separator' },
+        { role: 'quit' },
+      ],
+    }] : []),
+    { role: 'fileMenu' },
+    { role: 'editMenu' },
+    { role: 'viewMenu' },
+    { role: 'windowMenu' },
+    {
+      role: 'help',
+      submenu: mac ? [repoItem] : [checkItem, { type: 'separator' }, repoItem, { type: 'separator' }, { role: 'about' }],
+    },
+  ]
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template))
+}
+
 // A GitHub repo URL, roughly: https://github.com/owner/repo(.git) or the git@ form.
 const isGithubUrl = (u) => /^(https?:\/\/github\.com\/|git@github\.com:)[^/:]+\/[^/]+/.test(String(u).trim())
 
@@ -83,6 +150,7 @@ app.whenReady().then(() => {
   store = openStore(join(app.getPath('userData'), 'projects.json'))
   settings = openSettings(join(app.getPath('userData'), 'settings.json'), safeStorage)
   winState = openWindowState(join(app.getPath('userData'), 'window.json'))
+  buildMenu()
 
   // Appearance: 'system' (default) follows the OS, light/dark pin it. Electron drives the
   // renderer's `prefers-color-scheme` from themeSource, so the stylesheet needs no extra
@@ -110,6 +178,8 @@ app.whenReady().then(() => {
   // Open the Claude Code install page — a fixed URL (no renderer-supplied input), for the
   // preflight banner when `claude` is missing.
   ipcMain.handle('open:claudeInstall', () => shell.openExternal('https://claude.com/claude-code'))
+  // The project's repository — the same fixed URL the Help menu opens.
+  ipcMain.handle('open:github', () => shell.openExternal(REPO_URL))
 
   // Where a project's git actually lives: a local folder is itself; a GitHub project
   // is its on-demand clone under userData/clones/. Used for both live-mode serving
