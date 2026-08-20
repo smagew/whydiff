@@ -4,6 +4,17 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.45.0] — 2026-08-20
+
+### Fixed
+- **Generating User stories / Summary no longer breaks the diagrams.** After a Generate the
+  page reloads onto the generated tab (`flashTab`); the default-tab logic had already started
+  rendering the diagrams, so mermaid ran into a now-hidden pane — `translate(undefined, NaN)`,
+  a broken diagram that stuck (the render was latched, so opening Diagrams never re-rendered
+  it). Now diagrams never render into a hidden pane, and the "rendered" latch is set only after
+  a real, visible render — so opening Diagrams after a Generate renders them whole. Guarded by
+  `tests/diagram-flashtab.mjs` (verified to fail on the pre-fix viewer).
+
 ## [0.44.1] — 2026-08-20
 
 ### Fixed
