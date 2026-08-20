@@ -47,7 +47,7 @@ const errors = []
 page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`))
 await page.goto('file://' + html)
 await page.locator('#tabs .tab[data-pane="diagrams"]').click()
-await page.waitForSelector('#pane-diagrams svg', { timeout: 15000 })
+await page.waitForSelector('#pane-diagrams .mermaid-box svg', { timeout: 15000 })
 
 // The app's exact export path: prepare the diagrams tab for comments, get the manifest, print.
 const manifest = await page.evaluate(() => window.__whydiffPreparePrint({ tab: 'diagrams', forComments: true }))

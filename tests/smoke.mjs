@@ -50,7 +50,7 @@ if ((await page.locator('#pane-stories .lazy').count()) !== 1) fail('ungenerated
 // Diagrams render lazily on first tab open. Address by data-pane, not index: the
 // always-present stories tab now sits at index 1.
 await page.locator('#tabs .tab[data-pane="diagrams"]').click()
-await page.waitForSelector('#pane-diagrams svg', { timeout: 15000 })
+await page.waitForSelector('#pane-diagrams .mermaid-box svg', { timeout: 15000 })
 await page.waitForTimeout(400)
 
 const clickable = await page.locator('#pane-diagrams .clickable').count()

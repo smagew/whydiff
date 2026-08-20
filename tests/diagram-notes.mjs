@@ -46,7 +46,7 @@ page.on('pageerror', e => errors.push(`pageerror: ${e.message}`))
 page.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errors.push(`console: ${m.text()}`) })
 await page.goto(base + '/')
 await page.locator('#tabs .tab[data-pane="diagrams"]').click()
-await page.waitForSelector('#pane-diagrams svg', { timeout: 15000 })
+await page.waitForSelector('#pane-diagrams .mermaid-box svg', { timeout: 15000 })
 await page.waitForTimeout(700)
 
 // ── a block click opens the panel for that block, not the file drill-down ─────
@@ -69,7 +69,7 @@ await page.waitForFunction(() => document.querySelectorAll('#pane-diagrams .dg-b
 
 await page.reload()
 await page.locator('#tabs .tab[data-pane="diagrams"]').click()
-await page.waitForSelector('#pane-diagrams svg', { timeout: 15000 })
+await page.waitForSelector('#pane-diagrams .mermaid-box svg', { timeout: 15000 })
 await page.waitForFunction(() => document.querySelectorAll('#pane-diagrams .dg-badge').length >= 1, null, { timeout: 10000 })
   .catch(() => fail('the block badge did not survive a reload'))
 // The badge opens the thread it stands for.
@@ -127,7 +127,7 @@ const region = async (dgIndex, sel, label) => {
   covers(await frameActors(dgIndex, sel), 'after note')
   await page.reload()
   await page.locator('#tabs .tab[data-pane="diagrams"]').click()
-  await page.waitForSelector('#pane-diagrams svg', { timeout: 15000 })
+  await page.waitForSelector('#pane-diagrams .mermaid-box svg', { timeout: 15000 })
   await page.waitForFunction(() => document.querySelector('#pane-diagrams .dg-region'), null, { timeout: 10000 })
     .catch(() => fail(`[${label}] the region frame did not survive a reload`))
   await page.waitForTimeout(300)
@@ -147,6 +147,19 @@ const region = async (dgIndex, sel, label) => {
   await page.evaluate(() => document.getElementById('asideReopen')?.click())
   await page.waitForTimeout(500)
   covers(await frameActors(dgIndex, sel), 'after sidebar toggle')
+  // Zoom must not desync the frame from its nodes: zooming rescales the SVG, so the frame must
+  // redraw at the new scale; and once zoomed the box scrolls, so panning must keep them aligned.
+  const dgSel = `#pane-diagrams .diagram[data-anchor="diagram:${dgIndex}"]`
+  await page.locator(`${dgSel} .dg-zoom [data-dg-zoom="in"]`).click()
+  await page.locator(`${dgSel} .dg-zoom [data-dg-zoom="in"]`).click()
+  await page.waitForTimeout(400)
+  covers(await frameActors(dgIndex, sel), 'after zoom in')
+  await page.evaluate((s) => { const b = document.querySelector(`${s} .mermaid-box`); b.scrollLeft += 50; b.scrollTop += 30 }, dgSel)
+  await page.waitForTimeout(200)
+  covers(await frameActors(dgIndex, sel), 'after zoom + pan (scroll)')
+  await page.locator(`${dgSel} .dg-zoom [data-dg-fit]`).click()
+  await page.waitForTimeout(300)
+  covers(await frameActors(dgIndex, sel), 'after fit reset')
 }
 
 await region(0, '#pane-diagrams .diagram[data-anchor="diagram:0"] svg .node', 'flowchart')  // flowchart nodes

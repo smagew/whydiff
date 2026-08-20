@@ -388,9 +388,20 @@
   .dg-head { display: flex; align-items: baseline; gap: 10px; }
   .dg-head h3 { flex: 1; min-width: 0; }
   .dg-actions { display: flex; gap: 6px; flex: none; }
-  .dg-btn { width: 28px; height: 28px; border-radius: 3px; border: 1px solid var(--line); background: var(--surface-2); color: var(--muted); font-size: 14px; line-height: 1; cursor: pointer; transition: border-color var(--t), color var(--t); }
+  .dg-btn { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 4px; border: 1px solid var(--line); background: var(--surface-2); color: var(--muted); font-size: 15px; line-height: 1; cursor: pointer; transition: border-color var(--t), color var(--t); }
   .dg-btn:hover { border-color: var(--accent); color: var(--accent); }
   .dg-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .dg-btn svg { width: 18px; height: 18px; display: block; }
+  /* Zoom sits over the canvas, bottom-right — the learnable spot. The container is transparent
+     (no nested filled box); each button carries the card surface so it reads over the diagram. */
+  /* The zoom pill overlays the diagram from a wrapper around the box (never inside it — its
+     icon SVGs would otherwise be picked up by the diagram-SVG selectors). */
+  .mermaid-wrap { position: relative; }
+  .dg-zoom { position: absolute; right: 8px; bottom: 8px; z-index: 5; display: flex; flex-direction: column; gap: 5px; }
+  .dg-zoom .dg-btn { background: var(--canvas); cursor: pointer; }
+  /* Zoomed past fit: the box scrolls, so you pan by scrolling; bounded height keeps a tall
+     zoom inside the viewport instead of growing the page. */
+  .mermaid-box.dg-zoomed { overflow: auto; max-height: 78vh; cursor: default; }
   .diagram .cap { margin: 0 0 10px; font-size: 13px; color: var(--muted); }
   /* Crosshair over the field says "drag to select a region"; a node overrides it
      with a pointer to say "click me". Together they make the diagram's two
@@ -462,8 +473,21 @@
   .elabels.all .elabel.crowded:not(.on) { opacity: 0; pointer-events: none; }
   .elabel-t { display: block; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     font-family: var(--mono); font-size: 13px; font-weight: 500; color: var(--ink);
-    background: var(--surface); border: 1px solid var(--line-strong); border-radius: 5px; padding: 2px 8px; }
+    background: var(--surface); border: 1px solid var(--line-strong); border-radius: 5px; padding: 2px 8px;
+    /* A casing in the page colour, the way a map label is set over terrain: the pill reads as
+       a layer ABOVE the card it covers instead of tangling with the card's own border. An
+       outline, not a shadow — the design gate allows shadows only on overlays. */
+    outline: 2px solid var(--canvas); }
   .elabel:hover .elabel-t { border-color: var(--accent); }
+  /* Overlap is deliberate — this map is compact, and a label that refuses to overlap either
+     walks away from its own line or gets hidden. What must not happen is that the overlap
+     hides what you are trying to read. So the two readings take turns:
+     · hovering a CARD fades the labels lying on it (markOccluders), so a card can always be
+       read in full — and they come straight back when the pointer leaves;
+     · hovering a LABEL quiets the others, so one is never read through another. */
+  .elabels .elabel.occluded { opacity: 0; pointer-events: none; }
+  .elabels:hover .elabel { opacity: .12; }
+  .elabels .elabel:hover { opacity: 1; }
   .elabel-pop { display: none; position: absolute; top: calc(100% + 6px); left: 50%; transform: translateX(-50%);
     width: max-content; max-width: 300px; background: var(--surface); border: 1px solid var(--line-strong);
     border-radius: 5px; padding: 8px 10px; z-index: 6; }
@@ -1095,7 +1119,7 @@
     .askpanel, .askbar, .rail, .rc-grip, .rc-grip-pill, .rightcol, .modebar, .content-tools,
     #edges, #elabels, .elabels, .elabel, .dg-badges, .dg-region,
     .kicker, #title, .sub, #statbar,
-    #diagramsHint, #blastHint, .dg-actions, [data-pop] { display: none !important; }
+    #diagramsHint, #blastHint, .dg-actions, .dg-zoom, [data-pop] { display: none !important; }
     /* Clamp the whole reading column to the paper width. The PDF renderer lays out at the
        on-screen viewport width and crops to the page, so a full-width column would spill
        off the right edge; a physical max-width keeps every tab (and centred diagrams) on
@@ -1971,6 +1995,7 @@ function fitDiagrams() {
   // clip the diagram off the right edge of the page.
   if (typeof matchMedia === 'function' && matchMedia('print').matches) return
   for (const box of pane.querySelectorAll('.mermaid-box')) {
+    if (box.dataset.dgZoom) continue // the user set an explicit zoom — don't clobber it on resize
     const svg = box.querySelector('svg')
     if (!svg) continue
     const natural = svg.viewBox?.baseVal?.width || 0
@@ -1984,6 +2009,49 @@ function fitDiagrams() {
   // badges/frames behind. __whydiffDrawMarks is rAF-debounced itself.
   window.__whydiffDrawMarks?.()
 }
+
+// The fit-to-width baseline for a box (what fitDiagrams would set) — the floor for zoom-out.
+function dgFitWidth(box, svg) {
+  const natural = svg.viewBox?.baseVal?.width || 0
+  const avail = box.clientWidth - 20
+  return (!natural || avail <= 0) ? 0 : Math.min(avail, natural * DIAGRAM_MAX_SCALE)
+}
+// Zoom a diagram over its canvas. Multiplies the current width, clamped to [fit, natural×4];
+// at fit it clears the zoom (back to the responsive fit). When zoomed the box scrolls, so you
+// pan by scrolling (trackpad / two-finger) — no d-pad. Marks redraw for the new scale.
+const DG_ZOOM_STEP = 1.3, DG_ZOOM_MAX = 4
+function zoomDiagram(box, dir) {
+  const svg = box.querySelector('svg'); if (!svg) return
+  const natural = svg.viewBox?.baseVal?.width || 0
+  const fit = dgFitWidth(box, svg); if (!fit) return
+  const cur = parseFloat(svg.style.width) || svg.getBoundingClientRect().width || fit
+  let next = dir === 'in' ? cur * DG_ZOOM_STEP : cur / DG_ZOOM_STEP
+  next = Math.max(fit, Math.min(next, (natural || fit) * DG_ZOOM_MAX))
+  const zoomed = next > fit + 1
+  svg.style.width = Math.round(next) + 'px'
+  box.dataset.dgZoom = zoomed ? '1' : ''
+  box.classList.toggle('dg-zoomed', zoomed)
+  window.__whydiffDrawMarks?.()
+}
+function fitDiagram(box) {
+  const svg = box.querySelector('svg'); if (svg) svg.style.width = ''
+  box.dataset.dgZoom = ''; box.classList.remove('dg-zoomed')
+  fitDiagrams()
+}
+;(() => {
+  const pane = document.getElementById('pane-diagrams')
+  if (!pane) return
+  // A click on Fit / Zoom drives the diagram it belongs to.
+  pane.addEventListener('click', (e) => {
+    const zb = e.target.closest?.('[data-dg-zoom]')
+    if (zb) { e.stopPropagation(); const box = zb.closest('.diagram')?.querySelector('.mermaid-box'); if (box) zoomDiagram(box, zb.dataset.dgZoom); return }
+    const fb = e.target.closest?.('[data-dg-fit]')
+    if (fb) { e.stopPropagation(); const box = fb.closest('.diagram')?.querySelector('.mermaid-box'); if (box) fitDiagram(box) }
+  })
+  // The zoom pill sits inside the box, whose mousedown starts a region-select. Swallow the
+  // mousedown on the pill (capture, before the box handler) so clicking + / − never begins a drag.
+  pane.addEventListener('mousedown', (e) => { if (e.target.closest?.('.dg-zoom')) e.stopPropagation() }, true)
+})()
 let fitRAF = 0
 window.addEventListener('resize', () => { cancelAnimationFrame(fitRAF); fitRAF = requestAnimationFrame(fitDiagrams) })
 
@@ -2421,7 +2489,7 @@ function drawEdges() {
     }
   }
   refreshEdges()
-  if (allEdges.checked) requestAnimationFrame(declutterLabels)
+  requestAnimationFrame(() => { nudgeOffHeadings(); if (allEdges.checked) declutterLabels() })
 }
 // An edge is visible when its file is hovered or selected; the checkbox shows all.
 function refreshEdges() {
@@ -2432,6 +2500,46 @@ function refreshEdges() {
   for (const p of svg.children) mark(p)
   const labels = document.getElementById('elabels')
   if (labels) for (const l of labels.children) mark(l)
+  markOccluders()
+}
+// Which labels are sitting on the card under the pointer. Only in "show all" mode: with the
+// toggle off, hovering a card is the ONLY way to see its labels, so fading them there would
+// hide the feature instead of revealing the card. Labels are few and this runs on hover
+// enter/leave, so reading their rects live is cheaper than keeping a cache correct across
+// folds, resizes and column changes.
+function markOccluders() {
+  const labels = document.getElementById('elabels')
+  if (!labels) return
+  const node = allEdges.checked && hoverId ? anchorEl(hoverId) : null
+  const n = node ? node.getBoundingClientRect() : null
+  for (const l of labels.children) {
+    if (!n) { l.classList.remove('occluded'); continue }
+    const r = l.getBoundingClientRect()
+    l.classList.toggle('occluded', !!r.width && r.left < n.right && r.right > n.left && r.top < n.bottom && r.bottom > n.top)
+  }
+}
+// A label may sit on a file card — hovering the card fades it away, so nothing is lost. A
+// GROUP HEADING is different: there is no card to point at, so a label parked on a heading is
+// permanently unreadable. Those, and only those, get nudged — by the smallest vertical step
+// that clears the heading, so the label stays on its own line rather than hunting for a free
+// spot somewhere else on the map.
+function nudgeOffHeadings() {
+  const labels = document.getElementById('elabels')
+  if (!labels) return
+  const rows = [...document.querySelectorAll('.group-row')].map((r) => r.getBoundingClientRect())
+  if (!rows.length) return
+  for (const l of labels.children) {
+    const r = l.getBoundingClientRect()
+    if (!r.width) continue
+    for (const g of rows) {
+      if (r.right <= g.left || r.left >= g.right || r.bottom <= g.top || r.top >= g.bottom) continue
+      const up = g.top - r.bottom - 4     // negative: move up to sit above the heading
+      const down = g.bottom - r.top + 4   // positive: move down to sit below it
+      const dy = Math.abs(up) <= Math.abs(down) ? up : down
+      l.style.top = (parseFloat(l.style.top) || 0) + dy + 'px'
+      break // one heading is enough; a second pass would fight the first
+    }
+  }
 }
 // With every label shown, dense maps stack pills on top of each other. Greedily keep
 // the first label in each spot and mark the rest "crowded" — CSS hides those until
@@ -3779,7 +3887,8 @@ if (SERVE?.token || EMBEDDED) (() => {
       if (head && !head.querySelector('.dg-ask')) {
         const b = document.createElement('button')
         b.className = 'dg-btn dg-ask'
-        b.textContent = '?'
+        // A clean help/ask icon, so it matches the fit/open/zoom icon set instead of a bare "?".
+        b.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.2 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.8 2.5-2.8 2.5"/><path d="M12 17h.01"/></svg>'
         b.title = L.askAboutDiagram
         b.addEventListener('click', () => openFor({
           kind: 'diagram',

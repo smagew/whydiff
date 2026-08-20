@@ -43,7 +43,7 @@ ok(await page.evaluate(() => document.body.classList.contains('can-ask')), 'anno
 
 // The diagram note draws a badge on its node; the tab is default but click to be sure.
 await page.locator('#tabs .tab[data-pane="diagrams"]').click()
-await page.waitForSelector('#pane-diagrams svg', { timeout: 15000 })
+await page.waitForSelector('#pane-diagrams .mermaid-box svg', { timeout: 15000 })
 await page.waitForFunction(() => document.querySelectorAll('#pane-diagrams .dg-badge').length >= 1, null, { timeout: 10000 })
   .catch(() => fail('the baked diagram note did not draw a badge in the exported map'))
 
