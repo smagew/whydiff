@@ -399,9 +399,11 @@
   .mermaid-wrap { position: relative; }
   .dg-zoom { position: absolute; right: 8px; bottom: 8px; z-index: 5; display: flex; flex-direction: column; gap: 5px; }
   .dg-zoom .dg-btn { background: var(--canvas); cursor: pointer; }
-  /* Zoomed past fit: the box scrolls, so you pan by scrolling; bounded height keeps a tall
-     zoom inside the viewport instead of growing the page. */
-  .mermaid-box.dg-zoomed { overflow: auto; max-height: 78vh; cursor: default; }
+  /* Zoom mode: the box is a bounded scroll viewport (height set inline to the zoom), so you pan
+     by scrolling and a tall zoom never stretches the page. The SVG is uncapped and left-aligned
+     so it can exceed the box width and the scroll math is simple. */
+  .diagram .mermaid-box.dg-zoomed { overflow: auto; cursor: default; }
+  .diagram .mermaid-box.dg-zoomed > svg { max-width: none !important; margin: 0; }
   .diagram .cap { margin: 0 0 10px; font-size: 13px; color: var(--muted); }
   /* Crosshair over the field says "drag to select a region"; a node overrides it
      with a pointer to say "click me". Together they make the diagram's two
@@ -1995,7 +1997,7 @@ function fitDiagrams() {
   // clip the diagram off the right edge of the page.
   if (typeof matchMedia === 'function' && matchMedia('print').matches) return
   for (const box of pane.querySelectorAll('.mermaid-box')) {
-    if (box.dataset.dgZoom) continue // the user set an explicit zoom — don't clobber it on resize
+    if (box.classList.contains('dg-zoomed')) continue // the user set an explicit zoom — don't clobber it on resize
     const svg = box.querySelector('svg')
     if (!svg) continue
     const natural = svg.viewBox?.baseVal?.width || 0
@@ -2010,46 +2012,78 @@ function fitDiagrams() {
   window.__whydiffDrawMarks?.()
 }
 
-// The fit-to-width baseline for a box (what fitDiagrams would set) — the floor for zoom-out.
-function dgFitWidth(box, svg) {
-  const natural = svg.viewBox?.baseVal?.width || 0
-  const avail = box.clientWidth - 20
-  return (!natural || avail <= 0) ? 0 : Math.min(avail, natural * DIAGRAM_MAX_SCALE)
-}
-// Zoom a diagram over its canvas. Multiplies the current width, clamped to [fit, natural×4];
-// at fit it clears the zoom (back to the responsive fit). When zoomed the box scrolls, so you
-// pan by scrolling (trackpad / two-finger) — no d-pad. Marks redraw for the new scale.
-const DG_ZOOM_STEP = 1.3, DG_ZOOM_MAX = 4
-function zoomDiagram(box, dir) {
-  const svg = box.querySelector('svg'); if (!svg) return
-  const natural = svg.viewBox?.baseVal?.width || 0
-  const fit = dgFitWidth(box, svg); if (!fit) return
-  const cur = parseFloat(svg.style.width) || svg.getBoundingClientRect().width || fit
-  let next = dir === 'in' ? cur * DG_ZOOM_STEP : cur / DG_ZOOM_STEP
-  next = Math.max(fit, Math.min(next, (natural || fit) * DG_ZOOM_MAX))
-  const zoomed = next > fit + 1
-  svg.style.width = Math.round(next) + 'px'
-  box.dataset.dgZoom = zoomed ? '1' : ''
-  box.classList.toggle('dg-zoomed', zoomed)
+// ── diagram pan / zoom ─────────────────────────────────────────────────────────
+// A real zoom layer over the mermaid SVG. Absolute scale k = the SVG renders at k×natural.
+// Zooming just resizes the SVG (width; height follows the viewBox aspect) inside a bounded
+// scroll box, so: a diagram bigger than the screen can be shrunk until it fits WHOLE (k<1),
+// zoomed in for detail (up to ×6), panned by scrolling, and the box height stays a bounded
+// viewport so a tall zoom scrolls instead of stretching the page (no scroll-jump). getScreenCTM
+// reflects the scaled SVG, so the annotation marks redraw onto the same nodes.
+const DG_ZMAX = 6, DG_ZMIN = 0.05
+const dgVpH = () => Math.round((typeof window !== 'undefined' ? window.innerHeight : 800) * 0.8)
+function dgNatural(svg) { const v = svg.viewBox?.baseVal; if (v && v.width) return { w: v.width, h: v.height }; try { const b = svg.getBBox(); return { w: b.width, h: b.height } } catch { return { w: 0, h: 0 } } }
+function dgSvg(box) { return box.querySelector('svg') }
+function dgApply(box, k) {
+  const svg = dgSvg(box); if (!svg) return
+  const nat = box.__dgNat || (box.__dgNat = dgNatural(svg)); if (!nat.w) return
+  k = Math.max(DG_ZMIN, Math.min(k, DG_ZMAX))
+  box.__dgK = k
+  box.classList.add('dg-zoomed')
+  svg.style.maxWidth = 'none'
+  svg.style.width = Math.round(k * nat.w) + 'px' // height follows via the viewBox aspect (height:auto)
+  box.style.height = Math.min(dgVpH(), Math.round(k * nat.h) + 20) + 'px'
   window.__whydiffDrawMarks?.()
+  return k
 }
-function fitDiagram(box) {
-  const svg = box.querySelector('svg'); if (svg) svg.style.width = ''
-  box.dataset.dgZoom = ''; box.classList.remove('dg-zoomed')
+function dgCurrentK(box) {
+  if (box.__dgK) return box.__dgK
+  const svg = dgSvg(box); const nat = svg && (box.__dgNat || (box.__dgNat = dgNatural(svg)))
+  return (svg && nat?.w) ? (svg.getBoundingClientRect().width || nat.w) / nat.w : 1
+}
+function dgFitScreenK(box) {
+  const svg = dgSvg(box); const nat = svg && dgNatural(svg); if (!nat?.w) return 1
+  return Math.min((box.clientWidth - 24) / nat.w, (dgVpH() - 24) / nat.h) // whole diagram inside the viewport, with margin
+}
+// Zoom by a factor, holding the point (fx,fy) in the box viewport still (cursor for a wheel,
+// centre for a button).
+function dgZoomBy(box, factor, fx, fy) {
+  const svg = dgSvg(box); const nat = svg && (box.__dgNat || (box.__dgNat = dgNatural(svg))); if (!nat?.w) return
+  const k0 = dgCurrentK(box), k1 = Math.max(DG_ZMIN, Math.min(k0 * factor, DG_ZMAX))
+  if (Math.abs(k1 - k0) < 1e-4) return
+  const r = box.getBoundingClientRect()
+  fx = fx == null ? r.width / 2 : fx; fy = fy == null ? r.height / 2 : fy
+  const cx = (box.scrollLeft + fx) / k0, cy = (box.scrollTop + fy) / k0
+  dgApply(box, k1)
+  box.scrollLeft = cx * k1 - fx; box.scrollTop = cy * k1 - fy
+}
+function dgFit(box, mode) {
+  const svg = dgSvg(box); if (!svg) return
+  if (mode === 'screen') { dgApply(box, dgFitScreenK(box)); box.scrollLeft = box.scrollTop = 0; return }
+  // 'width' → leave zoom mode entirely, back to the responsive fit-to-width default
+  box.classList.remove('dg-zoomed'); box.__dgK = 0; box.style.height = ''
+  svg.style.maxWidth = ''; svg.style.width = ''
   fitDiagrams()
 }
 ;(() => {
-  const pane = document.getElementById('pane-diagrams')
-  if (!pane) return
-  // A click on Fit / Zoom drives the diagram it belongs to.
+  const pane = document.getElementById('pane-diagrams'); if (!pane) return
+  const boxOf = (el) => el.closest('.diagram')?.querySelector('.mermaid-box')
   pane.addEventListener('click', (e) => {
     const zb = e.target.closest?.('[data-dg-zoom]')
-    if (zb) { e.stopPropagation(); const box = zb.closest('.diagram')?.querySelector('.mermaid-box'); if (box) zoomDiagram(box, zb.dataset.dgZoom); return }
+    if (zb) { e.stopPropagation(); const box = boxOf(zb); if (box) dgZoomBy(box, zb.dataset.dgZoom === 'in' ? 1.3 : 1 / 1.3); return }
     const fb = e.target.closest?.('[data-dg-fit]')
-    if (fb) { e.stopPropagation(); const box = fb.closest('.diagram')?.querySelector('.mermaid-box'); if (box) fitDiagram(box) }
+    if (fb) { e.stopPropagation(); const box = boxOf(fb); if (box) dgFit(box, fb.dataset.dgFit || 'width') }
   })
-  // The zoom pill sits inside the box, whose mousedown starts a region-select. Swallow the
-  // mousedown on the pill (capture, before the box handler) so clicking + / − never begins a drag.
+  // Ctrl/⌘ + wheel — and a trackpad pinch, which the browser reports as ctrlKey — zooms at the
+  // cursor; a plain wheel scrolls (pans) a zoomed box natively. Left-drag stays region-select.
+  pane.addEventListener('wheel', (e) => {
+    if (!(e.ctrlKey || e.metaKey)) return
+    const box = e.target.closest?.('.mermaid-box'); if (!box) return
+    e.preventDefault()
+    const r = box.getBoundingClientRect()
+    dgZoomBy(box, e.deltaY < 0 ? 1.12 : 1 / 1.12, e.clientX - r.left, e.clientY - r.top)
+  }, { passive: false })
+  // The zoom pill sits over the box; swallow its mousedown so clicking a control never starts a
+  // region-select drag.
   pane.addEventListener('mousedown', (e) => { if (e.target.closest?.('.dg-zoom')) e.stopPropagation() }, true)
 })()
 let fitRAF = 0
