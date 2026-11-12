@@ -103,6 +103,8 @@
     --warn: var(--flag); --warn-bg: var(--flag-soft);
     --flag-bg: var(--flag-soft);
     --info: var(--ink-2); --info-bg: var(--sunken);
+    /* git status of a file in the Files tree: green new, blue modified, grey deleted */
+    --st-new: var(--pass); --st-mod: var(--syn-fn); --st-del: var(--ink-3);
     --shadow: none;
     --font-ui: var(--ui); --font-mono: var(--mono); --font-prose: var(--ui);
     --sans: var(--ui); --r-btn: 3px; --r-panel: 3px;
@@ -321,22 +323,18 @@
     font-size: 15px; color: inherit; cursor: pointer; }
   .ovg-name:hover { background: var(--surface-2); color: var(--accent); }
   .ovg-name:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-  .ovg-files { list-style: none; margin: 8px 0 0; padding: 0; }
-  .ovg-file { display: flex; align-items: baseline; gap: 4px; margin: 0 -4px; }
-  .ovg-fpath { display: flex; align-items: baseline; gap: 8px; flex: 1; min-width: 0; background: none; border: none; padding: 3px 4px; border-radius: 3px; cursor: pointer; font: inherit; color: inherit; text-align: left; }
-  .ovg-fpath:hover { background: var(--surface-2); }
-  .ovg-fpath:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-  .ovg-view { flex: none; align-self: center; font: inherit; font-size: 13px; line-height: 1;
-    cursor: pointer; background: none; border: 1px solid var(--line); border-radius: 4px;
-    padding: 2px 7px; color: var(--muted); opacity: 0; transition: opacity var(--t); }
-  .ovg-file:hover .ovg-view, .ovg-view:focus-visible { opacity: 1; }
-  .ovg-view:hover { border-color: var(--accent); color: var(--accent); }
-  .ovg-view:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   /* aside sub-tabs: Overview | Call graph */
   /* Files tab: IDE layout — a navigator on the left (mode switcher + list/map), the selected
      file's view in the main area on the right. */
   .files-layout { display: flex; gap: 20px; align-items: flex-start; }
   .files-nav { flex: none; width: 340px; min-width: 240px; align-self: stretch; }
+  /* The navigator scrolls on its own, like an IDE's project pane: it sticks below the top
+     of the window and always ends above the footer strip, so a long tree scrolls inside
+     it while the file view scrolls with the page, and the tree stays put while you read
+     a long file. Its height is fitted by fitFilesNav() from where it starts on screen
+     (below the header until the page is scrolled); this is the no-JS fallback. */
+  .files-nav-body { position: sticky; top: 12px; max-height: calc(100vh - 12px - 48px);
+    overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding-right: 2px; }
   .files-main { flex: 1 1 auto; min-width: 0; }
   /* Call graph fills the main column full-width; the file view sits beneath it. */
   .files-callfull { margin: 0 0 16px; }
@@ -348,15 +346,8 @@
   .files-mode-btn:hover { color: var(--accent); }
   .files-mode-btn.on { color: var(--ink); border-bottom-color: var(--accent); }
   .files-mode-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-  /* the flat Files-list mode */
-  .files-flat { display: flex; flex-direction: column; gap: 1px; }
-  .files-flat-row { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; font: inherit;
-    font-size: 13px; cursor: pointer; background: none; border: none; border-radius: 4px; padding: 5px 8px; color: var(--ink-2); }
-  .files-flat-row:hover { color: var(--accent); }
-  .files-flat-row.active { color: var(--accent); background: var(--accent-bg); }
-  .files-flat-row .ff-path { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 6px; white-space: nowrap; }
-  .files-flat-row .ff-stat { flex: none; font-family: var(--mono); font-size: 13px; }
-  @media (max-width: 900px) { .files-layout { flex-direction: column; } .files-nav { width: auto; } }
+  @media (max-width: 900px) { .files-layout { flex-direction: column; } .files-nav { width: auto; align-self: stretch; }
+    .files-nav-body { position: static; max-height: 45vh; } }
   .aside-subtabs { display: flex; gap: 4px; margin: 0 0 14px; }
   .aside-subtab { font: inherit; font-family: var(--mono); font-size: 13px; cursor: pointer; padding: 4px 10px;
     border-radius: 5px; border: 1px solid var(--line); background: var(--surface-2); color: var(--muted); }
@@ -380,15 +371,41 @@
   .cg-row:hover .cg-view, .cg-view:focus-visible { opacity: 1; }
   .cg-view:hover { border-color: var(--accent); color: var(--accent); }
   .ovg-ext { flex: none; min-width: 3.5ch; font-family: var(--mono); font-size: 13px; color: var(--muted); }
-  .ovg-path { flex: 1; min-width: 0; font-family: var(--mono); font-size: 13px; }
-  /* A path in a file list, the IDE way: the directory muted and the first thing to give
-     way (one line, ellipsis); the file name always whole. A name too long for the column
-     breaks only after - . _ (the <wbr>s pathHTML puts there), never mid-word: the old
-     character-level wrap tore names apart ("aut / h.ts"). */
-  .pth { display: flex; flex-wrap: wrap; align-items: baseline; min-width: 0; }
-  .pth-dir { flex: 0 1000 auto; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
-  .pth-base { flex: 0 1 auto; min-width: 0; overflow-wrap: normal; word-break: normal; }
-  .ovg-stat { flex: none; font-family: var(--mono); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  /* Files navigator trees (fileTreeHTML), IDE-style: folders compact and fold, a file's
+     name is whole (it breaks only after - . _ via <wbr>), and git's status is the name's
+     colour plus a letter, so it reads without colour too (print, colour blindness). */
+  .ftree, .ftree ul { list-style: none; margin: 0; padding: 0; }
+  .ovg .ftree { margin-top: 6px; }
+  .ft-item { outline: none; }
+  .ft-item:focus-visible > .ft-row { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .ft-row { display: flex; align-items: baseline; gap: 6px; padding: 3px 6px 3px calc(4px + var(--lvl, 0) * 14px);
+    border-radius: 3px; cursor: pointer; font-family: var(--mono); font-size: 13px; }
+  .ft-row:hover { background: var(--surface-2); }
+  .ft-file.active > .ft-row { background: var(--accent-bg); }
+  .ft-file.active > .ft-row .ft-name { font-weight: 500; }
+  .ft-chev { flex: none; width: 1ch; color: var(--ink-3); }
+  .ft-dir > .ft-row > .ft-chev::before { content: "▾"; }
+  .ft-dir[aria-expanded="false"] > .ft-row > .ft-chev::before { content: "▸"; }
+  .ft-dir[aria-expanded="false"] > ul { display: none; }
+  .ft-dname { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); }
+  .ft-row > svg { flex: none; align-self: center; }
+  .ft-name { flex: 1; min-width: 0; color: var(--st-c, var(--ink)); }
+  .ft-from { color: var(--ink-3); }
+  .fv-status { margin: -4px 0 12px; font-family: var(--mono); font-size: 13px; color: var(--st-c); }
+  .fv-status .ft-st { display: inline-block; }
+  .ft-st { flex: none; width: 1.5ch; text-align: center; font-weight: 500; color: var(--st-c, var(--ink-3)); }
+  .ft-stat { flex: none; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  /* the read toggle in a tree row: a quiet ✓ that shows on hover/focus or once read,
+     so a full "mark read" label per row does not squeeze the file names */
+  .ft-row .seen-btn { flex: none; align-self: center; width: 2.4ch; padding: 0; text-align: center; opacity: 0; transition: opacity var(--t); }
+  .ft-row:hover .seen-btn, .ft-item:focus-visible .seen-btn, .ft-row .seen-btn.on { opacity: 1; }
+  .st-added    { --st-c: var(--st-new); }
+  .st-modified { --st-c: var(--st-mod); }
+  .st-renamed  { --st-c: var(--st-mod); }
+  .st-deleted  { --st-c: var(--st-del); }
+  .st-deleted .ft-name { text-decoration: line-through; }
+  .ft-file.seen .ft-name { opacity: .62; }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
   .linklike { background: none; border: none; padding: 0; font: inherit; font-size: inherit; color: var(--accent); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
   .linklike:hover { filter: brightness(1.15); }
   #helpBody { padding: 14px 18px 18px; font-size: 13.5px; }
@@ -1385,6 +1402,8 @@ const I18N = {
     groupHint: (n) => `${n} file${n === 1 ? '' : 's'}`,
     manifestSummary: (n) => `All diff files: ${n} of ${n} on the map`,
     newMark: '· new',
+    fileStatus: { added: 'Added', modified: 'Modified', deleted: 'Deleted', renamed: 'Renamed' },
+    renamedFrom: (p) => `from ${p}`,
     relsTitle: 'Links', back: 'Back', openFull: 'Open full file', fragment: 'fragment', close: 'Close',
     edgeMore: 'more', edgeLess: 'less',
     asideHide: 'Collapse panel — free up reading width', asideShow: 'Overview',
@@ -1538,6 +1557,8 @@ const I18N = {
     groupHint: (n) => `${n} ф.`,
     manifestSummary: (n) => `Все файлы диффа: ${n} из ${n} на карте`,
     newMark: '· новый',
+    fileStatus: { added: 'Добавлен', modified: 'Изменён', deleted: 'Удалён', renamed: 'Переименован' },
+    renamedFrom: (p) => `из ${p}`,
     relsTitle: 'Связи', back: 'Назад', openFull: 'Открыть файл целиком', fragment: 'фрагмент', close: 'Закрыть',
     edgeMore: 'подробнее', edgeLess: 'свернуть',
     asideHide: 'Свернуть панель — освободить место для чтения', asideShow: 'Обзор',
@@ -1735,13 +1756,32 @@ const FILE_ICONS = {
   locale: '<circle cx="8" cy="8" r="5.3"/><path d="M2.7 8h10.6"/><path d="M8 2.7c1.6 1.9 1.6 8.7 0 10.6M8 2.7c-1.6 1.9-1.6 8.7 0 10.6"/>',
   file:   '<path d="M4.4 2.3h4.5l2.7 2.7v8.7H4.4Z"/><path d="M8.9 2.3v2.7h2.7"/>',
 }
-// A repo path for a one-line file list: muted directory + whole file name, full path
-// on hover (see .pth). Hoisted: file lists render before this point in the script.
-function pathHTML(path) {
-  const p = String(path), i = p.lastIndexOf('/')
-  const dir = i >= 0 ? p.slice(0, i + 1) : ''
-  const base = esc(p.slice(i + 1)).replace(/([-._])/g, '$1<wbr>')
-  return `<span class="pth" title="${esc(p)}">${dir ? `<span class="pth-dir">${esc(dir)}</span>` : ''}<span class="pth-base">${base}</span></span>`
+// A folder tree of diff files — the Files navigator, IDE-style (WAI-ARIA tree pattern:
+// role=tree/treeitem/group, aria-level, aria-expanded, one roving tab stop; keys in
+// treeKeydown). Folders come from buildFileTree (compact folders); a file row is its
+// icon, its whole name, git's status as colour + letter (A/M/D/R), and its +/− counts.
+// `scope` namespaces the remembered collapsed folders (one tree per group + the list).
+const ST_LETTER = { added: 'A', modified: 'M', deleted: 'D', renamed: 'R' }
+function fileTreeHTML(paths, { scope, label, rowClass = '' }) {
+  const row = (lvl, inner) => `<div class="ft-row" style="--lvl:${lvl}">${inner}</div>`
+  const item = (n, lvl) => {
+    if (n.kind === 'dir') {
+      return `<li role="treeitem" class="ft-item ft-dir" aria-level="${lvl + 1}" aria-expanded="true" tabindex="-1" data-dir="${esc(n.key)}">` +
+        row(lvl, `<span class="ft-chev" aria-hidden="true"></span><span class="ft-dname" title="${esc(n.key)}">${esc(n.name)}</span>`) +
+        `<ul role="group">${n.children.map(c => item(c, lvl + 1)).join('')}</ul></li>`
+    }
+    const f = RM.files[n.path] || {}, st = fileStatus(f)
+    const from = st === 'renamed' && f.from ? f.from : ''
+    const stTitle = L.fileStatus[st] + (from ? ` ${L.renamedFrom(from)}` : '')
+    const name = esc(n.name).replace(/([-._])/g, '$1<wbr>')
+    return `<li role="treeitem" class="ft-item ft-file st-${st} ${rowClass}" aria-level="${lvl + 1}" aria-selected="false" tabindex="-1" data-path="${esc(n.path)}" data-gofile="${esc(n.path)}" title="${esc(n.path)}">` +
+      row(lvl, `<span class="ft-chev" aria-hidden="true"></span>${fileIconSVG(n.path)}<span class="ft-name">${name}${from ? `<span class="ft-from"> ← ${esc(from.split('/').slice(0, -1).join('/') === n.path.split('/').slice(0, -1).join('/') ? baseName(from) : from)}</span>` : ''}</span>` +
+        `<span class="ft-st" title="${esc(stTitle)}"><span class="ft-st-l" aria-hidden="true">${ST_LETTER[st]}</span><span class="sr-only">${esc(stTitle)}</span></span>` +
+        `<span class="ft-stat"><span class="a">+${f.add ?? 0}</span> <span class="d">−${f.del ?? 0}</span></span>`) + '</li>'
+  }
+  const nodes = buildFileTree(paths)
+  if (!nodes.length) return ''
+  return `<ul class="ftree" role="tree" aria-label="${esc(label || '')}" data-scope="${esc(scope)}">${nodes.map(n => item(n, 0)).join('')}</ul>`
 }
 function fileIconSVG(path) {
   const base = path.split('/').pop().toLowerCase()
@@ -2704,19 +2744,12 @@ allEdges.addEventListener('change', () => { SESSION.set('allEdges', allEdges.che
 allEdges.checked = !BIG_MAP
 syncAllEdges()
 
-// The flat "Files list" navigator mode: every file, in manifest order. (Kept in the var
-// `manifestRows` so the read-progress logic that toggles `.seen`/reads its children is unchanged.)
+// The "Files list" navigator mode: every diff file as one folder tree, like an IDE's
+// project view (fileTreeHTML). The file rows are the read-progress rows
+// (`listFileRows()`): refreshSeen toggles their `.seen`, and each carries a seen button.
 const manifestRows = document.getElementById('filesList')
-for (const [path, add, del, gid, isNew] of RM.manifest) {
-  const row = document.createElement('button')
-  row.className = 'files-flat-row'
-  row.dataset.path = path
-  row.style.setProperty('--mc', gcolor(gid))
-  row.innerHTML = `${fileIconSVG(path)}<span class="ff-path">${pathHTML(path)}${isNew ? ` <span class="mnew">${L.newMark}</span>` : ''}</span>
-    <span class="ff-stat"><span class="a">+${add}</span> <span class="d">−${del}</span></span>`
-  row.addEventListener('click', () => showFile(path))
-  manifestRows.appendChild(row)
-}
+manifestRows.innerHTML = fileTreeHTML(RM.manifest.map(r => r[0]), { scope: 'all', label: L.filesListTab, rowClass: 'files-flat-row' })
+const listFileRows = () => manifestRows.querySelectorAll('.ft-file')
 
 // ── inspector ────────────────────────────────────────────────────────────────
 function codeboxHTML(path, f) {
@@ -2765,6 +2798,7 @@ function fileViewHTML(path, { back = false } = {}) {
     ${back ? `<div class="actions actions-top"><button class="btn btn-back">${L.back}</button></div>` : ''}
     <p class="insp-tag" style="color:${gcolor(g?.id)}">${esc(g?.tag || '')}</p>
     <h3>${esc(path)}</h3>
+    ${(() => { const st = fileStatus(f); return `<p class="fv-status st-${st}"><span class="ft-st">${ST_LETTER[st]}</span> ${esc(L.fileStatus[st])}${st === 'renamed' && f.from ? ` ${esc(L.renamedFrom(f.from))}` : ''}</p>` })()}
     <div class="why">${prose(f.why)}</div>
     ${codeboxHTML(path, f)}
     ${relsHTML(path)}
@@ -2773,10 +2807,23 @@ function fileViewHTML(path, { back = false } = {}) {
       ${back ? `<button class="btn btn-back">${L.back}</button>` : ''}
     </div>`
 }
+// Bring a tree row into view inside the navigator's own scroll box — never scrolling the
+// page, which scrollIntoView would also do. IDEs call this "autoscroll from source".
+function revealInNav(li) {
+  const nav = document.getElementById('filesNavBody') // not the const below: TDZ at init
+  if (!li || !nav || !li.getClientRects().length) return
+  const box = nav.getBoundingClientRect(), r = li.querySelector('.ft-row').getBoundingClientRect()
+  if (r.top < box.top) nav.scrollTop -= box.top - r.top + 8
+  else if (r.bottom > box.bottom) nav.scrollTop += r.bottom - box.bottom + 8
+}
 function markFilesActive(path) {
-  for (const r of manifestRows.children) r.classList.toggle('active', r.dataset.path === path)
-  for (const r of document.querySelectorAll('#filesOverview .ovg-file')) {
-    r.classList.toggle('active', r.querySelector('[data-gofile]')?.dataset.gofile === path)
+  for (const r of document.querySelectorAll('#filesNavBody .ft-file')) {
+    const on = r.dataset.path === path
+    r.classList.toggle('active', on)
+    r.setAttribute('aria-selected', on ? 'true' : 'false')
+    // Reveal after the navigator is fitted: a tab switch changes where it starts, and
+    // so its height, and a row revealed in the old box lands outside the new one.
+    if (on) { treeFocusable(r); requestAnimationFrame(() => { fitFilesNav(); revealInNav(r) }) }
   }
 }
 function showFile(path) {
@@ -2819,11 +2866,7 @@ const overviewGroupsHTML = () => RM.groups.map(g => `
     <p class="insp-tag" style="color:${gcolor(g.id)}">${esc(g.tag || g.role)}</p>
     <button type="button" class="ovg-name" data-gogroup="${esc(g.id)}" title="${esc(L.jumpToGroup)}">${esc(g.name)}</button>
     ${g.why ? `<div class="section-note ovg-note clamped">${prose(g.why)}</div><button type="button" class="ovg-note-more">${esc(L.edgeMore)}</button>` : ''}
-    <ul class="ovg-files">${g.files.map(p => {
-      const f = RM.files[p]
-      if (!f) return ''
-      return `<li class="ovg-file"><button class="ovg-fpath" data-gofile="${esc(p)}" title="${esc(L.jumpToFile)}">${fileIconSVG(p)}<span class="ovg-path">${pathHTML(p)}</span><span class="ovg-stat"><span class="a">+${f.add}</span> <span class="d">−${f.del}</span></span></button><button class="ovg-view" data-goto="${esc(p)}" title="${esc(L.viewChangeTitle)}">${esc(L.viewChange)}</button></li>`
-    }).join('')}</ul>
+    ${fileTreeHTML(g.files.filter(p => RM.files[p]), { scope: `g:${g.id}`, label: g.name, rowClass: 'ovg-file' })}
   </section>`).join('')
 
 // The aside index has two views: the per-group Overview, and a Call graph — the
@@ -3209,11 +3252,12 @@ const fsCount = foot.querySelector('.fs-count')
 
 function refreshSeen() {
   for (const [path, el] of Object.entries(nodeEls)) el.classList.toggle('seen', seen.has(path))
-  for (const row of manifestRows.children) row.classList.toggle('seen', seen.has(row.dataset.path))
+  for (const row of listFileRows()) row.classList.toggle('seen', seen.has(row.dataset.path))
   for (const b of document.querySelectorAll('.seen-btn')) {
     const on = seen.has(b.dataset.path)
     b.classList.toggle('on', on)
-    b.textContent = on ? L.seenYes : L.seenNo
+    b.textContent = b.classList.contains('seen-tick') ? '✓' : on ? L.seenYes : L.seenNo
+    if (b.classList.contains('seen-tick')) b.title = on ? L.seenYes : L.seenTitle
   }
   const n = allPaths.filter(p => seen.has(p)).length
   fsCount.textContent = L.readProgress(n, allPaths.length)
@@ -3237,13 +3281,14 @@ const toggleSeen = (path) => {
   SESSION.set('seen', [...seen])
   refreshSeen()
 }
-for (const row of manifestRows.children) {
+for (const row of listFileRows()) {
   const b = document.createElement('button')
-  b.className = 'seen-btn'
+  b.className = 'seen-btn seen-tick'
+  b.tabIndex = -1 // inside a treeitem: the tree is one tab stop; `s` marks the open file read
   b.dataset.path = row.dataset.path
   b.title = L.seenTitle
   b.addEventListener('click', (e) => { e.stopPropagation(); toggleSeen(row.dataset.path) })
-  row.appendChild(b)
+  row.querySelector('.ft-row').appendChild(b)
 }
 
 // ── keyboard ─────────────────────────────────────────────────────────────────
@@ -3337,6 +3382,76 @@ const filesModebar = document.getElementById('filesModebar')
 const FILES_MODES = [['overview', L.overviewTag], ['list', L.filesListTab], ['callgraph', L.callGraphTab]]
 filesModebar.innerHTML = FILES_MODES.map(([m, label]) => `<button type="button" class="files-mode-btn" data-filesmode="${m}">${esc(label)}</button>`).join('')
 document.getElementById('filesOverview').innerHTML = overviewGroupsHTML()
+// ── the Files trees: fold, keyboard, remembered folds ────────────────────────
+// Folded folders are remembered per map (scope|folder key), so a fold survives a tab
+// switch, a mode switch and a reload.
+const filesNavBody = document.getElementById('filesNavBody')
+const treeFolded = new Set(SESSION.get('treeFolded', []))
+function setFolded(li, folded) {
+  li.setAttribute('aria-expanded', folded ? 'false' : 'true')
+  const id = `${li.closest('.ftree')?.dataset.scope}|${li.dataset.dir}`
+  folded ? treeFolded.add(id) : treeFolded.delete(id)
+  SESSION.set('treeFolded', [...treeFolded])
+}
+for (const li of filesNavBody.querySelectorAll('.ft-dir')) {
+  if (treeFolded.has(`${li.closest('.ftree')?.dataset.scope}|${li.dataset.dir}`)) li.setAttribute('aria-expanded', 'false')
+}
+// One tab stop per tree (roving tabindex): the selected file, else the first item.
+function treeFocusable(li) {
+  const tree = li.closest('.ftree')
+  if (!tree) return
+  for (const x of tree.querySelectorAll('.ft-item')) x.tabIndex = -1
+  li.tabIndex = 0
+}
+for (const t of filesNavBody.querySelectorAll('.ftree')) { const first = t.querySelector('.ft-item'); if (first) first.tabIndex = 0 }
+// The items a reader can reach right now, in order: inside the shown mode, and not
+// under a folded folder.
+const visibleTreeItems = () => [...filesNavBody.querySelectorAll('.files-mode:not([hidden]) .ft-item')]
+  .filter(li => !li.parentElement.closest('.ft-dir[aria-expanded="false"]'))
+function focusItem(li) { if (!li) return; treeFocusable(li); li.focus({ preventScroll: true }); revealInNav(li) }
+// Fit the navigator between where it starts on screen and the footer strip. CSS cannot
+// know that start (it moves until the sticky top is reached), so re-fit on scroll and
+// resize. The stacked narrow layout keeps its CSS height (a bounded 45vh box).
+const narrowFiles = matchMedia('(max-width: 900px)')
+function fitFilesNav() {
+  if (currentTab !== 'files' || narrowFiles.matches || !filesNavBody.getClientRects().length) { filesNavBody.style.maxHeight = ''; return }
+  const top = Math.max(filesNavBody.getBoundingClientRect().top, 12)
+  const foot = document.querySelector('.footstrip')
+  const footH = foot && foot.getClientRects().length ? foot.getBoundingClientRect().height : 0
+  filesNavBody.style.maxHeight = `${Math.max(160, innerHeight - top - footH - 12)}px`
+}
+let fitNavRaf = 0
+const fitFilesNavSoon = () => { cancelAnimationFrame(fitNavRaf); fitNavRaf = requestAnimationFrame(fitFilesNav) }
+addEventListener('scroll', fitFilesNavSoon, { passive: true })
+addEventListener('resize', fitFilesNavSoon)
+narrowFiles.addEventListener?.('change', fitFilesNavSoon)
+filesNavBody.addEventListener('click', (e) => {
+  const row = e.target.closest('.ft-dir > .ft-row')
+  if (!row) return
+  const li = row.parentElement
+  setFolded(li, li.getAttribute('aria-expanded') === 'true')
+  treeFocusable(li)
+})
+filesNavBody.addEventListener('keydown', (e) => {
+  const li = e.target.closest?.('.ft-item')
+  if (!li || e.target !== li || e.metaKey || e.ctrlKey || e.altKey) return
+  const items = visibleTreeItems(), i = items.indexOf(li)
+  const isDir = li.classList.contains('ft-dir'), open = li.getAttribute('aria-expanded') === 'true'
+  const parent = li.parentElement.closest('.ft-item')
+  const act = {
+    ArrowDown: () => focusItem(items[i + 1]),
+    ArrowUp: () => focusItem(items[i - 1]),
+    Home: () => focusItem(items[0]),
+    End: () => focusItem(items[items.length - 1]),
+    ArrowRight: () => { if (isDir && !open) setFolded(li, false); else if (isDir) focusItem(li.querySelector('.ft-item')) },
+    ArrowLeft: () => { if (isDir && open) setFolded(li, true); else focusItem(parent) },
+    Enter: () => { if (isDir) setFolded(li, open); else jumpToFile(li.dataset.path) },
+    ' ': () => { if (isDir) setFolded(li, open); else jumpToFile(li.dataset.path) },
+  }[e.key]
+  if (!act) return
+  e.preventDefault(); e.stopPropagation()
+  act()
+})
 document.getElementById('callTree').innerHTML = callGraphHTML()
 function setFilesMode(mode) {
   for (const b of filesModebar.children) b.classList.toggle('on', b.dataset.filesmode === mode)
@@ -3347,6 +3462,8 @@ function setFilesMode(mode) {
   // view stays below the map in the main column.
   document.getElementById('filesNav').hidden = mode === 'callgraph'
   if (mode === 'callgraph') requestAnimationFrame(drawEdges) // the map needs a visible layout to place connectors
+  else if (currentFile) revealInNav(filesNavBody.querySelector(`.files-mode:not([hidden]) .ft-file[data-path="${CSS.escape(currentFile)}"]`))
+  fitFilesNavSoon()
 }
 filesModebar.addEventListener('click', (e) => { const b = e.target.closest('[data-filesmode]'); if (b) setFilesMode(b.dataset.filesmode) })
 setFilesMode('overview')
@@ -3372,7 +3489,7 @@ addEventListener('scroll', () => {
   scrollSaveRaf = requestAnimationFrame(() => SESSION.set('scroll', Math.round(scrollY)))
 }, { passive: true })
 const setTabPlain = setTab
-setTab = function (id) { setTabPlain(id); cursor = -1 }
+setTab = function (id) { setTabPlain(id); cursor = -1; fitFilesNavSoon() }
 
 addEventListener('resize', () => { if (!document.getElementById('pane-files').hidden) drawEdges() })
 

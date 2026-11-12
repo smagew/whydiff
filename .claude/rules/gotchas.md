@@ -41,6 +41,14 @@ future agents (and you) read this before touching the area.
   NOT restore the last tab visited. Only a one-shot `flashTab` (set by `generate()`
   before its reload) survives, so Generate returns you to its tab. Don't
   reintroduce last-tab persistence.
+- **The Files navigator's height is fitted by JS.** `.files-nav-body` is sticky, but where
+  it starts on screen moves (below the header until the page scrolls), so `fitFilesNav()`
+  re-fits its `max-height` on scroll, resize, tab and mode switch. Revealing a row must
+  happen AFTER the fit (same rAF), or the row lands outside the re-sized box. Scroll a row
+  into the navigator with `revealInNav`, never `scrollIntoView`, which scrolls the page too.
+- **File status comes from git, read with `-z`.** `collectManifest` returns
+  `[path, add, del, isNew, status, from?]`. Plain `--numstat` prints a rename as
+  `src/{a => b}.ts`, which used to land in the map as a path.
 - **Look at a screenshot baseline before you commit it.** `tests/visual` compares every tab
   against committed PNGs, which locks in whatever they show, bugs included. The first baselines
   showed both reference diagrams clipped on screen, a bug no behaviour test had caught. After

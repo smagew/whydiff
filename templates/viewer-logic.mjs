@@ -46,3 +46,46 @@ export function normalizeMap(rm) {
   }
   return rm
 }
+
+// What git says happened to a file: added | modified | deleted | renamed. merge.mjs
+// writes `status` from `git diff --name-status -M`; a map from before that falls
+// back to the old isNew flag.
+export function fileStatus(f) {
+  const s = f && f.status
+  if (s === 'added' || s === 'modified' || s === 'deleted' || s === 'renamed') return s
+  return f && f.isNew ? 'added' : 'modified'
+}
+
+// A folder tree of repo paths, the IDE way: folders first, then files, each sorted by
+// name; a folder whose only child is a folder is merged into one node
+// ("app/src/api/middleware"), as IDEs' "compact folders" do, so a deep path costs one
+// row instead of four. Nodes: { kind: 'dir', name, key, children } | { kind: 'file',
+// name, path }. `key` is the folder's full path with a trailing slash — stable across
+// renders, so a collapsed folder can be remembered.
+export function buildFileTree(paths) {
+  const root = { kind: 'dir', name: '', key: '', children: [] }
+  for (const path of paths) {
+    const parts = String(path).split('/')
+    let node = root
+    for (let i = 0; i < parts.length - 1; i++) {
+      const key = parts.slice(0, i + 1).join('/') + '/'
+      let next = node.children.find(c => c.kind === 'dir' && c.key === key)
+      if (!next) { next = { kind: 'dir', name: parts[i], key, children: [] }; node.children.push(next) }
+      node = next
+    }
+    if (!node.children.some(c => c.kind === 'file' && c.path === path)) node.children.push({ kind: 'file', name: parts[parts.length - 1], path })
+  }
+  const by = (a, b) => (a.kind === b.kind ? 0 : a.kind === 'dir' ? -1 : 1) || a.name.localeCompare(b.name, 'en', { numeric: true })
+  const compact = (node) => {
+    for (const c of node.children) if (c.kind === 'dir') compact(c)
+    while (node.key && node.children.length === 1 && node.children[0].kind === 'dir') {
+      const only = node.children[0]
+      node.name = `${node.name}/${only.name}`
+      node.key = only.key
+      node.children = only.children
+    }
+    node.children.sort(by)
+  }
+  compact(root)
+  return root.children
+}

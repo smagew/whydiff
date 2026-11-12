@@ -37,4 +37,4 @@ logTiming(dir, 'deterministic_done', {})
 // Summary, so the model does not need a follow-up `node -e` to read the manifest.
 const patchLines = patch.toString('utf8').split('\n').length
 console.log(`manifest: ${rows.length} files (${totals.filesChanged} mod. + ${totals.filesNew} new) · +${totals.added}/-${totals.deleted} lines · diff.patch ${patchLines} lines · ref ${ref || 'working tree'}`)
-for (const r of rows) console.log(`  ${r[0]}  +${r[1]}/-${r[2]}${r[3] ? '  NEW' : ''}`)
+for (const r of rows) console.log(`  ${r[0]}  +${r[1]}/-${r[2]}${r[4] && r[4] !== 'modified' ? `  ${r[4].toUpperCase()}` : ''}${r[5] ? ` (from ${r[5]})` : ''}`)

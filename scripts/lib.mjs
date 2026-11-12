@@ -99,13 +99,33 @@ const isOwnArtifact = (path) => path === WORKDIR || path.startsWith(WORKDIR + '/
  * Returns { rows: [[path, add, del, isNew]], totals }.
  */
 export function collectManifest(repo, ref) {
+  // Rows: [path, add, del, isNew, status, from?]. status is git's own verdict —
+  // added | modified | deleted | renamed — and `from` the old path of a rename.
+  // -z keeps paths verbatim: without it a rename prints as "src/{a => b}.ts" in
+  // --numstat, and that string used to land in the map as if it were a path.
+  const range = ref ? [ref] : ['HEAD']
+  const STATUS = { A: 'added', M: 'modified', D: 'deleted', R: 'renamed', C: 'added', T: 'modified' }
+  const status = new Map()
+  const ns = git(repo, ['diff', '--name-status', '-z', '-M', ...range]).split('\0')
+  for (let i = 0; i < ns.length - 1;) {
+    const code = ns[i++]
+    if (!code) continue
+    const kind = STATUS[code[0]] || 'modified'
+    if (code[0] === 'R' || code[0] === 'C') {
+      const from = ns[i++], to = ns[i++]
+      status.set(to, code[0] === 'R' ? { status: kind, from } : { status: kind })
+    } else status.set(ns[i++], { status: kind })
+  }
   const rows = []
-  const numstat = git(repo, ['diff', '--numstat', ...(ref ? [ref] : ['HEAD'])])
-  for (const line of numstat.split('\n')) {
-    if (!line.trim()) continue
-    const [add, del, ...pathParts] = line.split('\t')
-    const path = pathParts.join('\t')
-    rows.push([path, add === '-' ? 0 : Number(add), del === '-' ? 0 : Number(del), false])
+  const num = git(repo, ['diff', '--numstat', '-z', '-M', ...range]).split('\0')
+  for (let i = 0; i < num.length - 1;) {
+    const rec = num[i++]
+    if (!rec) continue
+    const [add, del, inline] = rec.split('\t')
+    // A rename's record has an empty path field followed by two NUL-separated paths.
+    const path = inline === '' ? (i++, num[i++]) : inline
+    const st = status.get(path) || { status: 'modified' }
+    rows.push([path, add === '-' ? 0 : Number(add), del === '-' ? 0 : Number(del), st.status === 'added', st.status, ...(st.from ? [st.from] : [])])
   }
   if (!ref) {
     // Untracked files are part of the change but invisible to `git diff`.
@@ -115,13 +135,8 @@ export function collectManifest(repo, ref) {
       let lines = 0
       // Untracked files are not in the index — count lines from disk.
       try { lines = (readFileSync(join(repo, path), 'utf8').match(/\n/g) || []).length } catch {}
-      rows.push([path, lines, 0, true])
+      rows.push([path, lines, 0, true, 'added'])
     }
-  } else {
-    // In a range, added files come through numstat; mark them as new.
-    const status = git(repo, ['diff', '--name-status', ref])
-    const added = new Set(status.split('\n').filter(l => l.startsWith('A')).map(l => l.split('\t').pop()))
-    for (const row of rows) if (added.has(row[0])) row[3] = true
   }
   const kept = rows.filter(r => !isOwnArtifact(r[0]))
   rows.length = 0
