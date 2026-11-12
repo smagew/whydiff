@@ -51,9 +51,13 @@ const a = process.argv.slice(2)
 const prompt = a[a.indexOf('-p') + 1] || ''
 if (!/\\/whydiff(\\s|$)/.test(prompt)) { console.error('bad prompt: ' + prompt); process.exit(3) }
 if (a.indexOf('--plugin-dir') < 0) { console.error('no --plugin-dir'); process.exit(4) }
+// The runner delivers the map itself; without 'headless' the skill serves it and
+// claude -p blocks on a server that never exits (~10 min per run, the Bash timeout).
+if (!/\\bheadless\\b/.test(prompt)) { console.error('prompt not headless: ' + prompt); process.exit(5) }
 if (!a.includes('stream-json')) { console.error('no stream-json'); process.exit(5) }
 mkdirSync('.whydiff', { recursive: true })
 writeFileSync('.whydiff/review-map.json', ${JSON.stringify(JSON.stringify(MAP))})
+writeFileSync('.whydiff/timing.jsonl', JSON.stringify({ t: Date.now(), event: 'run_start', meta: {} }) + '\\n')
 const say = (o) => process.stdout.write(JSON.stringify(o) + '\\n')
 say({ type: 'assistant', message: { content: [{ type: 'tool_use', name: 'Task', input: { subagent_type: 'classifier' } }] } })
 say({ type: 'result', subtype: 'success', result: 'Built the map.' })
@@ -83,6 +87,8 @@ const run = (args) => spawnSync('node', [join(root, 'scripts', 'run.mjs'), ...ar
   ok(r.status === 0, `happy run exited ${r.status}: ${r.stderr}`)
   ok(/OK: 1 files, 1 groups/.test(r.stdout), `the summary is missing: ${r.stdout}`)
   ok(existsSync(join(repo, '.whydiff', 'review-map.html')), 'the portable HTML was not assembled')
+  // A headless skill stops before its own report step, so the runner writes it.
+  ok(existsSync(join(repo, '.whydiff', 'timing-report.md')), 'the timing report was not written')
   ok(/· Task classifier/.test(r.stderr), `per-step progress was not streamed: ${r.stderr}`)
 }
 

@@ -21,7 +21,7 @@
 
 import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs'
 import { join, resolve, basename } from 'node:path'
-import { collectManifest, validateStructure, extractFragments, logTiming, WORKDIR } from './lib.mjs'
+import { collectManifest, validateStructure, crossCheckManifest, extractFragments, logTiming, WORKDIR } from './lib.mjs'
 
 const args = process.argv.slice(2)
 const opt = (name) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : null }
@@ -224,7 +224,9 @@ const rm = {
   manifest: rows.map(r => [r[0], r[1], r[2], groupOf.get(r[0]) || 'unclassified', r[3]]),
 }
 
-const errors = validateStructure(rm)
+// The same two checks validate.mjs runs, so a map merge.mjs wrote needs no second
+// validate pass unless someone edits it afterwards.
+const errors = [...validateStructure(rm), ...crossCheckManifest(rm, repo, ref)]
 if (errors.length) {
   console.error(errors.map(e => '- ' + e).join('\n'))
   console.error(`\nFAILED: the merged map has ${errors.length} error(s); nothing written`)

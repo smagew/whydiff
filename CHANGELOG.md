@@ -4,6 +4,39 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.47.1] — 2026-11-12
+
+### Fixed
+- **Diagrams no longer lose nodes off their edge on screen.** Mermaid sometimes lays
+  a node out past its own `viewBox`, and an `<svg>` clips at its `viewBox`. The
+  viewer re-fitted it to the content only for PDF. On screen, the reference
+  flowchart hid its "Tokens left?" decision, the 429 branch and the bottom of
+  "Handler", and the components diagram cut off two nodes. The re-fit now runs
+  after every render, palette switches included. Found by the new screenshot
+  baselines. Guarded by `tests/diagram-clip.mjs`: every node is inside its SVG,
+  wide and narrow, in both palettes, after a re-render and after a resize.
+
+## [0.47.0] — 2026-11-12
+
+### Fixed
+- **Headless runs no longer idle for ten minutes.** `scripts/run.mjs` (and the desktop
+  app, which runs through it) delivers the map itself, but the skill still started
+  `serve.mjs`. That server never exits, so `claude -p` waited out the shell's
+  10-minute timeout with the map already written: 20 s of work took 630 s. The runner
+  now passes `headless`, and the skill stops once the map is written. On the eval
+  fixtures, wall-clock dropped from 630 / 666 / >900 s (timed out) to 32 / 47 / 49 s.
+  Analysis scores were unchanged at 1.00. The runner now writes
+  `timing-report.md` itself, because the skill stops before that step.
+
+### Changed
+- The model's review of the merged map is its own timed phase (`review_done`). It
+  was billed to "Validation + fixes", which made a 22 s review look like a slow
+  validator.
+- `merge.mjs` also cross-checks the manifest against git, so the separate
+  `validate.mjs` step runs only after a hand edit of `review-map.json`.
+- `standards-reviewer` runs on sonnet like the other optional passes. `classifier`
+  stays on the session's model, because every tab is built from it.
+
 ## [0.46.0] — 2026-08-20
 
 ### Changed

@@ -2,6 +2,7 @@
 name: standards-reviewer
 description: whydiff analysis pass - checks the diff against the project's own conventions and maps the blast radius (reverse dependencies outside the diff). Spawned by the whydiff skill; not for proactive use.
 tools: Read, Grep, Glob, Write
+model: sonnet
 ---
 
 You are the standards pass of the whydiff generator. The task prompt gives you
