@@ -1,0 +1,67 @@
+{
+  "_why": "zulip/zulip: Stream gains default_push_notifications (model + migration) and the field is threaded through the API dicts, types and OpenAPI docs. Nothing in the diff APPLIES the default to new subscriptions yet — a reviewer must be told the field is data-only so far.",
+  "files": [
+    "api_docs/unmerged.d/ZF-a71492.md",
+    "zerver/actions/streams.py",
+    "zerver/lib/streams.py",
+    "zerver/lib/subscription_info.py",
+    "zerver/lib/types.py",
+    "zerver/migrations/0806_stream_default_push_notifications.py",
+    "zerver/models/streams.py",
+    "zerver/openapi/zulip.yaml"
+  ],
+  "sameGroup": [
+    [
+      "zerver/lib/subscription_info.py",
+      "zerver/lib/streams.py"
+    ]
+  ],
+  "splitGroups": [
+    [
+      "zerver/models/streams.py",
+      "api_docs/unmerged.d/ZF-a71492.md"
+    ]
+  ],
+  "roleIn": {
+    "zerver/models/streams.py": [
+      "read",
+      "context"
+    ]
+  },
+  "env": {
+    "exact": []
+  },
+  "migrations": {
+    "min": 1,
+    "mentions": [
+      "0806",
+      "default_push_notifications"
+    ]
+  },
+  "diagrams": {
+    "kinds": [
+      "er-diff"
+    ],
+    "max": 3
+  },
+  "mentions": [
+    {
+      "re": "default_push_notifications",
+      "why": "the new field by name"
+    },
+    {
+      "re": "default.{0,20}false|false.{0,20}default|db_default",
+      "why": "it defaults to False, so existing streams are unaffected"
+    }
+  ],
+  "judge": [
+    {
+      "q": "Does the summary tell the reviewer that nothing in this diff yet uses default_push_notifications to change how new subscriptions are created — the field is only stored and exposed through the API?",
+      "why": "says the field is data-only so far"
+    },
+    {
+      "q": "Does the summary say the new field defaults to False, so existing channels keep their current behaviour?",
+      "why": "states the safe default"
+    }
+  ]
+}

@@ -1,0 +1,858 @@
+{
+ "meta": {
+  "project": "synthetic",
+  "lang": "en",
+  "ref": "HEAD~1..HEAD (9ec23e4 — refunds: record as rows, rename order status to state)",
+  "generatedAt": "2026-08-12",
+  "title": "Refunds as rows, orders.status → state",
+  "stats": {
+   "filesChanged": 4,
+   "filesNew": 6,
+   "added": 103,
+   "deleted": 6,
+   "attentionFiles": 5
+  }
+ },
+ "intent": "Refunds stop being an order status and become their own <code>refunds</code> table: <code>docs/refunds.md</code> argues that an order can be refunded more than once, so a single <code>orders.status</code> value cannot carry the fact. A new API endpoint records a refund row (and bumps a denormalized <code>orders.refunded_cents</code>), <code>orders.status</code> is renamed to <code>state</code> across the PHP API and the TypeScript worker, and the worker gains a <code>settleRefunds</code> step after shipping to pay recorded refunds out. What could break: the rename is done as <code>DROP COLUMN status</code> + <code>ADD COLUMN state DEFAULT 'placed'</code> with no backfill, so every existing order silently reverts to <code>placed</code>; the settle step is hooked in immediately after the state becomes <code>shipped</code>, which is exactly when the API first allows a refund, so nothing it could settle exists yet; and <code>place()</code> renames its response key, breaking every client at once.",
+ "story": [],
+ "groups": [
+  {
+   "id": "schema",
+   "name": "Schema: refunds table and the status→state swap",
+   "role": "read",
+   "tag": "migration",
+   "why": "The migration is the cause of every other file, and it renames a column by dropping it: existing orders lose their status with no backfill, and 0001 declared <code>status TEXT NOT NULL</code> with no default, so nothing can recover it afterwards. Read it first and decide whether that data loss is intended.",
+   "files": [
+    "db/migrations/0002_refunds.sql"
+   ]
+  },
+  {
+   "id": "spec",
+   "name": "The scope decisions this change is built on",
+   "role": "spec",
+   "tag": "why",
+   "why": "docs/refunds.md states the rules the code is supposed to obey — a refund is a row, order money never changes, refunds only after fulfilment, provider calls out of scope. Use it as the yardstick for everything else, and note the two places the code disagrees with it.",
+   "files": [
+    "docs/refunds.md"
+   ]
+  },
+  {
+   "id": "refund-api",
+   "name": "Recording a refund (API)",
+   "role": "read",
+   "tag": "new write path",
+   "why": "The controller's new refund action and the repository that inserts the row and bumps the denormalized counter. This is where the eligibility rule and the money arithmetic live — including the response field that reads a property the returned refund does not have.",
+   "files": [
+    "api/src/Controller/OrdersController.php",
+    "api/src/Repository/RefundRepository.php"
+   ]
+  },
+  {
+   "id": "state-rename",
+   "name": "status → state call-sites",
+   "role": "verify-pattern",
+   "tag": "mechanical",
+   "why": "Follow-through of the column rename across the PHP insert, the worker's guard and the db helper. Verify the pattern landed everywhere and that no reader of the old field survives — including the API response key that clients depend on.",
+   "files": [
+    "api/src/Repository/OrderRepository.php",
+    "worker/src/fulfilment.ts",
+    "worker/src/db.ts"
+   ]
+  },
+  {
+   "id": "payout",
+   "name": "Settling refunds in the worker",
+   "role": "read",
+   "tag": "unfinished",
+   "why": "The worker's new settle step, its hook into fulfilment, and the tests that cover it. Check the idempotence claim and whether this code can execute at all: <code>payout</code> is called but never defined, and the stubs hide it.",
+   "files": [
+    "worker/src/refunds.ts",
+    "worker/test/refunds.test.ts"
+   ]
+  },
+  {
+   "id": "ops-env",
+   "name": "New refund configuration",
+   "role": "ops",
+   "tag": "env",
+   "why": "The repo's first .env.example introduces two refund knobs that would have to exist in every deployed environment — neither of which any code in this diff reads, so setting them changes nothing.",
+   "files": [
+    ".env.example"
+   ]
+  }
+ ],
+ "files": {
+  "db/migrations/0002_refunds.sql": {
+   "service": "db",
+   "role": "read",
+   "why": "Creates <code>refunds</code> (order_id FK, <code>cents</code> with <code>CHECK (cents > 0)</code>, reason, created_at) plus an index on order_id, adds the denormalized <code>orders.refunded_cents</code>, and renames <code>status</code> to <code>state</code>. <b>Review focus:</b> the rename is <code>DROP COLUMN status</code> followed by <code>ADD COLUMN state ... DEFAULT 'placed'</code> with no backfill — every existing order loses its real status and comes back as <code>placed</code>. In 0001 <code>status</code> was <code>TEXT NOT NULL</code> with no default, so there is nothing to recover it from afterwards. <b>Review focus:</b> the comment on <code>refunded_cents</code> says it is \"kept in sync by the worker\", but in this diff the only writer is the API (<code>RefundRepository::record</code>); the worker never touches it. <b>Review focus:</b> the table has no settled/paid column, so the worker's <code>pendingRefunds</code>/<code>markSettled</code> model has nothing in the schema to stand on, and there is no constraint bounding total refunds by <code>orders.total_cents</code>.",
+   "add": 14,
+   "del": 0,
+   "isNew": true,
+   "frag": [
+    [
+     "add",
+     "CREATE TABLE refunds ("
+    ],
+    [
+     "add",
+     "  id           BIGSERIAL PRIMARY KEY,"
+    ],
+    [
+     "add",
+     "  order_id     BIGINT NOT NULL REFERENCES orders (id),"
+    ],
+    [
+     "add",
+     "  cents        INTEGER NOT NULL CHECK (cents > 0),"
+    ],
+    [
+     "add",
+     "  reason       TEXT NOT NULL,"
+    ],
+    [
+     "add",
+     "  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()"
+    ],
+    [
+     "add",
+     ");"
+    ],
+    [
+     "add",
+     "CREATE INDEX refunds_order_id_idx ON refunds (order_id);"
+    ],
+    [
+     "add",
+     "-- Denormalized for the orders list, kept in sync by the worker."
+    ],
+    [
+     "add",
+     "ALTER TABLE orders ADD COLUMN refunded_cents INTEGER NOT NULL DEFAULT 0;"
+    ],
+    [
+     "add",
+     "ALTER TABLE orders DROP COLUMN status;"
+    ],
+    [
+     "add",
+     "ALTER TABLE orders ADD COLUMN state TEXT NOT NULL DEFAULT 'placed';"
+    ]
+   ],
+   "preview": [
+    [
+     "add",
+     "ALTER TABLE orders ADD COLUMN refunded_cents INTEGER NOT NULL DEFAULT 0;"
+    ],
+    [
+     "add",
+     "ALTER TABLE orders ADD COLUMN state TEXT NOT NULL DEFAULT 'placed';"
+    ]
+   ],
+   "embedFull": true
+  },
+  "docs/refunds.md": {
+   "service": "docs",
+   "role": "context",
+   "why": "The scope decisions behind the change: a refund is a row because partial refunds exist, <code>total_cents</code> stays the charged amount while <code>refunds.cents</code> accumulates (reporting subtracts), refunds only after fulfilment, provider payout calls out of scope. Read this first. <b>Review focus:</b> two rules the code does not follow — the doc says \"the worker, not the API, is the component that can reject one\", yet the 409 <code>NOT_FULFILLED</code> check lives in the controller and the worker validates nothing; and the doc's insistence that order money never changes sits awkwardly next to the new denormalized <code>orders.refunded_cents</code> that the API keeps in sync by hand.",
+   "add": 10,
+   "del": 0,
+   "isNew": true,
+   "frag": [
+    [
+     "add",
+     "# Refunds — scope decisions"
+    ],
+    [
+     "add",
+     "- A refund is a **row**, not a status: an order can be refunded twice (partial"
+    ],
+    [
+     "add",
+     "  refunds), so `orders.status` cannot carry it."
+    ],
+    [
+     "add",
+     "- Money never changes on the order: `total_cents` stays the charged amount,"
+    ],
+    [
+     "add",
+     "  `refunds.cents` accumulates. Reporting subtracts."
+    ],
+    [
+     "add",
+     "- Refunds are only allowed after fulfilment, so the worker — not the API — is"
+    ],
+    [
+     "add",
+     "  the component that can reject one."
+    ],
+    [
+     "add",
+     "- Provider calls are out of scope for this change: we record the intent and let"
+    ],
+    [
+     "add",
+     "  the payout job pick it up."
+    ]
+   ],
+   "preview": [
+    [
+     "add",
+     "- A refund is a **row**, not a status: an order can be refunded twice (partial"
+    ],
+    [
+     "add",
+     "- Provider calls are out of scope for this change: we record the intent and let"
+    ]
+   ],
+   "embedFull": true
+  },
+  "api/src/Controller/OrdersController.php": {
+   "service": "api",
+   "role": "read",
+   "why": "Takes <code>RefundRepository</code> as a second dependency, switches <code>place()</code>'s response key from <code>status</code> to <code>state</code>, and adds <code>refund()</code>: load the order, reject with 409 <code>NOT_FULFILLED</code> unless <code>state === 'shipped'</code>, otherwise record the refund and return 201. <b>Review focus:</b> the response reports <code>'refunded_cents' => $refund->orderTotal</code> — <code>record()</code> returns the freshly inserted refund row (order_id, cents, reason), which has no <code>orderTotal</code>, and the accumulated counter the caller expects is computed in SQL inside the transaction and never read back. <b>Review focus:</b> renaming the <code>place()</code> response key is a breaking change for every client, with no versioning or dual-key transition. <b>Review focus:</b> nothing validates <code>$req->cents()</code> before the insert, so a zero/negative amount or an amount above the recorded total surfaces as a database CHECK violation (a 500), not a 400.",
+   "add": 19,
+   "del": 2,
+   "frag": [
+    [
+     "add",
+     "    }"
+    ],
+    [
+     "add",
+     "    public function refund(Request $req): Response"
+    ],
+    [
+     "add",
+     "    {"
+    ],
+    [
+     "add",
+     "        $order = $this->orders->find($req->orderId());"
+    ],
+    [
+     "add",
+     "        // Only fulfilled orders can be refunded — see docs/refunds.md."
+    ],
+    [
+     "add",
+     "        if ($order->state !== 'shipped') {"
+    ],
+    [
+     "add",
+     "            return Response::json(['code' => 'NOT_FULFILLED'], 409);"
+    ],
+    [
+     "add",
+     "        }"
+    ],
+    [
+     "add",
+     "        $refund = $this->refunds->record($order->id, $req->cents(), $req->reason());"
+    ],
+    [
+     "add",
+     "        return Response::json(['refund_id' => $refund->id, 'refunded_cents' => $refund->orderTotal], 201);"
+    ],
+    [
+     "ctx",
+     "    }"
+    ],
+    [
+     "ctx",
+     "}"
+    ]
+   ],
+   "preview": [
+    [
+     "add",
+     "        $refund = $this->refunds->record($order->id, $req->cents(), $req->reason());"
+    ],
+    [
+     "add",
+     "        return Response::json(['refund_id' => $refund->id, 'refunded_cents' => $refund->orderTotal], 201);"
+    ]
+   ]
+  },
+  "api/src/Repository/RefundRepository.php": {
+   "service": "api",
+   "role": "read",
+   "why": "New repository: <code>record()</code> inserts the refund row and bumps <code>orders.refunded_cents</code> in one transaction, then returns the inserted refund. <b>Review focus:</b> this is the real owner of the denormalized counter — directly contradicting the migration comment that credits the worker; decide which component owns it before someone adds a second increment in the worker and double-counts. <b>Review focus:</b> the increment is unbounded — no read of <code>total_cents</code>, no row lock, no idempotency key, so repeated calls (client retry, duplicate request) each add another refund and push <code>refunded_cents</code> past the amount ever charged. The returned object carries no order-level total, which is what the controller then tries to read.",
+   "add": 17,
+   "del": 0,
+   "isNew": true,
+   "frag": [
+    [
+     "add",
+     "final class RefundRepository"
+    ],
+    [
+     "add",
+     "{"
+    ],
+    [
+     "add",
+     "    /** Records the refund and bumps the denormalized order counter in one transaction. */"
+    ],
+    [
+     "add",
+     "    public function record(int $orderId, int $cents, string $reason): Refund"
+    ],
+    [
+     "add",
+     "    {"
+    ],
+    [
+     "add",
+     "        return $this->tx(function () use ($orderId, $cents, $reason) {"
+    ],
+    [
+     "add",
+     "            $refund = $this->insert(['order_id' => $orderId, 'cents' => $cents, 'reason' => $reason]);"
+    ],
+    [
+     "add",
+     "            $this->exec('UPDATE orders SET refunded_cents = refunded_cents + ? WHERE id = ?', [$cents, $orderId]);"
+    ],
+    [
+     "add",
+     "            return $refund;"
+    ],
+    [
+     "add",
+     "        });"
+    ],
+    [
+     "add",
+     "    }"
+    ],
+    [
+     "add",
+     "}"
+    ]
+   ],
+   "preview": [
+    [
+     "add",
+     "            $refund = $this->insert(['order_id' => $orderId, 'cents' => $cents, 'reason' => $reason]);"
+    ],
+    [
+     "add",
+     "            $this->exec('UPDATE orders SET refunded_cents = refunded_cents + ? WHERE id = ?', [$cents, $orderId]);"
+    ]
+   ],
+   "embedFull": true
+  },
+  "api/src/Repository/OrderRepository.php": {
+   "service": "api",
+   "role": "verify-pattern",
+   "why": "Rename call-site: <code>create()</code> now inserts <code>state</code> instead of <code>status</code>, and a new <code>find()</code> selects the columns the refund path needs (<code>total_cents</code>, <code>refunded_cents</code>, <code>state</code>). Both depend on migration 0002 having run. <b>Review focus:</b> <code>find()</code> reads <code>total_cents</code> and <code>refunded_cents</code> but no caller uses them for a cap check — the values are fetched and dropped.",
+   "add": 6,
+   "del": 1,
+   "frag": [
+    [
+     "ctx",
+     "        return $this->insert(["
+    ],
+    [
+     "ctx",
+     "            'customer_id' => $customerId,"
+    ],
+    [
+     "ctx",
+     "            'total_cents' => $total,"
+    ],
+    [
+     "del",
+     "            'status' => 'placed',"
+    ],
+    [
+     "add",
+     "            'state' => 'placed',"
+    ],
+    [
+     "ctx",
+     "        ]);"
+    ],
+    [
+     "ctx",
+     "    }"
+    ],
+    [
+     "add",
+     "    public function find(int $id): Order"
+    ],
+    [
+     "add",
+     "    {"
+    ],
+    [
+     "add",
+     "        return $this->one('SELECT id, total_cents, refunded_cents, state FROM orders WHERE id = ?', [$id]);"
+    ],
+    [
+     "add",
+     "    }"
+    ],
+    [
+     "ctx",
+     "}"
+    ]
+   ],
+   "preview": [
+    [
+     "add",
+     "    public function find(int $id): Order"
+    ],
+    [
+     "add",
+     "        return $this->one('SELECT id, total_cents, refunded_cents, state FROM orders WHERE id = ?', [$id]);"
+    ]
+   ]
+  },
+  "worker/src/fulfilment.ts": {
+   "service": "worker",
+   "role": "read",
+   "why": "Follows the rename (<code>order.state</code>, <code>db.setState</code>, with a comment pointing at migration 0002) and hooks the new settle step in after shipping. <b>Review focus:</b> the ordering does not work — the API only accepts a refund once <code>state === 'shipped'</code>, i.e. strictly after this function has already run, so <code>settleRefunds</code> here always sees an empty pending list and a refund recorded later is never picked up by anything. <b>Review focus:</b> settlement is awaited inside the fulfilment path, so a payout failure would now fail an order that has already shipped and had its state written.",
+   "add": 5,
+   "del": 2,
+   "frag": [
+    [
+     "ctx",
+     "import { db } from './db'"
+    ],
+    [
+     "add",
+     "import { settleRefunds } from './refunds'"
+    ],
+    [
+     "ctx",
+     "export async function fulfil(orderId: number): Promise<void> {"
+    ],
+    [
+     "ctx",
+     "  const order = await db.order(orderId)"
+    ],
+    [
+     "del",
+     "  if (order.status !== 'placed') return"
+    ],
+    [
+     "add",
+     "  // 'status' became 'state' in migration 0002 — the old value is gone."
+    ],
+    [
+     "add",
+     "  if (order.state !== 'placed') return"
+    ],
+    [
+     "ctx",
+     "  await ship(order)"
+    ],
+    [
+     "del",
+     "  await db.setStatus(orderId, 'shipped')"
+    ],
+    [
+     "add",
+     "  await db.setState(orderId, 'shipped')"
+    ],
+    [
+     "add",
+     "  await settleRefunds(orderId)"
+    ],
+    [
+     "ctx",
+     "}"
+    ]
+   ],
+   "preview": [
+    [
+     "add",
+     "import { settleRefunds } from './refunds'"
+    ],
+    [
+     "add",
+     "  await db.setState(orderId, 'shipped')"
+    ]
+   ]
+  },
+  "worker/src/db.ts": {
+   "service": "worker",
+   "role": "verify-pattern",
+   "why": "The worker's db stub widened for the new flow: <code>order()</code> returns <code>state</code>/<code>totalCents</code>/<code>refundedCents</code>, <code>setStatus</code> becomes <code>setState</code>, and two no-ops appear — <code>pendingRefunds</code> returning <code>[]</code> and <code>markSettled</code>. <b>Review focus:</b> these stubs are what make the refund tests pass; nothing here queries the real <code>refunds</code> table, and the table has no settled marker for <code>markSettled</code> to set. Confirm no caller still expects the old <code>status</code>/<code>setStatus</code> names.",
+   "add": 6,
+   "del": 1,
+   "frag": [
+    [
+     "del",
+     "export const db = { order: async (id: number) => ({ id, status: 'placed' }), setStatus: async () => {} }"
+    ],
+    [
+     "add",
+     "export const db = {"
+    ],
+    [
+     "add",
+     "  order: async (id: number) => ({ id, state: 'placed', totalCents: 0, refundedCents: 0 }),"
+    ],
+    [
+     "add",
+     "  setState: async () => {},"
+    ],
+    [
+     "add",
+     "  pendingRefunds: async () => [],"
+    ],
+    [
+     "add",
+     "  markSettled: async () => {},"
+    ],
+    [
+     "add",
+     "}"
+    ]
+   ],
+   "preview": [
+    [
+     "add",
+     "  order: async (id: number) => ({ id, state: 'placed', totalCents: 0, refundedCents: 0 }),"
+    ],
+    [
+     "add",
+     "  pendingRefunds: async () => [],"
+    ]
+   ]
+  },
+  "worker/src/refunds.ts": {
+   "service": "worker",
+   "role": "read",
+   "why": "New <code>settleRefunds(orderId)</code>: iterate the pending refunds, pay each out, mark it settled, accumulate and return the cents paid. <b>Review focus:</b> <code>payout</code> is neither imported nor defined in this file, so the loop body cannot run — it is only unnoticed because <code>pendingRefunds</code> returns an empty array. <b>Review focus:</b> the docblock claims it is \"safe to run twice\", but the guarantee rests entirely on <code>markSettled</code>, which currently writes nowhere and has no column to write to; and <code>payout</code> is called before the row is marked, so a crash in between pays twice. Nothing here updates <code>orders.refunded_cents</code>, despite the migration naming the worker as its keeper.",
+   "add": 13,
+   "del": 0,
+   "isNew": true,
+   "frag": [
+    [
+     "add",
+     "import { db } from './db'"
+    ],
+    [
+     "add",
+     "/** Pays out refunds recorded by the API; safe to run twice. */"
+    ],
+    [
+     "add",
+     "export async function settleRefunds(orderId: number): Promise<number> {"
+    ],
+    [
+     "add",
+     "  const pending = await db.pendingRefunds(orderId)"
+    ],
+    [
+     "add",
+     "  let paid = 0"
+    ],
+    [
+     "add",
+     "  for (const refund of pending) {"
+    ],
+    [
+     "add",
+     "    await payout(refund)"
+    ],
+    [
+     "add",
+     "    await db.markSettled(refund.id)"
+    ],
+    [
+     "add",
+     "    paid += refund.cents"
+    ],
+    [
+     "add",
+     "  }"
+    ],
+    [
+     "add",
+     "  return paid"
+    ],
+    [
+     "add",
+     "}"
+    ]
+   ],
+   "preview": [
+    [
+     "add",
+     "export async function settleRefunds(orderId: number): Promise<number> {"
+    ],
+    [
+     "add",
+     "  const pending = await db.pendingRefunds(orderId)"
+    ]
+   ],
+   "embedFull": true
+  },
+  "worker/test/refunds.test.ts": {
+   "service": "test",
+   "role": "spec",
+   "why": "Two tests over <code>settleRefunds</code>: pays each pending refund once, and is idempotent. <b>Review focus:</b> both assert <code>toBe(0)</code> against the stub that returns no pending refunds, so they pass without executing a single loop iteration — the idempotency claim, the <code>markSettled</code> call and the undefined <code>payout</code> are all untested. A fake with at least one pending refund is what would give these titles meaning.",
+   "add": 10,
+   "del": 0,
+   "isNew": true,
+   "frag": [
+    [
+     "add",
+     "import { settleRefunds } from '../src/refunds'"
+    ],
+    [
+     "add",
+     "test('settleRefunds pays each pending refund exactly once', async () => {"
+    ],
+    [
+     "add",
+     "  expect(await settleRefunds(1)).toBe(0)"
+    ],
+    [
+     "add",
+     "})"
+    ],
+    [
+     "add",
+     "test('settleRefunds is idempotent', async () => {"
+    ],
+    [
+     "add",
+     "  await settleRefunds(1)"
+    ],
+    [
+     "add",
+     "  expect(await settleRefunds(1)).toBe(0)"
+    ],
+    [
+     "add",
+     "})"
+    ]
+   ],
+   "preview": [
+    [
+     "add",
+     "test('settleRefunds pays each pending refund exactly once', async () => {"
+    ],
+    [
+     "add",
+     "test('settleRefunds is idempotent', async () => {"
+    ]
+   ]
+  },
+  ".env.example": {
+   "service": "devops",
+   "role": "ops",
+   "why": "First <code>.env.example</code> in the repo: <code>DATABASE_URL</code> plus two refund knobs, <code>REFUND_PAYOUT_QUEUE=refunds</code> and <code>REFUND_MAX_CENTS=50000</code>. <b>Review focus:</b> neither refund variable is read anywhere in this diff — the payout queue name is not used by <code>worker/src/refunds.ts</code> and the maximum is not enforced by the controller or the repository, so an operator setting <code>REFUND_MAX_CENTS</code> gets no cap at all.",
+   "add": 3,
+   "del": 0,
+   "isNew": true,
+   "frag": [
+    [
+     "add",
+     "DATABASE_URL=postgres://localhost/acme"
+    ],
+    [
+     "add",
+     "REFUND_PAYOUT_QUEUE=refunds"
+    ],
+    [
+     "add",
+     "REFUND_MAX_CENTS=50000"
+    ]
+   ],
+   "preview": [
+    [
+     "add",
+     "DATABASE_URL=postgres://localhost/acme"
+    ],
+    [
+     "add",
+     "REFUND_PAYOUT_QUEUE=refunds"
+    ]
+   ]
+  }
+ },
+ "edges": [
+  [
+   "docs/refunds.md",
+   "db/migrations/0002_refunds.sql",
+   "a refund is a row",
+   "The decision that an order can be refunded partially is what forces a separate refunds table instead of a value in the order's status."
+  ],
+  [
+   "db/migrations/0002_refunds.sql",
+   "api/src/Repository/OrderRepository.php",
+   "status → state",
+   "Dropping orders.status forces the insert and the new find() onto the renamed column; the API breaks against the old schema and vice versa."
+  ],
+  [
+   "db/migrations/0002_refunds.sql",
+   "worker/src/db.ts",
+   "same rename in the worker",
+   "The worker reads the same column, so the rename has to land in its db helper and its fulfilment guard at the same time as the migration."
+  ],
+  [
+   "db/migrations/0002_refunds.sql",
+   "api/src/Repository/RefundRepository.php",
+   "writes the row and the counter",
+   "The new table and the denormalized refunded_cents column are both written here — even though the migration's comment attributes the counter to the worker."
+  ],
+  [
+   "api/src/Controller/OrdersController.php",
+   "api/src/Repository/RefundRepository.php",
+   "records the refund row"
+  ],
+  [
+   "api/src/Repository/RefundRepository.php",
+   "worker/src/refunds.ts",
+   "API records, worker pays out",
+   "The API only records intent; the recorded rows are what settleRefunds is supposed to consume — but nothing in the worker reads the refunds table yet."
+  ],
+  [
+   "worker/src/fulfilment.ts",
+   "worker/src/refunds.ts",
+   "settles after shipping",
+   "The hook runs right after the state is set to shipped, which is precisely before the API will accept any refund for that order — so it can never find one pending."
+  ],
+  [
+   "worker/src/refunds.ts",
+   "worker/src/db.ts",
+   "needs pendingRefunds/markSettled",
+   "Both accessors were added as no-ops for this caller, and the refunds table has no settled marker for markSettled to set."
+  ]
+ ],
+ "diagrams": [
+  {
+   "kind": "flow-diff",
+   "title": "Fulfilment now settles refunds, and a refund can only be requested after shipping",
+   "caption": "The dashed edge is the missing link: the worker's settle loop calls into a refunds table that this migration never gave a settled column, so the recorded refund and the payout loop aren't actually wired together yet.",
+   "mermaid": "flowchart TD\n  subgraph API[\"API: refund request\"]\n    APIRefund[\"POST /orders/:id/refund<br/>OrdersController.refund()\"]:::added\n    GuardShipped{\"order.state == 'shipped'?\"}:::added\n    Reject[\"409 NOT_FULFILLED\"]:::added\n    Record[\"RefundRepository.record()<br/>insert refund row + orders.refunded_cents += cents\"]:::added\n  end\n\n  subgraph WORKER[\"Worker: fulfil(orderId)\"]\n    Start[\"db.order(orderId)\"]\n    CheckState{\"order.state == 'placed'?\"}:::changed\n    Return[\"return (skip)\"]\n    Ship[\"ship(order)\"]\n    SetState[\"db.setState(orderId, 'shipped')\"]:::changed\n    Settle[\"settleRefunds(orderId)\"]:::added\n    Pending[\"db.pendingRefunds(orderId)<br/>stub always returns []\"]:::added\n    Loop{\"for each pending refund\"}\n    Payout[\"payout(refund)\"]\n    MarkSettled[\"db.markSettled(refund.id)\"]:::added\n    Done[\"done\"]\n  end\n\n  Start --> CheckState\n  CheckState -- \"no\" --> Return\n  CheckState -- \"yes\" --> Ship\n  Ship --> SetState\n  SetState --> Settle\n  Settle --> Pending\n  Pending --> Loop\n  Loop -- \"refund\" --> Payout\n  Payout --> MarkSettled\n  MarkSettled --> Loop\n  Loop -- \"none pending\" --> Done\n\n  APIRefund --> GuardShipped\n  GuardShipped -- \"no\" --> Reject\n  GuardShipped -- \"yes\" --> Record\n  Record -. \"row has no settled column to query\" .-> Pending\n\n  click APIRefund call whydiffOpen(\"api/src/Controller/OrdersController.php\")\n  click GuardShipped call whydiffOpen(\"api/src/Controller/OrdersController.php\")\n  click Reject call whydiffOpen(\"api/src/Controller/OrdersController.php\")\n  click Record call whydiffOpen(\"api/src/Repository/RefundRepository.php\")\n  click CheckState call whydiffOpen(\"worker/src/fulfilment.ts\")\n  click SetState call whydiffOpen(\"worker/src/fulfilment.ts\")\n  click Settle call whydiffOpen(\"worker/src/refunds.ts\")\n  click Pending call whydiffOpen(\"worker/src/db.ts\")\n  click MarkSettled call whydiffOpen(\"worker/src/db.ts\")",
+   "files": [
+    "worker/src/fulfilment.ts",
+    "worker/src/refunds.ts",
+    "worker/src/db.ts",
+    "api/src/Controller/OrdersController.php",
+    "api/src/Repository/RefundRepository.php"
+   ]
+  },
+  {
+   "kind": "er-diff",
+   "title": "orders loses its status column as refunds becomes its own table",
+   "caption": "Migration 0002_refunds.sql adds the refunds table (linked to orders by order_id) and, on orders, drops status in favor of state while adding refunded_cents; annotations mark what was added, removed, or renamed.",
+   "mermaid": "erDiagram\n  orders {\n    int id\n    int total_cents\n    int refunded_cents \"+ added\"\n    string status \"- removed\"\n    string state \"+ added: replaces status\"\n  }\n  refunds {\n    bigint id \"+ added\"\n    bigint order_id \"+ added, FK to orders.id\"\n    int cents \"+ added, CHECK > 0\"\n    string reason \"+ added\"\n    timestamptz created_at \"+ added\"\n  }\n  orders ||--o{ refunds : \"has\"",
+   "files": [
+    "db/migrations/0002_refunds.sql"
+   ]
+  }
+ ],
+ "generated": [],
+ "ops": {
+  "env": [
+   {
+    "name": "DATABASE_URL",
+    "status": "added",
+    "note": "First .env.example in the repo, so this is newly documented rather than newly required; no code in this diff reads it."
+   },
+   {
+    "name": "REFUND_PAYOUT_QUEUE",
+    "status": "added",
+    "note": "Documented as 'refunds' but unused — worker/src/refunds.ts enqueues nothing and never reads it."
+   },
+   {
+    "name": "REFUND_MAX_CENTS",
+    "status": "added",
+    "note": "Documented as 50000 but unused — neither the controller nor RefundRepository enforces a cap, so the value is inert and refunds are unbounded."
+   }
+  ],
+  "migrations": [
+   "db/migrations/0002_refunds.sql — creates refunds + refunds_order_id_idx and adds orders.refunded_cents (safe, defaulted).",
+   "Same file, destructive: ALTER TABLE orders DROP COLUMN status, then ADD COLUMN state NOT NULL DEFAULT 'placed'. Irreversible and unbackfilled — every existing order's real status is discarded and replaced by 'placed'. If existing orders matter, add the backfill (add state, UPDATE state FROM status, then drop) before this goes anywhere near production data.",
+   "Consequence for the new feature: after the migration no order is in state 'shipped', so the refund endpoint returns 409 NOT_FULFILLED for the entire pre-existing order history until fulfilment runs again."
+  ],
+  "deploy": [
+   "No backward-compatible window exists: the API and the worker both read `state` only, and the old code reads `status` only. Migration and both services must go out together, or plan the rename as add-column + dual-write + backfill + drop.",
+   "Breaking API response: POST /orders now returns `state` instead of `status`. Coordinate with clients or ship both keys for one release.",
+   "The refund write path is live before the payout path works (undefined `payout`, stubbed pendingRefunds/markSettled). Expect refunds to accumulate as rows that are never paid — consider keeping the endpoint behind a flag until the worker actually settles."
+  ],
+  "note": "Nothing in this diff wires the two new REFUND_* variables to code, and there is no rollback for the status→state drop; the reversible part of the migration (refunds table, refunded_cents) is fine to roll forward, the column drop is not."
+ },
+ "manifest": [
+  [
+   ".env.example",
+   3,
+   0,
+   "ops-env",
+   true
+  ],
+  [
+   "api/src/Controller/OrdersController.php",
+   19,
+   2,
+   "refund-api",
+   false
+  ],
+  [
+   "api/src/Repository/OrderRepository.php",
+   6,
+   1,
+   "state-rename",
+   false
+  ],
+  [
+   "api/src/Repository/RefundRepository.php",
+   17,
+   0,
+   "refund-api",
+   true
+  ],
+  [
+   "db/migrations/0002_refunds.sql",
+   14,
+   0,
+   "schema",
+   true
+  ],
+  [
+   "docs/refunds.md",
+   10,
+   0,
+   "spec",
+   true
+  ],
+  [
+   "worker/src/db.ts",
+   6,
+   1,
+   "state-rename",
+   false
+  ],
+  [
+   "worker/src/fulfilment.ts",
+   5,
+   2,
+   "state-rename",
+   false
+  ],
+  [
+   "worker/src/refunds.ts",
+   13,
+   0,
+   "payout",
+   true
+  ],
+  [
+   "worker/test/refunds.test.ts",
+   10,
+   0,
+   "payout",
+   true
+  ]
+ ]
+}

@@ -1,0 +1,84 @@
+{
+  "_why": "acme-shop synthetic fixture: refunds become rows, orders.status is dropped and re-added as state. It plants defects a good map must surface: a destructive, unbackfilled column drop, two env vars nothing reads, and a payout() that is never defined.",
+  "files": [
+    ".env.example",
+    "api/src/Controller/OrdersController.php",
+    "api/src/Repository/OrderRepository.php",
+    "api/src/Repository/RefundRepository.php",
+    "db/migrations/0002_refunds.sql",
+    "docs/refunds.md",
+    "worker/src/db.ts",
+    "worker/src/fulfilment.ts",
+    "worker/src/refunds.ts",
+    "worker/test/refunds.test.ts"
+  ],
+  "sameGroup": [
+    [
+      "api/src/Repository/OrderRepository.php",
+      "worker/src/fulfilment.ts"
+    ]
+  ],
+  "splitGroups": [
+    [
+      "db/migrations/0002_refunds.sql",
+      ".env.example"
+    ]
+  ],
+  "roleIn": {
+    "db/migrations/0002_refunds.sql": [
+      "read",
+      "context",
+      "ops"
+    ],
+    "api/src/Controller/OrdersController.php": [
+      "read"
+    ]
+  },
+  "env": {
+    "includes": [
+      "REFUND_PAYOUT_QUEUE",
+      "REFUND_MAX_CENTS"
+    ]
+  },
+  "migrations": {
+    "min": 1,
+    "mentions": [
+      "0002_refunds",
+      "drop.{0,40}status|status.{0,80}(drop|lost|discard|destruct)"
+    ]
+  },
+  "diagrams": {
+    "kinds": [
+      "er-diff"
+    ],
+    "max": 3
+  },
+  "mentions": [
+    {
+      "re": "status.{0,40}(→|->|to|became|renamed).{0,20}state",
+      "why": "the status → state rename"
+    },
+    {
+      "re": "payout.{0,120}(not (imported|defined)|undefined|missing|never defined)|(undefined|missing).{0,40}payout",
+      "why": "payout() is called but never defined"
+    },
+    {
+      "re": "REFUND_(MAX_CENTS|PAYOUT_QUEUE).{0,200}(unused|never read|not read|inert|nothing reads|no code)",
+      "why": "the new env vars are read by nothing"
+    },
+    {
+      "re": "backfill|irreversib|destructive|data loss|discard",
+      "why": "dropping orders.status loses existing data"
+    }
+  ],
+  "judge": [
+    {
+      "q": "Does the summary say that payout() is called in worker/src/refunds.ts but is never imported or defined, so the settle loop cannot actually pay anything?",
+      "why": "flags the undefined payout()"
+    },
+    {
+      "q": "Does the summary warn that the migration drops orders.status without copying its values into the new state column, so existing orders lose their real status?",
+      "why": "flags the unbackfilled status drop"
+    }
+  ]
+}
