@@ -53,7 +53,7 @@ manifest, so a fixture doubles as a test of `manifest.mjs`:
 | `migration` | zulip/zulip — 8 files, Django migration | schema diagram, cross-layer edges |
 | `big` | mastodon/mastodon — 63 files, Rails migration | classifier sharding, blast radius |
 
-They land in `.fixtures/` (gitignored); `make clean-fixtures` removes them. `migration`
+They land in `~/.cache/whydiff/fixtures/` (outside the plugin dir: Claude Code refuses writes inside `--plugin-dir`; override with `WHYDIFF_FIXTURES`); `make clean-fixtures` removes them. `migration`
 and `big` pull ~150–200 MB each, because those repos are large even at depth 2.
 
 ## Where things live

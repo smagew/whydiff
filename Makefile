@@ -5,6 +5,7 @@
 #   make fixtures           list the fixture projects
 #   make run-synthetic      build a fixture and open Claude with THIS working tree
 #   make report-synthetic   show the timing report of the last run there
+#   make eval               score the analysis on known fixtures (COSTS tokens, ~3 min/case)
 #
 # `run-*` loads the plugin with --plugin-dir, so the working tree is what runs:
 # no commit, no push, no version bump. It also overrides an installed copy of
@@ -12,10 +13,13 @@
 # after editing agents/ or hooks/ (skills reload on their own).
 
 PLUGIN_DIR := $(shell pwd)
-FIXDIR     := $(PLUGIN_DIR)/.fixtures
+# Outside the plugin dir on purpose: Claude Code refuses writes inside --plugin-dir,
+# so a fixture under it could never get its .whydiff/ written (tests/fixtures/dir.mjs).
+FIXDIR     ?= $(HOME)/.cache/whydiff/fixtures
+export WHYDIFF_FIXTURES := $(FIXDIR)
 EXAMPLE    := examples/rate-limit/review-map.json
 
-.PHONY: help check coverage pdf-e2e preview fixtures clean-fixtures bump hooks
+.PHONY: help check coverage pdf-e2e preview fixtures clean-fixtures bump hooks eval
 .DEFAULT_GOAL := help
 
 help: ## show this help
@@ -53,7 +57,7 @@ preview: ## assemble the reference example and open it in a browser
 fixtures: ## list the fixture projects and what each one is for
 	@node tests/fixtures/prepare.mjs --list
 
-fixture-%: ## prepare fixture <name> in .fixtures/<name>
+fixture-%: ## prepare fixture <name> in $(FIXDIR)/<name>
 	@node tests/fixtures/prepare.mjs $*
 
 run-%: fixture-% ## prepare fixture <name> and open Claude there with this working tree
@@ -72,6 +76,11 @@ map-%: ## open the HTML map produced by the last run against fixture <name>
 serve-%: ## serve fixture <name>'s map with live Q&A (asks via `claude -p`)
 	@echo "→ open the printed URL; the ask UI exists only on this served copy"
 	@node scripts/serve.mjs $(FIXDIR)/$*/.whydiff/review-map.json --repo $(FIXDIR)/$*
+
+CASES ?=
+RUNS  ?= 1
+eval: ## score the analysis passes on known fixtures — runs the real pipeline, COSTS tokens (CASES="quick" RUNS=3)
+	@node evals/run.mjs $(CASES) --runs $(RUNS)
 
 clean-fixtures: ## remove all prepared fixtures
 	rm -rf $(FIXDIR)

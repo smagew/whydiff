@@ -7,3 +7,4 @@ examples-private/
 .fixtures/
 coverage/
 .nyc_output/
+evals/results/

@@ -14,11 +14,13 @@ make run-<fixture>    # prepare a fixture and open Claude there with THIS workin
 make serve-<fixture>  # serve a fixture's map with the live ask/Generate UI
 make bump BUMP=minor  # bump the version everywhere + open a CHANGELOG section
 make hooks            # install the pre-push version guard (.githooks)
+make eval             # score the ANALYSIS on known fixtures — costs tokens, on demand only (evals/README.md)
 ```
 
 `npm test` runs the unit + Playwright suites (`tests/*.mjs`); `make check` adds
 `scripts/validate.mjs` and `claude plugin validate`. Run `make check` before every
-push.
+push. After changing `agents/*.md` or the skill, run `make eval` and compare the
+score — `npm test` cannot tell whether the analysis got worse.
 
 ## Architecture
 

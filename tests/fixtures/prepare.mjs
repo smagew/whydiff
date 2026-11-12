@@ -5,7 +5,7 @@
 //   node tests/fixtures/prepare.mjs <name>
 //
 // A fixture is a real commit from a popular open-source repo, pinned by SHA in
-// fixtures.json, fetched with --depth 2 into .fixtures/<name>. The diff to
+// fixtures.json, fetched with --depth 2 into <fixtures dir>/<name> (see dir.mjs). The diff to
 // analyze is therefore always HEAD~1..HEAD. Our own manifest is cross-checked
 // against the GitHub stats recorded in fixtures.json, so preparing a fixture
 // also verifies that manifest.mjs counts what GitHub counts.
@@ -15,6 +15,7 @@ import { execFileSync } from 'node:child_process'
 import { join, dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { collectManifest } from '../../scripts/lib.mjs'
+import { fixturesDir } from './dir.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const root = resolve(here, '..', '..')
@@ -37,7 +38,7 @@ const name = args[0]
 const f = reg[name]
 if (!f) { console.error(`unknown fixture: ${name}\nknown: ${Object.keys(reg).join(', ')}`); process.exit(1) }
 
-const dir = join(root, '.fixtures', name)
+const dir = join(fixturesDir(), name)
 const run = (cmd, cmdArgs, cwd) => execFileSync(cmd, cmdArgs, { cwd, stdio: ['ignore', 'pipe', 'inherit'], encoding: 'utf8' })
 
 if (f.generator) {

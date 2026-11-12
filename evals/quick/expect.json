@@ -1,0 +1,48 @@
+{
+  "_why": "expressjs/express: req.fresh now also validates QUERY requests (a one-line condition) plus two tests and a changelog line. Nothing to deploy — a good map invents no ops, and a one-condition change needs at most one diagram.",
+  "files": [
+    "History.md",
+    "lib/request.js",
+    "test/req.fresh.js"
+  ],
+  "splitGroups": [
+    [
+      "lib/request.js",
+      "History.md"
+    ]
+  ],
+  "roleIn": {
+    "lib/request.js": [
+      "read"
+    ]
+  },
+  "env": {
+    "exact": []
+  },
+  "migrations": {
+    "max": 0
+  },
+  "diagrams": {
+    "max": 1
+  },
+  "mentions": [
+    {
+      "re": "QUERY",
+      "why": "the QUERY method"
+    },
+    {
+      "re": "fresh",
+      "why": "req.fresh"
+    },
+    {
+      "re": "304|not modified|conditional",
+      "why": "the effect: a QUERY can now get 304 Not Modified"
+    }
+  ],
+  "judge": [
+    {
+      "q": "Does the summary say that req.fresh now treats QUERY like GET and HEAD, so a QUERY request with a matching validator can get 304 Not Modified?",
+      "why": "states the behaviour change correctly"
+    }
+  ]
+}
