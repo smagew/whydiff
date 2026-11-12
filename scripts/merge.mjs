@@ -89,6 +89,9 @@ for (const path of Object.keys(files)) {
   files[path].add = row[1]
   files[path].del = row[2]
   if (row[3]) files[path].isNew = true; else delete files[path].isNew
+  // What git says happened to the file — the viewer's A/M/D/R mark. Never the model's.
+  files[path].status = row[4] || (row[3] ? 'added' : 'modified')
+  if (row[5]) files[path].from = row[5]; else delete files[path].from
 }
 if (dropped.length) console.warn(`warning: ${dropped.length} described file(s) are not in the diff, dropped:\n  - ${dropped.join('\n  - ')}`)
 
@@ -122,7 +125,7 @@ if (undescribed.length) {
   if (!g) { g = { id: gid, name: S.unclassifiedGroup, role: 'plumbing', why: S.unclassified, collapsed: true, files: [] }; byId.set(gid, g); groups.push(g) }
   for (const path of undescribed) {
     const row = real.get(path)
-    files[path] = { service: 'other', role: 'plumbing', add: row[1], del: row[2], ...(row[3] ? { isNew: true } : {}), why: S.unclassified }
+    files[path] = { service: 'other', role: 'plumbing', add: row[1], del: row[2], ...(row[3] ? { isNew: true } : {}), status: row[4] || (row[3] ? 'added' : 'modified'), ...(row[5] ? { from: row[5] } : {}), why: S.unclassified }
     if (!g.files.includes(path)) g.files.push(path)
   }
   console.warn(`warning: ${undescribed.length} file(s) in the diff were not described by any pass, filed under "${gid}":\n  - ${undescribed.join('\n  - ')}`)

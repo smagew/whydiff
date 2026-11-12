@@ -4,7 +4,7 @@
 // the browser e2e. assemble.mjs inlines this same module into the viewer (exports
 // stripped), so what we test is what ships.
 
-import { nslug, genProgressEstimate, normalizeMap } from '../templates/viewer-logic.mjs'
+import { nslug, genProgressEstimate, normalizeMap, buildFileTree, fileStatus } from '../templates/viewer-logic.mjs'
 
 const fail = (m) => { console.error(`FAIL: ${m}`); process.exit(1) }
 const ok = (c, m) => { if (!c) fail(m) }
@@ -50,6 +50,33 @@ eq(G({ phase: 'writing', writeElapsedS: 3, ended: true }), 1, 'ended overrides t
   eq(normalizeMap(null), null, 'null passes through')
   const good = { groups: [{ id: 'g', name: 'G', role: 'read', why: 'w', files: [] }], ops: { migrations: ['m'] } }
   eq(JSON.stringify(normalizeMap(JSON.parse(JSON.stringify(good)))), JSON.stringify(good), 'a schema-valid map is unchanged')
+}
+
+
+// ── fileStatus ───────────────────────────────────────────────────────────────
+eq(fileStatus({ status: 'renamed', isNew: false }), 'renamed', 'git status wins')
+eq(fileStatus({ status: 'deleted' }), 'deleted', 'deleted is kept')
+eq(fileStatus({ isNew: true }), 'added', 'an old map falls back to isNew → added')
+eq(fileStatus({}), 'modified', 'an old map without isNew → modified')
+eq(fileStatus({ status: 'bogus', isNew: true }), 'added', 'an unknown status falls back to isNew')
+
+// ── buildFileTree ────────────────────────────────────────────────────────────
+{
+  const show = (nodes, d = 0) => nodes.map(n => '  '.repeat(d) + (n.kind === 'dir' ? `${n.name}/ [${n.key}]\n` + show(n.children, d + 1) : `${n.name}\n`)).join('')
+  const t = buildFileTree(['app/src/api/middleware/auth.ts', 'app/src/api/middleware/auth.test.ts', 'app/src/api/server.ts', 'app/src/config.ts', 'README.md', 'mcp/src/proxy.ts', 'mcp/package.json', 'a/b/c/d/deep.ts', 'file10.ts', 'file9.ts'])
+  eq(show(t), [
+    'a/b/c/d/ [a/b/c/d/]', '  deep.ts',
+    'app/src/ [app/src/]', '  api/ [app/src/api/]', '    middleware/ [app/src/api/middleware/]', '      auth.test.ts', '      auth.ts', '    server.ts', '  config.ts',
+    'mcp/ [mcp/]', '  src/ [mcp/src/]', '    proxy.ts', '  package.json',
+    'file9.ts', 'file10.ts', 'README.md', ''].join('\n'),
+    'folders first, single-folder chains compacted, natural name order, keys are full folder paths')
+  const all = []
+  const walk = (ns) => { for (const n of ns) n.kind === 'file' ? all.push(n.path) : walk(n.children) }
+  walk(t)
+  eq(all.length, 10, 'every path appears exactly once')
+  eq(buildFileTree([]).length, 0, 'no paths, no nodes')
+  eq(JSON.stringify(buildFileTree(['x.ts'])), JSON.stringify([{ kind: 'file', name: 'x.ts', path: 'x.ts' }]), 'a root file is a top-level file node')
+  eq(buildFileTree(['a/x.ts', 'a/x.ts']).length, 1, 'a duplicate path is listed once')
 }
 
 console.log('OK: viewer-logic (nslug folds/trims/tolerates non-strings; genProgressEstimate rises while reading<0.70, jumps and rises while writing<0.97, never hits 1 before ended)')

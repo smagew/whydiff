@@ -4,6 +4,39 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.48.0] — 2026-11-12
+
+### Added
+- **The Files navigator works like an IDE's project pane.**
+  - **Its own scroll.** The tree sits beside the file view, never taller than the window,
+    and scrolls inside itself. Reading a long file no longer drags the tree away, and
+    wheeling over the tree moves the tree, not the page. In a narrow window it is a
+    bounded box.
+  - **Folder trees.** Overview shows each group's files as a folder tree, and Files list
+    shows the whole diff as one. Single-folder chains are compacted
+    (`app/src/api/middleware`), so a path is not repeated on every row. A folder folds
+    with a click, and the fold survives a tab switch, a mode switch and a reload. The
+    open file is scrolled into view.
+  - **Keyboard.** The tree follows the WAI-ARIA tree pattern: ↑/↓ move, ←/→ fold, unfold
+    or go to the parent/child, Enter opens the file, and Home/End jump to the ends. Each
+    tree is one tab stop.
+- **Every file shows what git did to it.** The name's colour and a letter: **A** added
+  (green), **M** modified (blue), **D** deleted (grey, struck through), **R** renamed,
+  with the old name. The file view repeats it. The status comes from
+  `git diff --name-status -M` through `merge.mjs` (new `files[].status` / `from` in the
+  schema), never from a model. Older maps fall back to `isNew`.
+
+### Fixed
+- **Renamed files had a broken path.** `git diff --numstat` prints a rename as
+  `src/{old => new}.ts`, and that string reached the map as if it were a path. The
+  manifest now reads git with `-z`, so the path is the real new path.
+- **A new file that was already staged (`git add`) was not marked new** on a
+  working-tree run.
+- Guarded by `tests/files-tree.mjs` (scroll, completeness, compaction, whole names,
+  folds, status, keyboard, autoscroll; it fails on the old viewer and when the
+  navigator's own scroll is removed) and `tests/manifest-status.mjs` (git status for
+  every kind, on a working tree and on a range).
+
 ## [0.47.2] — 2026-11-12
 
 ### Fixed

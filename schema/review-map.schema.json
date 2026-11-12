@@ -88,6 +88,8 @@
           "add": { "type": "integer" },
           "del": { "type": "integer" },
           "isNew": { "type": "boolean" },
+          "status": { "enum": ["added", "modified", "deleted", "renamed"], "description": "What git says happened to the file (git diff --name-status -M), set by merge.mjs, never by a model. The viewer marks it A/M/D/R. Absent on older maps: the viewer falls back to isNew." },
+          "from": { "type": "string", "description": "The old path of a renamed file (status: renamed)." },
           "why": { "type": "string", "description": "What happened and why; <b>/<code> allowed" },
           "frag": {
             "type": "array", "description": "Fragment for the inspector: [class, text], class: add|del|ctx",
