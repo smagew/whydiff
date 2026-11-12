@@ -32,6 +32,10 @@ HTML viewer.
   (groups, files, edges, intent, ops), `diagrammer` (diagrams). **Lazy** (full run
   or the Generate button): `summariser` (the Summary `story`), `standards-reviewer`,
   `tests-analyst`, `story-writer` (userStories).
+- **Agent models are a deliberate choice** (frontmatter `model:`). `classifier` has
+  none, so it runs on the session's model: every tab is built from its groups, edges
+  and ops, and a cheaper model there degrades the whole map. All other passes are
+  `sonnet`. Change one only with a before/after `make eval`.
 - `scripts/` — deterministic layer: `gather`/`manifest` (diff → manifest),
   `merge.mjs` (agent outputs → one `review-map.json`, sets `generated`),
   `assemble.mjs` (map + `templates/viewer.html` → self-contained HTML),

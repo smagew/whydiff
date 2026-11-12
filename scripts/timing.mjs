@@ -81,13 +81,21 @@ const agg = [
   ['Parallel agents (wall-clock of slowest)', span('agents_spawned', 'agents_done')],
   ['Merge into review-map.json (merge.mjs + fixes)', span('agents_done', 'map_written')],
 ]
-const validates = events.filter((e) => e.event === 'validate_pass' || e.event === 'validate_fail')
+// The model's own review of the merged map (fix contradicted claims, drop diagrams
+// that show no flow change). Logged by the skill as `review_done`; before that
+// event existed this time was silently billed to "Validation + fixes".
+const reviewed = at('review_done')
+if (at('map_written') !== undefined && reviewed !== undefined) {
+  agg.push(['Main model: review the merged map', reviewed - at('map_written')])
+}
+const afterMerge = reviewed ?? at('map_written')
+const validates = events.filter((e) => (e.event === 'validate_pass' || e.event === 'validate_fail') && (afterMerge === undefined || e.t >= afterMerge))
 const lastValidate = validates.length ? validates[validates.length - 1].t : undefined
-if (at('map_written') !== undefined && lastValidate !== undefined) {
-  agg.push(['Validation + fixes', lastValidate - at('map_written')])
+if (afterMerge !== undefined && lastValidate !== undefined) {
+  agg.push(['Validation + fixes', lastValidate - afterMerge])
 }
 if (at('assembled') !== undefined) {
-  const from = lastValidate ?? at('map_written')
+  const from = lastValidate ?? afterMerge
   if (from !== undefined) agg.push(['Assemble HTML', at('assembled') - from])
 }
 lines.push('## Phase summary')

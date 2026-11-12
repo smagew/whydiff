@@ -22,6 +22,8 @@ code lazily behind a click; every claim traceable to a real line of the diff.
   - a PR number/URL → `gh pr diff <n>` for the diff text; use `--ref` with the PR's
     merge-base range when the branch is checked out locally, otherwise warn that
     file drill-down may not match the working tree.
+- **Mode words** — never a ref: `full` / `sections:<ids>` (which optional passes to
+  run up front, step 3) and `headless` (a host delivers the map; skip step 6).
 - **Report language**: the language the user converses in. If unclear, use English.
   This becomes `meta.lang` and governs ALL human-readable text in the map.
   Code identifiers, paths, and code fragments always stay as-is.
@@ -218,14 +220,21 @@ to write a map that would not validate.
 Its warnings are worth reading: a file described by no pass, or described by two
 shards, usually means the `SCOPE:` split was wrong.
 
-You have read the diff — so review the result critically: fix agent claims the diff
-contradicts, drop diagrams that do not show a flow change. Edit
-`review-map.json` in place for that, or fix the agent's own file and re-run
-`merge.mjs`.
+You have read the diff — so review the result critically, in ONE pass with a fixed
+goal: fix agent claims the diff contradicts, drop diagrams that do not show a flow
+change. Nothing else — do not re-read files you already read or polish wording.
+Fix the agent's own file and re-run `merge.mjs` (preferred: it re-validates), or
+edit `review-map.json` in place. Then, whether or not you changed anything:
 
-### 5. Validate — script, not judgment
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/scripts/timing.mjs log review_done --repo <repo>
+```
 
-`merge.mjs` already ran the structural checks. Confirm against git too:
+### 5. Validate — only after a hand edit
+
+`merge.mjs` refuses to write a map that fails the structural checks OR disagrees
+with git, so a map it wrote is already valid. Run the validator **only if you edited
+`review-map.json` in place** after the last merge:
 
 ```bash
 node ${CLAUDE_PLUGIN_ROOT}/scripts/validate.mjs <repo>/.whydiff/review-map.json --repo <repo> [--ref <spec>]
@@ -251,6 +260,15 @@ dropped**, and if it reports anything stale, say so in the final summary: the us
 had a remark on something that is no longer in the report.
 
 ### 6. Deliver — serve the live report (default)
+
+**`headless` argument → skip this whole step.** When the skill is invoked with
+`headless` (by `scripts/run.mjs`, the desktop app, CI), the caller validates,
+assembles and serves the map itself. Stop once `rebind.mjs` has run: do not start
+`serve.mjs`, do not assemble, do not `open` anything. Reply with one line naming
+`<repo>/.whydiff/review-map.json`. Starting the server there is the worst thing
+the run can do: it never exits, so `claude -p` waits for the shell's ten-minute
+timeout with the map already done.
+
 
 Both serving and assembling inline the mermaid bundle from the plugin's
 `node_modules`. On a fresh install it is missing — check once and install if needed:

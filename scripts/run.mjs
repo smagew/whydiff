@@ -91,7 +91,10 @@ const runPipeline = () => new Promise((ok, no) => {
   // "sections:<ids>" = just those; neither = core only (the rest stay one click away).
   const want = opts['--full'] ? ' full' : sections.length ? ` sections:${sections.join(',')}` : ''
   const child = spawn(claudeCmd, [
-    '-p', `/whydiff${range ? ` ${range}` : ''}${want}`,
+    // `headless`: this runner (and the desktop app through it) delivers the map, so the
+    // skill must stop once it is written. Without it the skill serves — and claude -p
+    // then blocks on a server that never exits until the shell's 10-min timeout.
+    '-p', `/whydiff${range ? ` ${range}` : ''}${want} headless`,
     '--plugin-dir', pluginDir,
     '--output-format', 'stream-json', '--verbose',
   ], { cwd: repoAbs, stdio: ['ignore', 'pipe', 'pipe'] })
@@ -166,6 +169,12 @@ try {
     stage('assemble', 'start')
     node('assemble.mjs', mapPath, '--repo', repoAbs)
     stage('assemble', 'done')
+  }
+
+  // A headless skill stops before its own report step, so write the timing summary
+  // here. Best effort: measurement must never fail a run that produced a good map.
+  if (existsSync(join(repoAbs, '.whydiff', 'timing.jsonl'))) {
+    try { execFileSync(process.execPath, [join(rootDir, 'scripts', 'timing.mjs'), 'report', '--repo', repoAbs], { stdio: 'ignore', env: process.env }) } catch { /* measurement only */ }
   }
 
   const m = JSON.parse(readFileSync(mapPath, 'utf8'))
