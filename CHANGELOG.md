@@ -4,6 +4,18 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.47.1] — 2026-11-12
+
+### Fixed
+- **Diagrams no longer lose nodes off their edge on screen.** Mermaid sometimes lays
+  a node out past its own `viewBox`, and an `<svg>` clips at its `viewBox`. The
+  viewer re-fitted it to the content only for PDF. On screen, the reference
+  flowchart hid its "Tokens left?" decision, the 429 branch and the bottom of
+  "Handler", and the components diagram cut off two nodes. The re-fit now runs
+  after every render, palette switches included. Found by the new screenshot
+  baselines. Guarded by `tests/diagram-clip.mjs`: every node is inside its SVG,
+  wide and narrow, in both palettes, after a re-render and after a resize.
+
 ## [0.47.0] — 2026-11-12
 
 ### Fixed

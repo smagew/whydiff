@@ -105,8 +105,11 @@ const region = async (dgIndex, sel, label) => {
   const box = await boxLoc.boundingBox()
   const vh = page.viewportSize().height
   const drag = { x1: box.x + box.width * 0.28, y1: box.y + 24, x2: box.x + box.width * 0.72, y2: Math.min(box.y + box.height - 12, vh - 12) }
-  const draggedOver = await overlap(sel, drag.x1, drag.y1, drag.x2, drag.y2)
   const allNodes = await overlap(sel, -1e6, -1e6, 1e6, 1e6) // every node in this diagram
+  // A whole diagram sits inside its box (its viewBox is fitted to the content), so a compact
+  // flowchart can fall entirely inside the middle band — then drag over its top part only.
+  if ((await overlap(sel, drag.x1, drag.y1, drag.x2, drag.y2)).length >= allNodes.length) drag.y2 = Math.min(box.y + box.height * 0.45, vh - 12)
+  const draggedOver = await overlap(sel, drag.x1, drag.y1, drag.x2, drag.y2)
   ok(draggedOver.length > 0, `[${label}] test setup: the drag covered no ${sel} to compare against`)
   ok(draggedOver.length < allNodes.length, `[${label}] test setup: the drag should cover only part of the diagram, not all ${allNodes.length} nodes`)
   const covers = (frame, when) => {
