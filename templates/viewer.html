@@ -1076,6 +1076,30 @@
     fill: var(--sunken) !important; stroke: var(--mark) !important; stroke-width: 1.5px !important; }
   .mermaid g.node.changed .nodeLabel, .mermaid g.node.changed span,
   .mermaid g.node.changed tspan { color: var(--ink) !important; fill: var(--ink) !important; }
+  /* storyboard cards (storyboardMermaid): an icon, a title, a tag, one sentence, maybe a
+     warning — inside an ordinary mermaid node, so it keeps the diff fill/outline above.
+     The width is fixed so mermaid measures every card the same and the picture is even.
+     Colours go through the node's own label colour, except the icon (the palette's
+     signal) and the warning (flag), which must stay distinct on an added or removed card. */
+  .mermaid .sbc { display: flex; gap: 12px; align-items: flex-start; width: 232px; padding: 6px 4px;
+    text-align: left; white-space: normal; line-height: 1.4; }
+  .mermaid .sbc .sbi { flex: none; display: inline-block; width: 30px; height: 30px; }
+  .mermaid .sbc .sbi svg { width: 30px; height: 30px; display: block; }
+  .mermaid g.node .sbc .sbi { color: var(--mark) !important; }
+  /* mermaid paints every path/rect/circle in a node (fill + stroke), and the label-rect
+     rule above blanks rects — both reach into the icon's own SVG. An icon is strokes only. */
+  .mermaid g.node .sbc .sbi svg :is(path, rect, circle, ellipse, line, polyline, polygon) {
+    fill: none !important; stroke: currentColor !important; stroke-width: 1.6px !important; stroke-dasharray: none !important; }
+  .mermaid .sbt { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .mermaid .sbh { font-family: var(--ui); font-weight: 500; font-size: 15px; }
+  .mermaid .sbtag { width: fit-content; font-family: var(--mono); font-size: 13px; padding: 0 5px;
+    border: 1px solid currentColor; border-radius: 3px; }
+  .mermaid .sbx { font-family: var(--ui); font-size: 13px; }
+  .mermaid .sbw { display: flex; gap: 6px; align-items: flex-start; margin-top: 3px; font-family: var(--ui); font-size: 13px; }
+  .mermaid .sbw .sbi { width: 16px; height: 16px; margin-top: 1px; }
+  .mermaid .sbw .sbi svg { width: 16px; height: 16px; }
+  .mermaid g.node .sbc .sbw, .mermaid g.node .sbc .sbw span, .mermaid g.node .sbc .sbw .sbi { color: var(--flag) !important; }
+  .sb-legend { margin: 8px 0 0; font-size: 13px; color: var(--muted); }
   /* erDiagram (mermaid 11) draws attribute rows as .row-rect-odd/.row-rect-even and
      ignores the theme's attribute-background variables — its default light "odd" row
      lands unreadable in a dark palette. Force both rows onto dark tokens (light in a
@@ -1329,6 +1353,8 @@ __VIEWER_LOGIC__
 window.__WHYDIFF_THREADS__ = __THREADS__
 window.__WHYDIFF_REVIEW__ = __REVIEW__
 const RM = normalizeMap(__REVIEW_MAP_JSON__)
+// The storyboard's card icons (a Lucide subset, ISC — templates/storyboard-icons.LICENSE.md).
+const STORY_ICONS = __STORY_ICONS__
 
 // ── i18n: viewer chrome follows the report language (meta.lang), default en ──
 const I18N = {
@@ -1389,6 +1415,9 @@ const I18N = {
       standards: { title: 'Standards & blast radius', what: 'The change checked against this project’s own conventions, plus the reverse dependencies it reaches outside the diff. Generate to add this pass.' },
       tests: { title: 'Tests', what: 'What the tests now pin down, and — more usefully — what this change leaves uncovered. Generate to add this pass.' },
     },
+    storyboardTitle: 'How it works now',
+    sbTag: { added: 'new', changed: 'changed', removed: 'removed' },
+    sbLegend: 'Cards are the parts of the story; a tag says what this change did to each. ⚠ marks a problem to look at. Click a card to open its code.',
     diagramsHint: 'A node is marked the way a diff line is: added takes the fill, removed the dashed outline, changed a heavier edge. Diagrams exist only where a control or data flow changed. Nodes tied to a changed file are clickable — details open in the inspector.',
     diagramsEmpty: 'No diagrams: this change altered no control or data flow, so there is nothing to draw. See the Code map for the files it touched.',
     fixedTitle: 'Fixed by tests', gapsTitle: 'Not covered',
@@ -1544,6 +1573,9 @@ const I18N = {
       standards: { title: 'Стандарты и радиус влияния', what: 'Проверка изменения против правил самого проекта плюс обратные зависимости за пределами диффа, которых оно касается. Нажми, чтобы добавить проход.' },
       tests: { title: 'Тесты', what: 'Что теперь фиксируют тесты и — важнее — что это изменение оставляет без покрытия. Нажми, чтобы добавить проход.' },
     },
+    storyboardTitle: 'Как это работает теперь',
+    sbTag: { added: 'новое', changed: 'изменено', removed: 'убрано' },
+    sbLegend: 'Карточки — части истории; метка говорит, что с каждой сделало изменение. ⚠ — проблема, на которую стоит посмотреть. Клик по карточке открывает её код.',
     diagramsHint: 'Нода помечена так же, как строка диффа: добавленное берёт заливку, удалённое — пунктирный контур, изменённое — усиленную рамку. Диаграммы есть только там, где меняется поток управления или данных. Ноды изменённых файлов кликабельны — детали откроются в инспекторе.',
     diagramsEmpty: 'Диаграмм нет: это изменение не затронуло поток управления или данных — рисовать нечего. Что затронуто, смотри на вкладке «Карта кода».',
     fixedTitle: 'Зафиксировано', gapsTitle: 'Не покрыто',
@@ -1839,7 +1871,30 @@ let scopeFilter = null
 // ── static chrome strings ────────────────────────────────────────────────────
 // The hint explains how to read diagrams; with none, say there is nothing to draw
 // (diagrams are a core pass, so empty means the change altered no flow — not lazy).
-document.getElementById('diagramsHint').textContent = (RM.diagrams || []).length ? L.diagramsHint : L.diagramsEmpty
+document.getElementById('diagramsHint').textContent = (RM.diagrams || []).length || RM.storyboard ? L.diagramsHint : L.diagramsEmpty
+// The storyboard's source is built here, not by the assembler, so its tags speak the
+// report language; its title falls back to ours.
+function storyLabels() { return L.sbTag }
+{
+  const sbEl = document.querySelector('#pane-diagrams .diagram[data-dg="story"]')
+  if (sbEl && RM.storyboard) {
+    sbEl.querySelector('pre.mermaid[data-story]').textContent = storyboardMermaid(RM.storyboard, storyLabels())
+    const h = sbEl.querySelector('h3'); if (h && !h.textContent.trim()) h.textContent = L.storyboardTitle
+    const legend = document.createElement('p')
+    legend.className = 'sb-legend'
+    legend.textContent = L.sbLegend
+    sbEl.querySelector('.mermaid-wrap').after(legend)
+  }
+}
+// Fill each card's icon slot after mermaid rendered it (mermaid strips nothing we put in
+// an HTML label, but it re-renders on every palette switch, so this runs every time).
+function fillStoryIcons(box) {
+  if (!box?.closest('.storyboard')) return
+  for (const slot of box.querySelectorAll('.sbi')) {
+    const body = slot.dataset.m ? STORY_ICONS.marks[slot.dataset.m] : (STORY_ICONS.kinds[slot.dataset.k] || STORY_ICONS.kinds.other)
+    slot.innerHTML = `<svg viewBox="${STORY_ICONS.viewBox}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`
+  }
+}
 document.getElementById('fixedTitle').textContent = L.fixedTitle
 document.getElementById('gapsTitle').textContent = L.gapsTitle
 document.getElementById('blastTitle').textContent = L.blastTitle
@@ -1865,7 +1920,7 @@ const hasStory = isGen('story')
 // Order: Diagrams leads (the strongest view), then the Code map, then the actor's
 // view, then the narrative Summary, then the operational and quality passes.
 const PANES = [
-  ['diagrams', L.tabs.diagrams, (RM.diagrams || []).length],
+  ['diagrams', L.tabs.diagrams, (RM.diagrams || []).length + (RM.storyboard ? 1 : 0)],
   ['files', L.tabs.files, (RM.manifest || []).length],
   ['stories', L.tabs.stories, hasStories ? (RM.userStories.stories || []).filter(s => PROBLEM_STATUS.has(s.status)).length : 0],
   ['story', L.tabs.story, null],
@@ -1875,7 +1930,7 @@ const PANES = [
 ]
 // Diagrams is the default view; a diff with no flow change has none, so fall back
 // to the Code map rather than opening on an empty tab.
-const defaultTab = (RM.diagrams || []).length ? 'diagrams' : 'files'
+const defaultTab = (RM.diagrams || []).length || RM.storyboard ? 'diagrams' : 'files'
 const tabsEl = document.getElementById('tabs')
 for (const [id, name, cnt] of PANES) {
   const b = document.createElement('button')
@@ -2097,7 +2152,7 @@ async function runDiagramsOnce() {
       const svg = box?.querySelector('svg')
       const bombed = svg && (svg.querySelector('.error-icon, .error-text') || /mermaid version/i.test(svg.textContent || ''))
       if (bombed) { if (box) renderBrokenDiagram(box, src) }
-      else { box?.classList.remove('broken'); fitViewBoxToContent(svg) }
+      else { box?.classList.remove('broken'); fillStoryIcons(box); fitViewBoxToContent(svg) }
     } catch {
       if (box) renderBrokenDiagram(box, src)
     }
@@ -3001,10 +3056,10 @@ document.addEventListener('click', (e) => {
 // showing that diagram. See applyDiagramFocus.
 function openDiagramWindow(diagEl) {
   const diagrams = [...document.querySelectorAll('#pane-diagrams .diagram')]
-  const i = diagrams.indexOf(diagEl)
-  if (i < 0) return
+  const pos = diagrams.indexOf(diagEl)
+  if (pos < 0) return
   const url = new URL(location.href)
-  url.hash = 'dg=' + i
+  url.hash = 'dg=' + dgKeyOf(diagEl, pos)
   window.open(url.toString(), '_blank', 'width=1100,height=800')
 }
 // When loaded with #dg=<i>, become a single-diagram view: hide the report chrome and
@@ -3012,10 +3067,10 @@ function openDiagramWindow(diagEl) {
 // served pop-out keeps the palette AND the ask/note panel; a standalone file keeps the
 // palette (ask is absent there, as everywhere in a standalone file).
 function applyDiagramFocus() {
-  const m = /(?:^#|&)dg=(\d+)/.exec(location.hash || '')
+  const m = /(?:^#|&)dg=(\w+)/.exec(location.hash || '')
   if (!m) return
   const diagrams = [...document.querySelectorAll('#pane-diagrams .diagram')]
-  const el = diagrams[+m[1]]
+  const el = diagrams.find((d, pos) => dgKeyOf(d, pos) === m[1])
   if (!el) return
   document.body.classList.add('dg-focus')
   setTab('diagrams')
@@ -3192,6 +3247,15 @@ async function preparePrint({ tab = null, all = false, forComments = false } = {
 // real content bounds so everything is inside. Runs after every render (a palette switch
 // re-renders and resets mermaid's viewBox) and again, last, before printing.
 // A hoisted declaration: runDiagramsOnce (above) calls it.
+// A diagram's stable key: its index in RM.diagrams ("0", "1", …), or "story" for the
+// storyboard. Note anchors (`diagram:<key>…`), the pop-out hash and the ask context all
+// use it, so putting the storyboard first never shifts an existing note onto the wrong
+// diagram. assemble.mjs writes it as data-dg; `pos` is the fallback for an older file.
+function dgKeyOf(dg, pos) { return dg?.dataset?.dg ?? String(pos) }
+function dgSource(key) {
+  const src = key === 'story' ? (RM.storyboard ? storyboardMermaid(RM.storyboard, storyLabels()) : '') : (RM.diagrams?.[+key]?.mermaid || '')
+  return src.slice(0, 2500)
+}
 function fitViewBoxToContent(svg) {
   try {
     const bb = svg.getBBox(), p = 8
@@ -3752,7 +3816,7 @@ if (SERVE?.token || EMBEDDED) (() => {
     for (const t of threads) {
       if (byKey.has(t.anchorKey)) { byKey.get(t.anchorKey).threads.push(t); continue }
       let host = document.querySelector(`[data-anchor="${CSS.escape(t.anchorKey)}"]`)
-      const dg = /^diagram:(\d+)/.exec(t.anchorKey)
+      const dg = /^diagram:(\w+)/.exec(t.anchorKey)
       if (!host && dg) host = document.querySelector(`#pane-diagrams .diagram[data-anchor="diagram:${dg[1]}"]`)
       const paneEl = host?.closest('.pane')
       const willPrint = !!host && (!paneEl || !paneEl.hidden || printAll)
@@ -4077,7 +4141,7 @@ if (SERVE?.token || EMBEDDED) (() => {
     key: `diagram:${i}:${nslug(label).slice(0, 40)}`,
     label: `${dg.querySelector('h3')?.textContent || ''} → ${label}`,
     files: filesOf(dg),
-    context: `Node "${label}" in this diagram:\n${(RM.diagrams?.[i]?.mermaid || '').slice(0, 2500)}`,
+    context: `Node "${label}" in this diagram:\n${dgSource(i)}`,
     lang: RM.meta.lang,
   })
   // Small monochrome glyphs (currentColor), within the design system: a chat bubble
@@ -4094,7 +4158,8 @@ if (SERVE?.token || EMBEDDED) (() => {
     const pane = document.getElementById('pane-diagrams')
     if (!pane) return
     pane.querySelectorAll('.dg-region, .dg-badges').forEach(el => el.remove())
-    pane.querySelectorAll('.diagram').forEach((dg, i) => {
+    pane.querySelectorAll('.diagram').forEach((dg, pos) => {
+      const i = dgKeyOf(dg, pos)
       const box = dg.querySelector('.mermaid-box')
       if (!box || !box.querySelector('svg')) return
       const br = box.getBoundingClientRect()
@@ -4187,13 +4252,14 @@ if (SERVE?.token || EMBEDDED) (() => {
     // inserts a marker into that same pane. Only a genuinely new anchor triggers
     // a redraw, so the two cannot chase each other.
     let fresh = false
-    document.querySelectorAll('#pane-diagrams .diagram').forEach((dg, i) => {
+    document.querySelectorAll('#pane-diagrams .diagram').forEach((dg, pos) => {
+      const i = dgKeyOf(dg, pos)
       // The diagram itself is an anchor, so its questions get a marker and a rail
       // bookmark like anywhere else. Not .askable: the "?" in the header below is
       // already the ask affordance here.
       if (!dg.dataset.anchor) {
         dg.dataset.anchor = `diagram:${i}`
-        dg.dataset.anchorLabel = dg.querySelector('h3')?.textContent || `diagram ${i + 1}`
+        dg.dataset.anchorLabel = dg.querySelector('h3')?.textContent || `diagram ${pos + 1}`
         fresh = true
       }
       const head = dg.querySelector('.dg-actions')
@@ -4206,9 +4272,9 @@ if (SERVE?.token || EMBEDDED) (() => {
         b.addEventListener('click', () => openFor({
           kind: 'diagram',
           key: `diagram:${i}`,
-          label: dg.querySelector('h3')?.textContent || `diagram ${i + 1}`,
+          label: dg.querySelector('h3')?.textContent || `diagram ${pos + 1}`,
           files: filesOf(dg),
-          context: (RM.diagrams?.[i]?.mermaid || '').slice(0, 2500),
+          context: dgSource(i),
           lang: RM.meta.lang,
         }))
         head.appendChild(b)
@@ -4288,7 +4354,7 @@ if (SERVE?.token || EMBEDDED) (() => {
               files: filesOf(dg),
               nodes: covered,
               rect,
-              context: `A selected region of this diagram${covered.length ? ` covers these nodes: ${covered.join('; ')}` : ' (a free area — no discrete nodes)'}.\nFull diagram:\n${(RM.diagrams?.[i]?.mermaid || '').slice(0, 2500)}`,
+              context: `A selected region of this diagram${covered.length ? ` covers these nodes: ${covered.join('; ')}` : ' (a free area — no discrete nodes)'}.\nFull diagram:\n${dgSource(i)}`,
               lang: RM.meta.lang,
             })
           }

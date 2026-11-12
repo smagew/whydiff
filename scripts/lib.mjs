@@ -62,6 +62,22 @@ export function validateStructure(rm, { schema = true } = {}) {
       if (!filePaths.has(p)) errors.push(`diagram "${d.title}": click target is not a diff file: ${p}`)
     }
   }
+  // The storyboard is a picture of the diff: every card it draws and every file it opens
+  // must be real, and it must show at least one change (a picture of nothing changing is
+  // the pass misreading its job).
+  if (rm.storyboard) {
+    const sb = rm.storyboard, ids = new Set()
+    for (const c of sb.cards || []) {
+      if (ids.has(c.id)) errors.push(`storyboard: duplicate card id ${JSON.stringify(c.id)}`)
+      ids.add(c.id)
+      for (const p of c.files || []) if (!filePaths.has(p)) errors.push(`storyboard card "${c.title}": unknown file ${p}`)
+    }
+    for (const a of sb.arrows || []) {
+      for (const end of [a.from, a.to]) if (!ids.has(end)) errors.push(`storyboard: arrow "${a.label}" points at no card ${JSON.stringify(end)}`)
+    }
+    if ((sb.cards || []).length < 2) errors.push('storyboard: needs at least 2 cards')
+    if ((sb.cards || []).length && !(sb.cards || []).some(c => c.status && c.status !== 'same')) errors.push('storyboard: no card is added, changed or removed — it must show what the diff changed')
+  }
   for (const s of rm.standards || []) {
     if (s.file && !filePaths.has(s.file)) errors.push(`standards: unknown file ${s.file} (use blastRadius for files outside the diff)`)
   }

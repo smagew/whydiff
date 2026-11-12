@@ -99,7 +99,9 @@ const frameActors = async (dgIndex, sel) => { const f = await page.locator(`#pan
 // invariant that matters (and that catches a mis-placed or collapsed frame) is that every
 // dragged node is inside the frame, and that the frame has not ballooned to the whole diagram.
 const region = async (dgIndex, sel, label) => {
-  const boxLoc = page.locator('#pane-diagrams .diagram').nth(dgIndex).locator('.mermaid-box')
+  // By key, not position: the storyboard renders first (data-dg="story"), so the Nth
+  // .diagram is no longer RM.diagrams[N]. Notes are keyed the same way.
+  const boxLoc = page.locator(`#pane-diagrams .diagram[data-dg="${dgIndex}"]`).locator('.mermaid-box')
   await boxLoc.evaluate((el) => el.scrollIntoView({ block: 'start' }))
   await page.waitForTimeout(150)
   const box = await boxLoc.boundingBox()
@@ -165,6 +167,12 @@ const region = async (dgIndex, sel, label) => {
   covers(await frameActors(dgIndex, sel), 'after fit reset')
 }
 
+// The storyboard is first on the page but keyed "story"; the first engineering diagram
+// keeps diagram:0, so a note saved before the storyboard existed still lands on it.
+{
+  const keys = await page.locator('#pane-diagrams .diagram').evaluateAll(ds => ds.map(d => d.dataset.anchor))
+  ok(keys[0] === 'diagram:story' && keys[1] === 'diagram:0', `diagram anchors must be keyed (story first, then diagram:0…), got ${keys.join(', ')}`)
+}
 await region(0, '#pane-diagrams .diagram[data-anchor="diagram:0"] svg .node', 'flowchart')  // flowchart nodes
 await region(2, '#pane-diagrams .diagram[data-anchor="diagram:2"] svg .actor', 'sequence')  // sequence actors (no `.node`)
 

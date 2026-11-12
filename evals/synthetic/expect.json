@@ -53,6 +53,19 @@
     ],
     "max": 3
   },
+  "storyboard": {
+    "changed": [
+      "worker/src/refunds.ts",
+      "api/src/Repository/RefundRepository.php"
+    ],
+    "warnings": [
+      {
+        "re": "(payout|pay(s|ing)? (it |them )?out|paid).{0,100}(never|not|undefined|missing|no such)|(never|not|undefined|missing).{0,80}(payout|paid|pay)",
+        "why": "the payout step does not exist, so nothing is paid"
+      }
+    ],
+    "plain": true
+  },
   "mentions": [
     {
       "re": "status.{0,40}(→|->|to|became|renamed).{0,20}state",

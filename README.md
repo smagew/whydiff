@@ -67,6 +67,7 @@ as they are.
 
 | Question | Where it lands |
 |---|---|
+| What does this change do, in plain words? | **Diagrams** opens on the **storyboard**: cards with icons (who or what), one sentence each, marked new / changed / removed, with a ⚠ warning where the diff breaks the story |
 | Which flows and data shapes actually changed? | **Diagrams** — one diff-marked graph per changed flow; an `er-diff` for a schema migration |
 | What was changed, and why does this bit exist? | **Code map** — files grouped by *cause*, not by folder, with labeled links between them |
 | What changed for the people using this, and did it land? | **User stories** — one per outside-visible capability, each with a `delivered` / `partial` / `broken` / `regressed` verdict read off the code |
@@ -164,9 +165,11 @@ flowchart LR
   D["git diff"] --> M["manifest<br/>(deterministic)"]
   M --> C["classifier"]
   M --> G["diagrammer"]
+  M --> I["illustrator<br/>(storyboard)"]
   M -.-> O["optional passes:<br/>summary · stories<br/>standards · tests"]
   C --> J["review-map.json"]
   G --> J
+  I --> J
   O -.-> J
   J --> V["validate<br/>vs the real diff"]
   V --> H["served map<br/>· self-contained HTML"]

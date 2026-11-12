@@ -404,6 +404,85 @@
       "pins refill math and both outcomes"
     ]
   ],
+  "storyboard": {
+    "title": "How a request is limited now",
+    "caption": "Every API call now spends a token from its key's bucket; an empty bucket answers 429 before the handler runs.",
+    "cards": [
+      {
+        "id": "client",
+        "kind": "app",
+        "title": "API client",
+        "text": "Calls a public /api endpoint with its API key.",
+        "status": "same"
+      },
+      {
+        "id": "limiter",
+        "kind": "auth",
+        "title": "Rate limiter",
+        "text": "Takes one token from this key's bucket before the request goes on.",
+        "status": "added",
+        "files": [
+          "src/middleware/rateLimit.ts"
+        ]
+      },
+      {
+        "id": "bucket",
+        "kind": "database",
+        "title": "Token bucket",
+        "text": "Counts what each key has left in Redis, refilled every minute.",
+        "status": "added",
+        "files": [
+          "src/lib/redis.ts"
+        ]
+      },
+      {
+        "id": "handler",
+        "kind": "service",
+        "title": "The endpoint",
+        "text": "Does the work as before, only when a token was left.",
+        "status": "same",
+        "files": [
+          "src/routes/api.ts"
+        ]
+      },
+      {
+        "id": "reject",
+        "kind": "notification",
+        "title": "429 answer",
+        "text": "Tells the client to slow down and when to retry.",
+        "status": "added",
+        "files": [
+          "src/middleware/errorHandler.ts"
+        ],
+        "warning": "Fails open: if Redis is down every request passes unlimited."
+      }
+    ],
+    "arrows": [
+      {
+        "from": "client",
+        "to": "limiter",
+        "label": "each request"
+      },
+      {
+        "from": "limiter",
+        "to": "bucket",
+        "label": "take a token",
+        "status": "added"
+      },
+      {
+        "from": "limiter",
+        "to": "handler",
+        "label": "token left",
+        "status": "added"
+      },
+      {
+        "from": "limiter",
+        "to": "reject",
+        "label": "bucket empty",
+        "status": "added"
+      }
+    ]
+  },
   "diagrams": [
     {
       "kind": "flow-diff",

@@ -15,10 +15,10 @@ eq(refLabel({ kind: 'commit', ref: '' }), '', 'commit label tolerates empty ref'
 
 // ── the generation stage model ───────────────────────────────────────────────
 // A quick (core-only) run plans just the core stages, in order.
-eq(plannedStages([]).map((s) => s.name), ['prepare', 'classifier', 'diagrammer', 'merge', 'assemble'], 'quick run stages')
-// Picking optional sections inserts their passes (by AGENT_OF) between diagrammer and merge.
+eq(plannedStages([]).map((s) => s.name), ['prepare', 'classifier', 'diagrammer', 'illustrator', 'merge', 'assemble'], 'quick run stages')
+// Picking optional sections inserts their passes (by AGENT_OF) between the core passes and merge.
 eq(plannedStages(['story', 'tests']).map((s) => s.name),
-  ['prepare', 'classifier', 'diagrammer', 'summariser', 'tests-analyst', 'merge', 'assemble'], 'custom run stages')
+  ['prepare', 'classifier', 'diagrammer', 'illustrator', 'summariser', 'tests-analyst', 'merge', 'assemble'], 'custom run stages')
 ok(OPTIONAL.every((o) => AGENT_OF[o.id] === o.agent && STAGE_LABEL[o.agent]), 'every optional pass maps to an agent with a stage label')
 
 // statusOf: pending until a start arrives, running until finished catches up, then done.

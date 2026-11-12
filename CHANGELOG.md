@@ -4,6 +4,41 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.49.0] — 2026-11-12
+
+### Added
+- **The storyboard: a plain-language picture of the change, first on Diagrams.** A new
+  core pass, `illustrator`, runs on every run in parallel with the others. In
+  `make eval` total run time stayed at 32–56 s on the three fixtures. It draws the
+  change as a story:
+  - Cards show who or what takes part: a person, an app, a service, a store, a job.
+    Each card has an icon, a title and one plain sentence, and is tagged new, changed
+    or removed.
+  - Arrows are labelled with what moves along them.
+  - A ⚠ warning sits on the card the diff breaks. In `make eval` the warnings caught
+    real defects in the synthetic fixture: a refund answer reporting the order
+    total, a refund limit that is never enforced, and a write to a column the schema
+    does not have.
+  - A card opens its code on click. The storyboard zooms, prints, follows the
+    palette and takes notes like any diagram.
+
+  Mermaid does the layout. The card body is an HTML label, and every model-written
+  string is escaped for HTML and for mermaid. Icons are a 32-icon Lucide subset
+  (ISC), built by `scripts/build-icons.mjs` and shipped as
+  `templates/storyboard-icons.json` with its license, so there is no runtime
+  dependency.
+- `schema`: `storyboard { title?, caption?, cards[], arrows[] }`. `merge.mjs` reads
+  `illustrator.json`. It drops a card's files that are not in the diff and arrows to
+  no card, with a warning. It refuses a storyboard with fewer than two cards or one
+  where nothing is marked as a change.
+
+### Changed
+- **Diagrams are keyed, not positional** (`data-dg`: `story`, `0`, `1`…). Note anchors,
+  the pop-out hash (`#dg=`) and rebind offers use the key, so the storyboard going
+  first never moves an existing note to another diagram.
+- `make eval` grades the storyboard: card count, changed files on a changed card,
+  expected warnings, and plain language (no code names on a card).
+
 ## [0.48.0] — 2026-11-12
 
 ### Added

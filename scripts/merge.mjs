@@ -13,6 +13,7 @@
 //   narrative.json         orchestrator-authored: meta, intent, story, ops?, embedFull?
 //   classifier*.json       one file per classifier pass (sharded runs: several)
 //   diagrammer.json        { diagrams }
+//   illustrator.json       { storyboard }
 //   standards.json         { standards, blastRadius }
 //   tests.json             { tests }
 //   stories.json           { userStories }
@@ -53,6 +54,7 @@ const parts = {
   blastRadius: read('standards.json')?.blastRadius || [],
   tests: read('tests.json')?.tests || null,
   userStories: read('stories.json')?.userStories || null,
+  storyboard: read('illustrator.json')?.storyboard || null,
 }
 // Which optional passes actually ran — by whether their file exists, so a pass that
 // ran and found nothing still counts as generated (and shows its empty result, not
@@ -197,6 +199,27 @@ const asLine = (e) => e && typeof e === 'object' && !Array.isArray(e)
 const ops = { ...rawOps }
 for (const k of ['migrations', 'deploy']) if (Array.isArray(ops[k])) ops[k] = ops[k].map(asLine)
 
+// ── storyboard: keep what is real, drop what is not ───────────────────────────
+// A card's files are a drill-down, so a path the diff does not have is dropped (with a
+// warning) rather than failing the run; so is an arrow to a card that does not exist.
+// What cannot be repaired — fewer than two cards, nothing marked as changed — is left
+// for validateStructure to refuse.
+let storyboard = null
+if (parts.storyboard && Array.isArray(parts.storyboard.cards)) {
+  const sb = { ...parts.storyboard, cards: parts.storyboard.cards.map(c => ({ ...c, id: String(c.id) })), arrows: (parts.storyboard.arrows || []).map(a => ({ ...a, from: String(a.from), to: String(a.to) })) }
+  const ids = new Set(sb.cards.map(c => c.id))
+  const droppedFiles = [], droppedArrows = []
+  for (const c of sb.cards) {
+    const keep = (c.files || []).filter(p => files[p])
+    droppedFiles.push(...(c.files || []).filter(p => !files[p]))
+    if (keep.length) c.files = keep; else delete c.files
+  }
+  sb.arrows = sb.arrows.filter(a => (ids.has(a.from) && ids.has(a.to)) || (droppedArrows.push(a.label || `${a.from}→${a.to}`), false))
+  if (droppedFiles.length) console.warn(`warning: storyboard cards named ${droppedFiles.length} file(s) not in the diff, dropped:\n  - ${droppedFiles.join('\n  - ')}`)
+  if (droppedArrows.length) console.warn(`warning: storyboard arrows to no card, dropped: ${droppedArrows.join(', ')}`)
+  storyboard = sb
+}
+
 // ── assemble ──────────────────────────────────────────────────────────────────
 const intent = narrative.intent || shards.map(s => s.data.intent).find(Boolean)
 // Summary (story) is a lazy pass now: a default run writes none, so story defaults
@@ -229,6 +252,7 @@ const rm = {
   groups: liveGroups,
   files,
   edges,
+  ...(storyboard ? { storyboard } : {}),
   ...(parts.diagrams.length ? { diagrams: parts.diagrams } : {}),
   ...(parts.standards.length ? { standards: parts.standards } : {}),
   ...(parts.blastRadius.length ? { blastRadius: parts.blastRadius } : {}),
@@ -256,4 +280,4 @@ if (errors.length) {
 
 writeFileSync(out, JSON.stringify(rm, null, 1))
 logTiming(dir, 'map_written', { shards: shards.length, files: Object.keys(files).length })
-console.log(`OK: ${out} (${shards.length} classifier shard(s), ${Object.keys(files).length} files, ${liveGroups.length} groups, ${edges.length} edges, ${parts.diagrams.length} diagrams)`)
+console.log(`OK: ${out} (${shards.length} classifier shard(s), ${Object.keys(files).length} files, ${liveGroups.length} groups, ${edges.length} edges, ${parts.diagrams.length} diagrams${storyboard ? `, storyboard ${storyboard.cards.length} cards` : ''})`)

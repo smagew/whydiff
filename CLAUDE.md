@@ -30,7 +30,8 @@ HTML viewer.
 
 - `skills/whydiff/SKILL.md` — the `/whydiff` orchestrator (what it spawns, when).
 - `agents/*.md` — the analysis passes. **Core** (every run): `classifier`
-  (groups, files, edges, intent, ops), `diagrammer` (diagrams). **Lazy** (full run
+  (groups, files, edges, intent, ops), `diagrammer` (diagrams), `illustrator` (the
+  plain-language `storyboard`, drawn first on Diagrams). **Lazy** (full run
   or the Generate button): `summariser` (the Summary `story`), `standards-reviewer`,
   `tests-analyst`, `story-writer` (userStories).
 - **Agent models are a deliberate choice** (frontmatter `model:`). `classifier` has

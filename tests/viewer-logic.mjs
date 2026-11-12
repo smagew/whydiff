@@ -4,7 +4,7 @@
 // the browser e2e. assemble.mjs inlines this same module into the viewer (exports
 // stripped), so what we test is what ships.
 
-import { nslug, genProgressEstimate, normalizeMap, buildFileTree, fileStatus } from '../templates/viewer-logic.mjs'
+import { nslug, genProgressEstimate, normalizeMap, buildFileTree, fileStatus, storyboardMermaid } from '../templates/viewer-logic.mjs'
 
 const fail = (m) => { console.error(`FAIL: ${m}`); process.exit(1) }
 const ok = (c, m) => { if (!c) fail(m) }
@@ -77,6 +77,40 @@ eq(fileStatus({ status: 'bogus', isNew: true }), 'added', 'an unknown status fal
   eq(buildFileTree([]).length, 0, 'no paths, no nodes')
   eq(JSON.stringify(buildFileTree(['x.ts'])), JSON.stringify([{ kind: 'file', name: 'x.ts', path: 'x.ts' }]), 'a root file is a top-level file node')
   eq(buildFileTree(['a/x.ts', 'a/x.ts']).length, 1, 'a duplicate path is listed once')
+}
+
+// ── storyboardMermaid ────────────────────────────────────────────────────────
+{
+  const sb = {
+    cards: [
+      { id: 'u', kind: 'person', title: 'Manager', text: 'asks to send an SMS', status: 'same' },
+      { id: 'm', kind: 'service', title: 'MCP "proxy" #1', text: '<script>alert(1)</script> & co', status: 'added', files: ['mcp/src/proxy.ts'] },
+      { id: 'a', kind: 'auth', title: 'Access', text: "it's now scoped", status: 'changed', warning: 'scope "mcp" is never checked' },
+      { id: 'x', kind: 'Evil Kind!', title: 'Old bridge', text: 'gone', status: 'removed' },
+    ],
+    arrows: [
+      { from: 'u', to: 'm', label: 'asks "send"' }, { from: 'm', to: 'a', label: 'checks', status: 'added' },
+      { from: 'm', to: 'x', label: 'used to call', status: 'removed' }, { from: 'm', to: 'nope', label: 'dangling' },
+    ],
+  }
+  const src = storyboardMermaid(sb, { added: 'новый', changed: 'изменён', removed: 'удалён' })
+  const labels = [...src.matchAll(/\["(.*)"\]$/gm)].map(m => m[1])
+  eq(labels.length, 4, 'one node per card')
+  ok(labels.every(l => !l.includes('"')), 'no raw double quote inside a node label (it would end the label)')
+  ok(!/<script/i.test(src) && src.includes('&lt;script&gt;'), 'model text is HTML-escaped, never markup')
+  ok(src.includes('#quot;proxy#quot; #35;1') && src.includes('it#39;s'), 'quotes, # and apostrophes become mermaid entities')
+  ok(/^\s*sb0 -->\|"asks #quot;send#quot;"\| sb1$/m.test(src), 'a plain arrow with an escaped label')
+  ok(/^\s*sb1 ==>\|"checks"\| sb2$/m.test(src), 'an added arrow is thick')
+  ok(/^\s*sb1 -\.->\|"used to call"\| sb3$/m.test(src), 'a removed arrow is dotted')
+  ok(!src.includes('dangling'), 'an arrow to an unknown card is dropped')
+  ok(/class sb1 added/.test(src) && /class sb2 changed/.test(src) && /class sb3 removed/.test(src) && !/class sb0/.test(src), 'status → diff class; same → none')
+  ok(src.includes("<span class='sbtag'>новый</span>") && !labels[0].includes('sbtag'), 'tags use the report-language words; an unchanged card has none')
+  ok(src.includes("data-k='other'") && src.includes("data-k='service'"), 'an unknown kind falls back to other')
+  ok(src.includes("<span class='sbw'>") && src.includes('scope #quot;mcp#quot; is never checked'), 'a warning is drawn, escaped')
+  ok(src.includes('click sb1 call whydiffOpen("mcp/src/proxy.ts")') && (src.match(/click /g) || []).length === 1, 'a card with files opens its first file; others have no click')
+  ok(src.startsWith('flowchart LR'), '≤5 cards lay out left to right')
+  eq(storyboardMermaid({ cards: Array.from({ length: 6 }, (_, i) => ({ id: i, kind: 'file', title: 't', text: 'x' })) }).split('\n')[0], 'flowchart TB', 'more cards lay out top to bottom')
+  eq(storyboardMermaid(null), 'flowchart LR', 'no storyboard, an empty graph (never a throw)')
 }
 
 console.log('OK: viewer-logic (nslug folds/trims/tolerates non-strings; genProgressEstimate rises while reading<0.70, jumps and rises while writing<0.97, never hits 1 before ended)')
