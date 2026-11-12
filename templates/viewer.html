@@ -2042,7 +2042,7 @@ async function runDiagramsOnce() {
       const svg = box?.querySelector('svg')
       const bombed = svg && (svg.querySelector('.error-icon, .error-text') || /mermaid version/i.test(svg.textContent || ''))
       if (bombed) { if (box) renderBrokenDiagram(box, src) }
-      else box?.classList.remove('broken')
+      else { box?.classList.remove('broken'); fitViewBoxToContent(svg) }
     } catch {
       if (box) renderBrokenDiagram(box, src)
     }
@@ -3130,16 +3130,20 @@ async function preparePrint({ tab = null, all = false, forComments = false } = {
 }
 // mermaid often lays a node out past its own viewBox (e.g. the flowchart's 429 node sits
 // ~180px right of the SVG edge), and the SVG clips at that edge — so the diagram loses its
-// right side in a PDF no matter the CSS width. Re-fit each viewBox to the real content
-// bounds so everything is inside; done last, after all rendering, so nothing resets it.
+// right side, on screen AND in a PDF, no matter the CSS width. Re-fit the viewBox to the
+// real content bounds so everything is inside. Runs after every render (a palette switch
+// re-renders and resets mermaid's viewBox) and again, last, before printing.
+// A hoisted declaration: runDiagramsOnce (above) calls it.
+function fitViewBoxToContent(svg) {
+  try {
+    const bb = svg.getBBox(), p = 8
+    if (!bb.width || !bb.height) return
+    svg.setAttribute('viewBox', `${bb.x - p} ${bb.y - p} ${bb.width + 2 * p} ${bb.height + 2 * p}`)
+    svg.setAttribute('preserveAspectRatio', 'xMidYMid meet')
+  } catch {}
+}
 function fitDiagramsForPrint() {
-  for (const svg of document.querySelectorAll('#pane-diagrams .mermaid-box svg')) {
-    try {
-      const bb = svg.getBBox(), p = 8
-      svg.setAttribute('viewBox', `${bb.x - p} ${bb.y - p} ${bb.width + 2 * p} ${bb.height + 2 * p}`)
-      svg.setAttribute('preserveAspectRatio', 'xMidYMid meet')
-    } catch {}
-  }
+  for (const svg of document.querySelectorAll('#pane-diagrams .mermaid-box svg')) fitViewBoxToContent(svg)
 }
 window.__whydiffPreparePrint = preparePrint
 
