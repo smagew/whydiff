@@ -4,7 +4,7 @@
 // the browser e2e. assemble.mjs inlines this same module into the viewer (exports
 // stripped), so what we test is what ships.
 
-import { nslug, genProgressEstimate } from '../templates/viewer-logic.mjs'
+import { nslug, genProgressEstimate, normalizeMap } from '../templates/viewer-logic.mjs'
 
 const fail = (m) => { console.error(`FAIL: ${m}`); process.exit(1) }
 const ok = (c, m) => { if (!c) fail(m) }
@@ -34,5 +34,22 @@ ok(wHuge < 0.97 + 1e-9 && wHuge > 0.95, `writing estimate must plateau just unde
 for (const s of [{ elapsedS: 1e9 }, { phase: 'writing', writeElapsedS: 1e9 }]) ok(G(s) < 1, `estimate must never reach 1 before ended (${JSON.stringify(s)} → ${G(s)})`)
 eq(G({ ended: true }), 1, 'ended completes to exactly 1')
 eq(G({ phase: 'writing', writeElapsedS: 3, ended: true }), 1, 'ended overrides the phase estimate')
+
+
+// ── normalizeMap ─────────────────────────────────────────────────────────────
+{
+  const m = normalizeMap({ groups: [{ id: 'auth', files: ['a.ts'] }, { id: 'x', name: '  ', role: 'read', why: 'w', tag: 'T', files: ['b'] }],
+    ops: { migrations: [{ name: '0806_add', note: 'adds a column' }, 'plain', { n: 1 }], deploy: [{ step: 'migrate' }] } })
+  eq(m.groups[0].name, 'auth', 'a nameless group falls back to its id')
+  eq(m.groups[0].role + '|' + m.groups[0].why, '|', 'missing role/why become empty, never undefined')
+  ok(!('tag' in m.groups[0]), 'a missing tag stays absent (callers fall back to role)')
+  eq(m.groups[1].name, 'x', 'a blank name falls back to the id')
+  eq(m.groups[1].tag, 'T', 'present fields are kept')
+  eq(JSON.stringify(m.ops.migrations), JSON.stringify(['0806_add — adds a column', 'plain', '']), 'object migrations flatten to their string fields')
+  eq(JSON.stringify(m.ops.deploy), JSON.stringify(['migrate']), 'object deploy steps flatten')
+  eq(normalizeMap(null), null, 'null passes through')
+  const good = { groups: [{ id: 'g', name: 'G', role: 'read', why: 'w', files: [] }], ops: { migrations: ['m'] } }
+  eq(JSON.stringify(normalizeMap(JSON.parse(JSON.stringify(good)))), JSON.stringify(good), 'a schema-valid map is unchanged')
+}
 
 console.log('OK: viewer-logic (nslug folds/trims/tolerates non-strings; genProgressEstimate rises while reading<0.70, jumps and rises while writing<0.97, never hits 1 before ended)')

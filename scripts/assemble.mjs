@@ -13,6 +13,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs'
 import { resolve, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { validateStructure, logTiming } from './lib.mjs'
+import { checkSchema } from './schema-check.mjs'
 import { readReview, turns, coverage } from './review.mjs'
 
 const args = process.argv.slice(2)
@@ -34,7 +35,12 @@ const template = readFileSync(join(rootDir, 'templates', 'viewer.html'), 'utf8')
 const rm = JSON.parse(readFileSync(jsonPath, 'utf8'))
 
 // ── integrity validation (principle 5: completeness is checked by script) ────
-const errors = validateStructure(rm)
+// Cross-references are fatal; shape drift is a warning here, so a map saved by an
+// older run still opens (the viewer degrades on a missing field). merge.mjs and
+// validate.mjs enforce the shape on every new map.
+const errors = validateStructure(rm, { schema: false })
+const drift = checkSchema(rm)
+if (drift.length) console.warn(`warning: the map does not match the schema (${drift.length}):\n  - ${drift.slice(0, 10).join('\n  - ')}`)
 if (errors.length) {
   console.error('Integrity check failed:\n  - ' + errors.join('\n  - '))
   process.exit(1)

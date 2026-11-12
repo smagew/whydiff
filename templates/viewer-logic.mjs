@@ -18,3 +18,31 @@ export function genProgressEstimate({ elapsedS = 0, phase = 'reading', writeElap
   if (phase === 'writing') return Math.min(0.97, 0.76 + 0.21 * (1 - Math.exp(-writeElapsedS / 9)))
   return Math.min(0.70, 0.04 + 0.66 * (1 - Math.exp(-elapsedS / 20)))
 }
+
+// Make a map that drifted from the schema safe to render, in place, once at load. The
+// generator now refuses or normalises such maps (merge.mjs), but a map saved by an older
+// run still opens here, and every template literal that interpolates a missing field
+// prints "undefined", an object prints "[object Object]". Seen for real: groups with
+// only { id, files } (every Files heading read "undefined") and ops.migrations as
+// { name, note } objects. A nameless group falls back to its id; a missing role, tag or
+// why to empty; an object list entry to its string fields joined.
+export function normalizeMap(rm) {
+  if (!rm || typeof rm !== 'object') return rm
+  const str = (v) => typeof v === 'string' ? v : v == null ? '' : String(v)
+  const line = (e) => e && typeof e === 'object' && !Array.isArray(e)
+    ? Object.values(e).filter(v => typeof v === 'string' && v.trim()).join(' — ')
+    : str(e)
+  for (const g of Array.isArray(rm.groups) ? rm.groups : []) {
+    if (!g || typeof g !== 'object') continue
+    g.id = str(g.id)
+    g.name = str(g.name).trim() || g.id
+    g.role = str(g.role)
+    g.why = str(g.why)
+    if (g.tag != null) g.tag = str(g.tag)
+    if (!Array.isArray(g.files)) g.files = []
+  }
+  if (rm.ops && typeof rm.ops === 'object') {
+    for (const k of ['migrations', 'deploy']) if (Array.isArray(rm.ops[k])) rm.ops[k] = rm.ops[k].map(line)
+  }
+  return rm
+}

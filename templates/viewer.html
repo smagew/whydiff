@@ -354,7 +354,7 @@
     font-size: 13px; cursor: pointer; background: none; border: none; border-radius: 4px; padding: 5px 8px; color: var(--ink-2); }
   .files-flat-row:hover { color: var(--accent); }
   .files-flat-row.active { color: var(--accent); background: var(--accent-bg); }
-  .files-flat-row .ff-path { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .files-flat-row .ff-path { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 6px; white-space: nowrap; }
   .files-flat-row .ff-stat { flex: none; font-family: var(--mono); font-size: 13px; }
   @media (max-width: 900px) { .files-layout { flex-direction: column; } .files-nav { width: auto; } }
   .aside-subtabs { display: flex; gap: 4px; margin: 0 0 14px; }
@@ -380,7 +380,14 @@
   .cg-row:hover .cg-view, .cg-view:focus-visible { opacity: 1; }
   .cg-view:hover { border-color: var(--accent); color: var(--accent); }
   .ovg-ext { flex: none; min-width: 3.5ch; font-family: var(--mono); font-size: 13px; color: var(--muted); }
-  .ovg-path { flex: 1; min-width: 0; font-family: var(--mono); font-size: 13px; overflow-wrap: anywhere; }
+  .ovg-path { flex: 1; min-width: 0; font-family: var(--mono); font-size: 13px; }
+  /* A path in a file list, the IDE way: the directory muted and the first thing to give
+     way (one line, ellipsis); the file name always whole. A name too long for the column
+     breaks only after - . _ (the <wbr>s pathHTML puts there), never mid-word: the old
+     character-level wrap tore names apart ("aut / h.ts"). */
+  .pth { display: flex; flex-wrap: wrap; align-items: baseline; min-width: 0; }
+  .pth-dir { flex: 0 1000 auto; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+  .pth-base { flex: 0 1 auto; min-width: 0; overflow-wrap: normal; word-break: normal; }
   .ovg-stat { flex: none; font-family: var(--mono); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
   .linklike { background: none; border: none; padding: 0; font: inherit; font-size: inherit; color: var(--accent); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
   .linklike:hover { filter: brightness(1.15); }
@@ -1304,7 +1311,7 @@ __VIEWER_LOGIC__
 // annotation subsystem below runs read-only: it renders the notes but offers no ask/edit.
 window.__WHYDIFF_THREADS__ = __THREADS__
 window.__WHYDIFF_REVIEW__ = __REVIEW__
-const RM = __REVIEW_MAP_JSON__
+const RM = normalizeMap(__REVIEW_MAP_JSON__)
 
 // ── i18n: viewer chrome follows the report language (meta.lang), default en ──
 const I18N = {
@@ -1727,6 +1734,14 @@ const FILE_ICONS = {
   shell:  '<rect x="2.4" y="3.4" width="11.2" height="9.2" rx="1.4"/><path d="M4.9 6.4 6.9 8.3 4.9 10.2"/><path d="M8.4 10.3h2.7"/>',
   locale: '<circle cx="8" cy="8" r="5.3"/><path d="M2.7 8h10.6"/><path d="M8 2.7c1.6 1.9 1.6 8.7 0 10.6M8 2.7c-1.6 1.9-1.6 8.7 0 10.6"/>',
   file:   '<path d="M4.4 2.3h4.5l2.7 2.7v8.7H4.4Z"/><path d="M8.9 2.3v2.7h2.7"/>',
+}
+// A repo path for a one-line file list: muted directory + whole file name, full path
+// on hover (see .pth). Hoisted: file lists render before this point in the script.
+function pathHTML(path) {
+  const p = String(path), i = p.lastIndexOf('/')
+  const dir = i >= 0 ? p.slice(0, i + 1) : ''
+  const base = esc(p.slice(i + 1)).replace(/([-._])/g, '$1<wbr>')
+  return `<span class="pth" title="${esc(p)}">${dir ? `<span class="pth-dir">${esc(dir)}</span>` : ''}<span class="pth-base">${base}</span></span>`
 }
 function fileIconSVG(path) {
   const base = path.split('/').pop().toLowerCase()
@@ -2697,7 +2712,7 @@ for (const [path, add, del, gid, isNew] of RM.manifest) {
   row.className = 'files-flat-row'
   row.dataset.path = path
   row.style.setProperty('--mc', gcolor(gid))
-  row.innerHTML = `${fileIconSVG(path)}<span class="ff-path">${esc(path)}${isNew ? ` <span class="mnew">${L.newMark}</span>` : ''}</span>
+  row.innerHTML = `${fileIconSVG(path)}<span class="ff-path">${pathHTML(path)}${isNew ? ` <span class="mnew">${L.newMark}</span>` : ''}</span>
     <span class="ff-stat"><span class="a">+${add}</span> <span class="d">−${del}</span></span>`
   row.addEventListener('click', () => showFile(path))
   manifestRows.appendChild(row)
@@ -2807,7 +2822,7 @@ const overviewGroupsHTML = () => RM.groups.map(g => `
     <ul class="ovg-files">${g.files.map(p => {
       const f = RM.files[p]
       if (!f) return ''
-      return `<li class="ovg-file"><button class="ovg-fpath" data-gofile="${esc(p)}" title="${esc(L.jumpToFile)}">${fileIconSVG(p)}<span class="ovg-path">${esc(p)}</span><span class="ovg-stat"><span class="a">+${f.add}</span> <span class="d">−${f.del}</span></span></button><button class="ovg-view" data-goto="${esc(p)}" title="${esc(L.viewChangeTitle)}">${esc(L.viewChange)}</button></li>`
+      return `<li class="ovg-file"><button class="ovg-fpath" data-gofile="${esc(p)}" title="${esc(L.jumpToFile)}">${fileIconSVG(p)}<span class="ovg-path">${pathHTML(p)}</span><span class="ovg-stat"><span class="a">+${f.add}</span> <span class="d">−${f.del}</span></span></button><button class="ovg-view" data-goto="${esc(p)}" title="${esc(L.viewChangeTitle)}">${esc(L.viewChange)}</button></li>`
     }).join('')}</ul>
   </section>`).join('')
 

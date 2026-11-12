@@ -113,6 +113,17 @@ future agents (and you) read this before touching the area.
 - **`serve.mjs` assembles once at startup.** It builds the served HTML from the
   template when it boots (and on a generate). Editing `templates/viewer.html` while
   a `serve`/`serve-<fixture>` is running shows nothing until you restart it.
+- **The schema is enforced, not just documented.** `scripts/schema-check.mjs` holds
+  every map to `schema/review-map.schema.json` (required fields, types, enums) inside
+  `validateStructure`, so `merge.mjs` and `validate.mjs` refuse a drifted map. Before it,
+  only cross-references were checked: a map whose groups had only `{ id, files }` passed
+  as "valid" and the viewer printed "undefined" as every group heading; object-form
+  `ops.migrations` printed "[object Object]". `assemble.mjs` only warns, so an old saved
+  map still opens; the viewer's `normalizeMap` makes it render. A new schema keyword
+  must be implemented in the checker (`tests/schema-check.mjs` fails otherwise).
+- **`GROUPS:` means `narrative.groups` is mandatory.** A classifier given `GROUPS:` emits
+  `{ id, files }` only, by design; the group's name/role/why then exist nowhere but in
+  the orchestrator's `narrative.json`. `merge.mjs` refuses the map and says so.
 - **`generated` must match content.** The viewer treats a section as present iff
   it's in `map.generated`. `merge.mjs` ties `story`→`generated` to the story array
   being non-empty; keep any new lazy section's presence and its `generated` entry

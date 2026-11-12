@@ -173,8 +173,8 @@ are never sharded.
 ### 4. Write the narrative, then merge by script
 
 The only things you author here are what no agent supplies on a default run: the
-map's `meta`, and any correction to the classifier's output. Write
-`<repo>/.whydiff/narrative.json`:
+map's `meta`, the group metadata you decided in step 3 (`groups`), and any
+correction to the classifier's output. Write `<repo>/.whydiff/narrative.json`:
 
 ```json
 {
@@ -196,7 +196,10 @@ unless you are correcting it — `meta` is what only you can supply. The Summary
 optional — omitted, the shards' `ops` are concatenated.
 
 - `groups` carries the same list you passed to the shards as `GROUPS:` — metadata
-  only, no `files`. A group nobody assigned a file to is dropped.
+  only, no `files`. **Required whenever you passed `GROUPS:`**: the classifier then
+  emits `{ "id", "files" }` only, so this is the sole source of every group's
+  `name`/`role`/`why` — leave it out and `merge.mjs` refuses the map. A group nobody
+  assigned a file to is dropped.
 - `skip` is your `SKIP:` list. Those files get no code fragment; everything else
   gets one lifted from the patch.
 - `strings` supplies the report-language wording for the fallback group

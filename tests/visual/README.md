@@ -31,3 +31,13 @@ screenshots-update` records both; it needs docker. Keep the image tag equal to
 - `capture.css`: the fixed footer strip is laid out at the end of the page, because a
   full-page capture would stamp it across the middle. The plugin version is hidden,
   because every release changes it.
+
+## Tolerance
+
+Same-platform renders are byte-identical run to run, so the budget is an absolute
+`maxDiffPixels: 100` — room for a stray anti-aliased pixel, small enough to catch a
+one-word change. It used to be a ratio (0.2% of the page, ~3,900px on a full-page
+capture), and a real change — muting the directory of every path in the Files
+navigator, ~2,700px — passed under it. For the same reason `make screenshots-update`
+re-records with `--update-snapshots=all`: the default mode rewrites only baselines
+that fail, so a change inside the budget would never reach the committed PNGs.
