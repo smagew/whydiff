@@ -254,13 +254,15 @@ for (const palette of ['slate', 'graphite', 'bond']) {
       ? `rgb(${[1, 3, 5].map(i => parseInt(v.slice(i, i + 2), 16)).join(', ')})`
       : (v === 'transparent' ? 'rgba(0, 0, 0, 0)' : v)
     const shape = (cls) => {
-      const g = document.querySelector(`#pane-diagrams svg g.node.${cls}`)
+      // engineering diagrams carry the diff fill; storyboard cards carry a status edge
+      // instead (asserted in tests/report-polish.mjs), so they are not sampled here
+      const g = document.querySelector(`#pane-diagrams .diagram:not(.storyboard) svg g.node.${cls}`)
       if (!g) return null
       const s = g.querySelector('rect, path, polygon, circle')
       const c = getComputedStyle(s)
       return { fill: c.fill, stroke: c.stroke, dash: c.strokeDasharray }
     }
-    const plain = document.querySelector('#pane-diagrams svg g.node:not(.added):not(.removed):not(.changed) rect')
+    const plain = document.querySelector('#pane-diagrams .diagram:not(.storyboard) svg g.node:not(.added):not(.removed):not(.changed) rect')
     return {
       added: shape('added'), removed: shape('removed'),
       want: { addBg: toRgb(t('--add-bg')), addEdge: toRgb(t('--add-edge')),
@@ -272,8 +274,9 @@ for (const palette of ['slate', 'graphite', 'bond']) {
         return l ? getComputedStyle(l).fontFamily : null })(),
       inlineStyled: [...document.querySelectorAll('#pane-diagrams svg [style*="fill:#"]')].length,
       // mermaid backs each label with its own rect; left filled it shows through
-      // a removed node's transparent outline as a plate
-      labelPlates: [...document.querySelectorAll('#pane-diagrams svg g.node rect:not(.label-container)')]
+      // a removed node's transparent outline as a plate. A storyboard card's status edge
+      // (.sb-rail) is a deliberate mark drawn on the card's left, not a plate.
+      labelPlates: [...document.querySelectorAll('#pane-diagrams svg g.node rect:not(.label-container):not(.sb-rail)')]
         .filter(r => { const f = getComputedStyle(r).fill; return f !== 'none' && f !== 'rgba(0, 0, 0, 0)' }).length,
     }
   })

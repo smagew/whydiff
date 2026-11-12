@@ -4,6 +4,36 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.50.0] — 2026-11-12
+
+### Changed
+- **The header says what to check.** A "Check" row under the change's intent lists
+  what the passes found: files to read carefully, problems on the storyboard,
+  standards warnings, cases without tests, user stories not delivered. Each chip opens
+  the place it refers to. A pass that did not run adds nothing, and a map with nothing
+  found shows no row. Reading progress sits at its right. The counts line below it is
+  now grey: it says how big the change is, not what is wrong.
+- **Storyboard cards show their status as an edge on the left**: solid for new, double
+  for changed, dashed for removed. Card bodies are one calm surface, and the tag is a
+  coloured word instead of a boxed one that looked like a button. The legends under
+  the storyboard and above the engineering diagrams are drawn samples instead of a
+  paragraph.
+- **Files overview:** a group shows its role as a word beside its name ("read
+  carefully" stands out) and its reason on two lines instead of one, with "more" where
+  it is cut. The "more" button now appears at all (it was measured while the tab was
+  hidden). A file with no deletions no longer shows "−0".
+- **Ops:** deploy comes first as a numbered checklist whose ticks are remembered per
+  map. "No migrations" is said once, as a quiet line instead of a warning-coloured box.
+  Env vars line up as name and meaning.
+- **Standards:** severity is its own column ("⚠ Important", "Note", "✓ Holds"),
+  warnings first and what holds last, in grey.
+- **Empty sections** say one thing. With a server or in the app: what the section
+  gives, one button named for the action, and its cost. In a static file: that it is
+  not in this export and how to get it. Tabs for sections not yet built are dimmed.
+- **Summary:** file chips show the whole file name with the folder after it, instead
+  of a path cut from the front. The reasons between steps are plain text, not grey
+  italics.
+
 ## [0.49.0] — 2026-11-12
 
 ### Added
