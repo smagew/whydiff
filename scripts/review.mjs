@@ -507,6 +507,7 @@ export function anchorOffers(rm) {
     if (s.severity === 'warn') out.push({ key: `finding:${i}`, kind: 'finding', text: s.finding })
   })
   ;(rm.tests?.gaps || []).forEach((g, i) => out.push({ key: `gap:${i}`, kind: 'gap', text: g }))
+  if (rm.storyboard) out.push({ key: 'diagram:story', kind: 'diagram', text: rm.storyboard.title || 'storyboard' })
   ;(rm.diagrams || []).forEach((d, i) => out.push({ key: `diagram:${i}`, kind: 'diagram', text: d.title }))
   // Logic blocks are positional over the story's steps, exactly as the viewer numbers them.
   let block = 0

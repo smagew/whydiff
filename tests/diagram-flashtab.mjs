@@ -23,7 +23,7 @@ const work = mkdtempSync(join(tmpdir(), 'whydiff-flash-'))
 const rm = JSON.parse(readFileSync(join(root, 'examples', 'rate-limit', 'review-map.json'), 'utf8'))
 for (const f of Object.values(rm.files)) delete f.embedFull
 writeFileSync(join(work, 'review-map.json'), JSON.stringify(rm))
-const nDiagrams = (rm.diagrams || []).length
+const nDiagrams = (rm.diagrams || []).length + (rm.storyboard ? 1 : 0) // the storyboard renders as a diagram too
 const sessionKey = `whydiff:${rm.meta.project}:${rm.meta.ref}` // where the viewer keeps flashTab
 
 const html = join(work, 'review-map.html')
@@ -45,7 +45,7 @@ ok(await page.evaluate(() => document.querySelector('#tabs .tab.active')?.datase
 await page.locator('#tabs .tab[data-pane="diagrams"]').click()
 await page.waitForTimeout(2000)
 const state = await page.evaluate(() => ({
-  svgs: document.querySelectorAll('#pane-diagrams .mermaid-box svg').length,
+  svgs: document.querySelectorAll('#pane-diagrams .mermaid-box pre.mermaid > svg').length, // diagram SVGs, not the storyboard's card icons
   broken: document.querySelectorAll('#pane-diagrams .mermaid-box.broken').length,
 }))
 ok(state.svgs === nDiagrams, `every diagram must render after the flashTab reload (got ${state.svgs}/${nDiagrams} svgs)`)

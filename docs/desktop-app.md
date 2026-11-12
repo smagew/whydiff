@@ -116,7 +116,7 @@ interactive Claude Code agent?** The skill today is driven by the main agent.
   assembled HTML), streaming progress; wraps whichever path Phase 0 chose.
 - **Depends on:** Phase 0.
 - **Decisions:** progress/streaming shape; timeouts; failure handling; which passes a
-  "quick" run does (core: classifier + diagrammer) vs a "full" one.
+  "quick" run does (core: classifier + diagrammer + illustrator) vs a "full" one.
 - **Done when:** the runner produces a valid map on the fixtures; independently useful
   for CI (closes the ROADMAP "standalone CLI" item).
 

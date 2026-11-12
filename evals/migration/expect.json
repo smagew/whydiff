@@ -44,6 +44,18 @@
     ],
     "max": 3
   },
+  "storyboard": {
+    "changed": [
+      "zerver/models/streams.py"
+    ],
+    "warnings": [
+      {
+        "re": "(no|nothing|never|not|yet).{0,80}(appl|use|read|set|honou?r|take)|(stored|saved|kept).{0,60}(but|only)",
+        "why": "the new default is stored but nothing applies it yet"
+      }
+    ],
+    "plain": true
+  },
   "mentions": [
     {
       "re": "default_push_notifications",

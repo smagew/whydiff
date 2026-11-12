@@ -25,6 +25,14 @@
   "diagrams": {
     "max": 1
   },
+  "storyboard": {
+    "min": 2,
+    "max": 5,
+    "changed": [
+      "lib/request.js"
+    ],
+    "plain": true
+  },
   "mentions": [
     {
       "re": "QUERY",

@@ -15,6 +15,10 @@
 //   env          { includes: [NAME…], exact: [NAME…] }  ops.env names
 //   migrations   { min, max, mentions: [regex…] }        ops.migrations entries
 //   diagrams     { kinds: [kind…], max }                 diagrams[].kind
+//   storyboard   { min, max, changed: [path…], warnings: [{ re, why }], plain }
+//                the plain-language picture: card count; each `changed` path sits on a
+//                card marked added/changed/removed; each warning regex matches some
+//                card's ⚠ warning; `plain` = no code names, calls or file paths on a card
 //   mentions     [{ re, why }]   regex (case-insensitive) that must match the map's prose
 //   absent       [{ re, why }]   regex that must NOT match the map's prose
 
@@ -35,6 +39,12 @@ export function prose(map) {
   for (const f of Object.values(map.files || {})) parts.push(f.role, f.why)
   for (const e of map.edges || []) parts.push(...e.slice(2))
   for (const d of map.diagrams || []) parts.push(d.title, d.caption)
+  const sb = map.storyboard
+  if (sb) {
+    parts.push(sb.title, sb.caption)
+    for (const c of sb.cards || []) parts.push(c.title, c.text, c.warning)
+    for (const a of sb.arrows || []) parts.push(a.label)
+  }
   for (const s of map.standards || []) parts.push(s.finding, s.pattern)
   const ops = map.ops || {}
   for (const e of ops.env || []) parts.push(typeof e === 'string' ? e : `${e.name} ${e.status || ''} ${e.note || ''}`)
@@ -101,6 +111,23 @@ export function grade(map, expect, { repo } = {}) {
     const kinds = (map.diagrams || []).map((d) => d.kind)
     for (const k of expect.diagrams.kinds || []) check(`has a ${k} diagram`, kinds.includes(k), `got: ${kinds.join(', ') || '∅'}`)
     if (expect.diagrams.max != null) check(`at most ${expect.diagrams.max} diagram(s)`, kinds.length <= expect.diagrams.max, `got: ${kinds.length}`)
+  }
+  if (expect.storyboard) {
+    const want = expect.storyboard, cards = map.storyboard?.cards || []
+    const min = want.min ?? 3, max = want.max ?? 8
+    check(`storyboard has ${min}–${max} cards`, cards.length >= min && cards.length <= max, `got: ${cards.length}`)
+    for (const p of want.changed || []) {
+      const on = cards.filter((c) => (c.files || []).includes(p))
+      check(`storyboard marks ${p} as a change`, on.some((c) => c.status && c.status !== 'same'), on.length ? `on: ${on.map((c) => `${c.title} (${c.status})`).join(', ')}` : 'on no card')
+    }
+    const warnings = cards.map((c) => strip(c.warning)).filter(Boolean)
+    for (const { re, why } of want.warnings || []) check(`storyboard warns: ${why}`, warnings.some((w) => new RegExp(re, 'is').test(w)), warnings.length ? `warnings: ${warnings.join(' | ')}` : 'no warnings')
+    if (want.plain) {
+      // Code on a card defeats the picture: a call, a path, a snake/camel identifier.
+      const codey = /\w\(\)|\w+\.(php|ts|js|py|sql|md|json)\b|\b[a-z]+_[a-z_]+\b|\b[a-z]+[A-Z]\w+\b|`/
+      const hits = cards.filter((c) => codey.test(`${c.title} ${c.text}`)).map((c) => `${c.title}: ${c.text}`)
+      check('storyboard cards are plain language', !hits.length, hits.join(' | '))
+    }
   }
   const text = prose(map)
   for (const { re, why } of expect.mentions || []) check(`says: ${why}`, new RegExp(re, 'is').test(text), `/${re}/`)

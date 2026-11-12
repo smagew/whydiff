@@ -39,13 +39,13 @@ const errors = []
 page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`))
 await page.goto('file://' + html)
 await page.locator('#tabs .tab[data-pane="diagrams"]').click()
-await page.waitForSelector('#pane-diagrams .mermaid-box svg', { timeout: 15000 })
+await page.waitForSelector('#pane-diagrams .diagram[data-dg="0"] .mermaid-box svg', { timeout: 15000 })
 await page.waitForTimeout(400)
 
-const boxSel = '#pane-diagrams .mermaid-box'
+const boxSel = '#pane-diagrams .diagram[data-dg="0"] .mermaid-box' // by key: the storyboard renders first
 const svgSize = () => page.evaluate((s) => { const r = document.querySelector(s + ' svg').getBoundingClientRect(); return { w: r.width, h: r.height } }, boxSel)
 const boxInfo = () => page.evaluate((s) => { const b = document.querySelector(s); return { clientH: b.clientHeight, clientW: b.clientWidth } }, boxSel)
-const click = (sel) => page.locator(sel).click()
+const click = (sel) => page.locator('#pane-diagrams .diagram[data-dg="0"] ' + sel).click()
 
 // The fixture is genuinely taller than the screen at the default fit — otherwise the test
 // proves nothing.

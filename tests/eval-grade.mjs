@@ -37,6 +37,13 @@ const cases = [
   // Scrub the word everywhere the map could carry it, not just the obvious fields.
   ['the undefined payout() is never mentioned', (m) => JSON.parse(JSON.stringify(m).replace(/payout/gi, 'settlement')),
     /payout\(\) is called but never defined/],
+  ['the storyboard does not warn that nothing is paid', (m) => { for (const c of m.storyboard.cards) delete c.warning },
+    /storyboard warns: the payout step/],
+  ['the storyboard shows the refund worker as unchanged', (m) => { m.storyboard.cards.find((c) => c.id === 'worker').status = 'same' },
+    /storyboard marks worker\/src\/refunds\.ts as a change/],
+  ['a storyboard card is written in code', (m) => { m.storyboard.cards[1].text = 'RefundRepository::record() inserts into refunds' },
+    /storyboard cards are plain language/],
+  ['the storyboard is missing', (m) => { delete m.storyboard }, /storyboard has 3–8 cards/],
   ['the destructive column drop is not flagged', (m) => {
     m.ops.migrations = ['db/migrations/0002_refunds.sql — adds the refunds table.']
   }, /ops\.migrations mentions \/drop/],

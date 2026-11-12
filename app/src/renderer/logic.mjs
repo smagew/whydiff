@@ -20,7 +20,7 @@ export const AGENT_OF = Object.fromEntries(OPTIONAL.map((o) => [o.id, o.agent]))
 
 // Human labels for every stage run.mjs emits (@stage markers).
 export const STAGE_LABEL = {
-  prepare: 'Prepare', classifier: 'Code map', diagrammer: 'Diagrams',
+  prepare: 'Prepare', classifier: 'Code map', diagrammer: 'Diagrams', illustrator: 'Storyboard',
   summariser: 'Summary', 'story-writer': 'User stories', 'standards-reviewer': 'Standards', 'tests-analyst': 'Tests',
   merge: 'Merge', assemble: 'Assemble',
 }
@@ -29,7 +29,7 @@ export const STAGE_LABEL = {
 // planned before anything starts. Core passes always run.
 export const plannedStages = (sections) => {
   const optional = sections.map((id) => AGENT_OF[id]).filter(Boolean)
-  return ['prepare', 'classifier', 'diagrammer', ...optional, 'merge', 'assemble']
+  return ['prepare', 'classifier', 'diagrammer', 'illustrator', ...optional, 'merge', 'assemble']
     .map((name) => ({ name, label: STAGE_LABEL[name] || name, started: 0, finished: 0 }))
 }
 

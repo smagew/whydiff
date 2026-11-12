@@ -89,3 +89,44 @@ export function buildFileTree(paths) {
   compact(root)
   return root.children
 }
+
+// Mermaid source for the storyboard — the plain-language picture of the change: cards
+// (an icon by `kind`, a title, one sentence, a new/changed/removed tag, an optional
+// warning) joined by labelled arrows. Mermaid lays it out and gives it everything the
+// other diagrams have (zoom, fit, print, palette, notes, pop-out); the card body is an
+// HTML label whose icon slot (.sbi[data-k]) the viewer fills after render.
+// Every model-written string is escaped twice over: HTML (& < >) so it can never become
+// markup, and mermaid's own entities (#35; #quot; #39;) so a quote or a "#" can never end
+// the label early. `labels` are the tag words in the report language.
+export const STORY_STATUSES = ['added', 'changed', 'removed', 'same']
+export function storyboardMermaid(sb, labels = {}) {
+  const cards = Array.isArray(sb?.cards) ? sb.cards : []
+  const arrows = Array.isArray(sb?.arrows) ? sb.arrows : []
+  const t = (v) => String(v ?? '').replace(/\s+/g, ' ').trim()
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/#/g, '#35;').replace(/"/g, '#quot;').replace(/'/g, '#39;')
+  const tag = { added: labels.added || 'new', changed: labels.changed || 'changed', removed: labels.removed || 'removed' }
+  const ids = new Map(cards.map((c, i) => [String(c.id), `sb${i}`]))
+  const lines = [`flowchart ${cards.length > 5 ? 'TB' : 'LR'}`]
+  cards.forEach((c, i) => {
+    const kind = /^[a-z-]+$/.test(c.kind || '') ? c.kind : 'other'
+    const st = STORY_STATUSES.includes(c.status) ? c.status : 'same'
+    lines.push(`  sb${i}["<div class='sbc'><span class='sbi' data-k='${kind}'></span><div class='sbt'>` +
+      `<b class='sbh'>${t(c.title)}</b>${st !== 'same' ? `<span class='sbtag'>${t(tag[st])}</span>` : ''}` +
+      `<span class='sbx'>${t(c.text)}</span>` +
+      (c.warning ? `<span class='sbw'><span class='sbi sbi-w' data-m='warning'></span>${t(c.warning)}</span>` : '') +
+      `</div></div>"]`)
+  })
+  for (const a of arrows) {
+    const from = ids.get(String(a.from)), to = ids.get(String(a.to))
+    if (!from || !to) continue
+    const op = a.status === 'removed' ? '-.->' : a.status === 'added' ? '==>' : '-->'
+    lines.push(`  ${from} ${op}${a.label ? `|"${t(a.label)}"|` : ''} ${to}`)
+  }
+  cards.forEach((c, i) => {
+    if (c.status === 'added' || c.status === 'changed' || c.status === 'removed') lines.push(`  class sb${i} ${c.status}`)
+    const file = (c.files || []).find(p => typeof p === 'string' && !/["\\\n]/.test(p))
+    if (file) lines.push(`  click sb${i} call whydiffOpen("${file}")`)
+  })
+  return lines.join('\n')
+}

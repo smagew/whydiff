@@ -8,7 +8,7 @@
 // one file claimed by two groups, and edges pointing at dropped files.
 
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs'
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -166,8 +166,9 @@ try { readFileSync(join(wd, 'review-map.json')) } catch { wrote = false }
 check(!wrote, 'merge.mjs must not write a map that does not validate')
 
 const runMerge = () => {
-  try { execFileSync('node', [join(root, 'scripts', 'merge.mjs'), '--repo', repo], { encoding: 'utf8', stdio: 'pipe' }); return { ok: true, err: '' } }
-  catch (e) { return { ok: false, err: `${e.stdout || ''}${e.stderr || ''}` } }
+  // spawnSync: a successful merge still prints its repairs as warnings on stderr.
+  const p = spawnSync('node', [join(root, 'scripts', 'merge.mjs'), '--repo', repo], { encoding: 'utf8' })
+  return { ok: p.status === 0, err: `${p.stdout || ''}${p.stderr || ''}` }
 }
 const baseNarrative = { meta: { lang: 'en', ref: 'working tree', title: 'Merge test' }, intent: 'A test change.', story: [] }
 
@@ -197,6 +198,35 @@ if (r.ok) {
     `ops.migrations must be strings, got ${JSON.stringify(m2.ops.migrations)}`)
   check(JSON.stringify(m2.ops.deploy) === JSON.stringify(['run migrate']), `ops.deploy must be strings, got ${JSON.stringify(m2.ops.deploy)}`)
 }
+
+// ── storyboard: illustrator.json → map.storyboard, repaired where it can be ──
+w('narrative.json', { ...baseNarrative, groups: [{ id: 'g1', name: 'One', role: 'read', why: 'w' }, { id: 'g2', name: 'Two', role: 'context', why: 'w' }] })
+w('illustrator.json', { storyboard: {
+  title: 'Story', cards: [
+    { id: 'u', kind: 'person', title: 'User', text: 'does a thing', status: 'same' },
+    { id: 1, kind: 'service', title: 'Svc', text: 'new path', status: 'added', files: ['kept.txt', 'not-in-diff.txt'] },
+  ],
+  arrows: [{ from: 'u', to: 1, label: 'asks' }, { from: 'u', to: 'ghost', label: 'to nowhere' }],
+} })
+r = runMerge()
+check(r.ok, `merge.mjs must accept a repairable storyboard, got:\n${r.err}`)
+if (r.ok) {
+  const m3 = JSON.parse(readFileSync(join(wd, 'review-map.json'), 'utf8'))
+  check(m3.storyboard?.cards?.length === 2, 'the storyboard reaches the map')
+  check(JSON.stringify(m3.storyboard.cards[1].files) === '["kept.txt"]', `a card's file not in the diff is dropped, got ${JSON.stringify(m3.storyboard.cards[1].files)}`)
+  check(m3.storyboard.cards[1].id === '1' && m3.storyboard.arrows.length === 1 && m3.storyboard.arrows[0].to === '1', `ids become strings and an arrow to no card is dropped, got ${JSON.stringify(m3.storyboard.arrows)}`)
+}
+check(/not-in-diff\.txt/.test(r.err) && /to nowhere/.test(r.err), `the repairs are reported as warnings, got:\n${r.err}`)
+// A picture where nothing changed cannot be repaired: refuse it.
+w('illustrator.json', { storyboard: { cards: [
+  { id: 'a', kind: 'person', title: 'A', text: 't', status: 'same' }, { id: 'b', kind: 'service', title: 'B', text: 't', status: 'same' },
+], arrows: [] } })
+r = runMerge()
+check(!r.ok && /no card is added, changed or removed/.test(r.err), `a storyboard that shows no change must be refused, got:\n${r.err}`)
+w('illustrator.json', { storyboard: { cards: [{ id: 'a', kind: 'robot', title: 'A', text: 't', status: 'added' }, { id: 'b', kind: 'service', title: 'B', text: 't', status: 'same' }], arrows: [] } })
+r = runMerge()
+check(!r.ok && /kind: "robot" is not one of/.test(r.err), `an unknown card kind must be refused by the schema, got:\n${r.err}`)
+rmSync(join(wd, 'illustrator.json'))
 
 rmSync(repo, { recursive: true, force: true })
 if (failures) { console.error(`\n${failures} check(s) failed`); process.exit(1) }

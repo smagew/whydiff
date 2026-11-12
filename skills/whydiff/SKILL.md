@@ -81,9 +81,10 @@ consult it before exploratory grepping.
 
 You are done reading: `timing.mjs log briefing_done --repo <repo>`.
 
-**Core by default; the rest are lazy.** A default run spawns only the two CORE
-agents — `classifier` and `diagrammer` — which give the reviewer the Code map,
-Diagrams and Ops (env). The four OPTIONAL passes — `summariser`,
+**Core by default; the rest are lazy.** A default run spawns only the three CORE
+agents — `classifier`, `diagrammer` and `illustrator` — which give the reviewer the
+Code map, Diagrams (the `illustrator`'s plain-language storyboard first) and Ops
+(env). The four OPTIONAL passes — `summariser`,
 `standards-reviewer`, `tests-analyst`, `story-writer` — are NOT spawned by default:
 their tabs render as a one-line explanation with a **Generate** button that runs
 that pass on demand (served mode), and `merge.mjs` records which passes ran in the
@@ -121,6 +122,7 @@ Each returns one confirmation line, and `merge.mjs` reads the files. Retyping a
 |---|---|---|---|
 | `whydiff:classifier` | core | `.whydiff/classifier.json` | `intent`, `attentionFiles`, `groups`, `files`, `edges`, `ops` |
 | `whydiff:diagrammer` | core | `.whydiff/diagrammer.json` | `diagrams` |
+| `whydiff:illustrator` | core | `.whydiff/illustrator.json` | `storyboard` |
 | `whydiff:summariser` | full only | `.whydiff/story.json` | `story` |
 | `whydiff:standards-reviewer` | full only | `.whydiff/standards.json` | `standards`, `blastRadius` |
 | `whydiff:tests-analyst` | full only | `.whydiff/tests.json` | `tests` |
@@ -167,7 +169,7 @@ too big rather than the split wrong: extend `SKIP:` or narrow the diff. Say so i
 the final summary instead of silently taking longer.
 
 You do NOT merge the shards by hand — `merge.mjs` unifies groups, keeps only edges
-whose both ends survived, and holds every file to one group. The other three agents
+whose both ends survived, and holds every file to one group. The other agents
 are never sharded.
 
 ### 4. Write the narrative, then merge by script

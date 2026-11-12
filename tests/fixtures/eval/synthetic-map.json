@@ -854,5 +854,75 @@
    "payout",
    true
   ]
- ]
+ ],
+ "storyboard": {
+  "title": "How a refund gets paid",
+  "caption": "A refund is now saved as its own record at once and paid back later by the worker — but the paying step is missing.",
+  "cards": [
+   {
+    "id": "agent",
+    "kind": "person",
+    "title": "Support agent",
+    "text": "Refunds part of an order from the admin side.",
+    "status": "same",
+    "files": [
+     "api/src/Controller/OrdersController.php"
+    ]
+   },
+   {
+    "id": "record",
+    "kind": "money",
+    "title": "Refund record",
+    "text": "Each refund is saved as its own record, waiting to be paid.",
+    "status": "added",
+    "files": [
+     "api/src/Repository/RefundRepository.php",
+     "db/migrations/0002_refunds.sql"
+    ]
+   },
+   {
+    "id": "order",
+    "kind": "database",
+    "title": "Order",
+    "text": "Keeps its progress under a new name; the old progress value is wiped.",
+    "status": "changed",
+    "files": [
+     "api/src/Repository/OrderRepository.php",
+     "worker/src/fulfilment.ts"
+    ],
+    "warning": "Every existing order loses its progress: the old value is dropped with nothing copied over."
+   },
+   {
+    "id": "worker",
+    "kind": "schedule",
+    "title": "Refund worker",
+    "text": "Picks up waiting refunds and tries to pay them back.",
+    "status": "added",
+    "files": [
+     "worker/src/refunds.ts"
+    ],
+    "warning": "The payout step it calls is never defined, so no refund is ever paid."
+   }
+  ],
+  "arrows": [
+   {
+    "from": "agent",
+    "to": "record",
+    "label": "refund amount",
+    "status": "added"
+   },
+   {
+    "from": "record",
+    "to": "order",
+    "label": "adds to refunded total",
+    "status": "added"
+   },
+   {
+    "from": "record",
+    "to": "worker",
+    "label": "waiting refunds",
+    "status": "added"
+   }
+  ]
+ }
 }

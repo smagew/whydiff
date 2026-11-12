@@ -90,20 +90,35 @@ const ICON = {
   zout: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M8 11h6"/><path d="M20.5 20.5l-4-4"/></svg>',
   reset: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M21 16v3a2 2 0 0 1-2 2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/></svg>',
 }
-const diagramsHtml = diagrams.map(d => `
-  <div class="diagram">
+// One diagram card: header (title + Fit/Pop-out), caption, the zoomable mermaid box, file
+// chips. `key` is its stable data-dg ("0", "1", … — its RM.diagrams index — or "story"):
+// notes are anchored by it, so the storyboard going first never shifts them.
+const diagramCard = ({ key, title, caption, src, files = [], cls = '' }) => `
+  <div class="diagram${cls ? ` ${cls}` : ''}" data-dg="${key}">
     <div class="dg-head">
-      <h3>${esc(d.title)}</h3>
+      <h3>${esc(title)}</h3>
       <span class="dg-actions">
         <button class="dg-btn dg-fit" data-dg-fit="width" type="button" title="Fit to width">${ICON.fit}</button>
         <button class="dg-btn" data-pop type="button" title="Open in its own window">${ICON.pop}</button>
       </span>
     </div>
-    ${d.caption ? `<p class="cap">${prose(d.caption)}</p>` : ''}
-    <div class="mermaid-wrap"><div class="mermaid-box"><pre class="mermaid">${esc(stripDiagramColour(d.mermaid))}</pre></div><div class="dg-zoom"><button class="dg-btn" data-dg-zoom="in" type="button" title="Zoom in">${ICON.zin}</button><button class="dg-btn" data-dg-zoom="out" type="button" title="Zoom out">${ICON.zout}</button><button class="dg-btn" data-dg-fit="screen" type="button" title="Fit the whole diagram on screen">${ICON.reset}</button></div></div>
-    ${(d.files || []).length ? `<div class="step-files">${d.files.map(p =>
+    ${caption ? `<p class="cap">${prose(caption)}</p>` : ''}
+    <div class="mermaid-wrap"><div class="mermaid-box"><pre class="mermaid"${key === 'story' ? ' data-story' : ''}>${esc(src)}</pre></div><div class="dg-zoom"><button class="dg-btn" data-dg-zoom="in" type="button" title="Zoom in">${ICON.zin}</button><button class="dg-btn" data-dg-zoom="out" type="button" title="Zoom out">${ICON.zout}</button><button class="dg-btn" data-dg-fit="screen" type="button" title="Fit the whole diagram on screen">${ICON.reset}</button></div></div>
+    ${files.length ? `<div class="step-files">${files.map(p =>
       `<button class="fchip" data-goto="${esc(p)}">${esc(p.split('/').slice(-2).join('/'))}</button>`).join('')}</div>` : ''}
-  </div>`).join('\n')
+  </div>`
+// The storyboard goes first: it is the picture a non-author reads. Its mermaid source is
+// built in the viewer (storyboardMermaid, with the report-language tag words), so the
+// <pre> starts empty; its title falls back to the viewer's own wording.
+const sb = rm.storyboard
+const storyFiles = sb ? [...new Set((sb.cards || []).flatMap(c => c.files || []))] : []
+const diagramsHtml = [
+  ...(sb ? [diagramCard({ key: 'story', title: sb.title || '', caption: sb.caption, src: '', files: storyFiles, cls: 'storyboard' })] : []),
+  ...diagrams.map((d, i) => diagramCard({ key: String(i), title: d.title, caption: d.caption, src: stripDiagramColour(d.mermaid), files: d.files || [] })),
+].join('\n')
+
+// The storyboard's card icons: a small Lucide subset (ISC — templates/storyboard-icons.LICENSE.md).
+const storyIcons = readFileSync(join(rootDir, 'templates', 'storyboard-icons.json'), 'utf8').replace(/<\//g, '<\\/')
 
 // Inline highlight.js (the prebuilt browser bundle) so the viewer can syntax-highlight
 // code — the full-file drill-down, the diff fragments, the card previews — with no
@@ -167,6 +182,7 @@ const html = template
   .replace('__MERMAID_BUNDLE__', () => mermaidBundle)
   .replace('__HLJS_BUNDLE__', () => hljsBundle)
   .replace('__VIEWER_LOGIC__', () => viewerLogic)
+  .replace('__STORY_ICONS__', () => storyIcons)
   .replace('__THREADS__', () => threadsJson)
   .replace('__REVIEW__', () => reviewJson)
   .replace('__REVIEW_MAP_JSON__', () => json)

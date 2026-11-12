@@ -1,13 +1,13 @@
 {
   "name": "whydiff",
-  "version": "0.48.0",
+  "version": "0.49.0",
   "description": "Follow the meaning of a change instead of reading every file an LLM touched — runtime deps for the whydiff Claude Code plugin (mermaid for the HTML assembler)",
   "main": "index.js",
   "directories": {
     "example": "examples"
   },
   "scripts": {
-    "test": "node tests/merge.mjs && node tests/manifest-status.mjs && node tests/schema-check.mjs && node tests/eval-grade.mjs && node tests/shards.mjs && node tests/review.mjs && node tests/rebind.mjs && node tests/work.mjs && node tests/work-harden.mjs && node tests/work-rerun.mjs && node tests/notes.mjs && node tests/diagram-notes.mjs && node tests/diagram-flashtab.mjs && node tests/diagram-zoom.mjs && node tests/diagram-clip.mjs && node tests/run.mjs && node tests/timing.mjs && node tests/assemble-degrade.mjs && node tests/approve.mjs && node tests/design.mjs && node tests/smoke.mjs && node tests/files-tab.mjs && node tests/files-tree.mjs && node tests/viewer-degrade.mjs && node tests/diagram-fallback.mjs && node tests/edge-labels.mjs && node tests/viewer-logic.mjs && node tests/generate-progress.mjs && node tests/export-notes.mjs && node tests/print-pdf.mjs && node tests/serve.mjs && npx playwright test -c tests/visual",
+    "test": "node tests/merge.mjs && node tests/manifest-status.mjs && node tests/schema-check.mjs && node tests/eval-grade.mjs && node tests/shards.mjs && node tests/review.mjs && node tests/rebind.mjs && node tests/work.mjs && node tests/work-harden.mjs && node tests/work-rerun.mjs && node tests/notes.mjs && node tests/diagram-notes.mjs && node tests/diagram-flashtab.mjs && node tests/diagram-zoom.mjs && node tests/diagram-clip.mjs && node tests/storyboard.mjs && node tests/run.mjs && node tests/timing.mjs && node tests/assemble-degrade.mjs && node tests/approve.mjs && node tests/design.mjs && node tests/smoke.mjs && node tests/files-tab.mjs && node tests/files-tree.mjs && node tests/viewer-degrade.mjs && node tests/diagram-fallback.mjs && node tests/edge-labels.mjs && node tests/viewer-logic.mjs && node tests/generate-progress.mjs && node tests/export-notes.mjs && node tests/print-pdf.mjs && node tests/serve.mjs && npx playwright test -c tests/visual",
     "coverage": "c8 --include='scripts/**' --check-coverage --lines 92 --functions 90 --branches 60 --reporter=text-summary --reporter=text npm test"
   },
   "keywords": [],
@@ -19,6 +19,7 @@
     "mermaid": "^11.16.0"
   },
   "devDependencies": {
+    "@iconify-json/lucide": "1.2.142",
     "@playwright/test": "1.62.1",
     "c8": "^11.0.0",
     "playwright": "^1.62.1"

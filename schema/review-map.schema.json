@@ -122,6 +122,44 @@
       }
     },
 
+    "storyboard": {
+      "type": "object",
+      "description": "The plain-language picture of the change (illustrator pass, every run): what happens, step by step, as cards a non-author recognises at a glance — a person, an app, a service, a database — joined by labelled arrows, each card marked new / changed / removed. The other diagrams are engineering; this one is the story. The viewer draws it first on the Diagrams tab.",
+      "required": ["cards", "arrows"],
+      "properties": {
+        "title": { "type": "string", "description": "A short name for the picture; defaults to \"How it works now\"." },
+        "caption": { "type": "string", "description": "One sentence: what the reader should take from it." },
+        "cards": {
+          "type": "array",
+          "description": "3–8 cards, in reading order.",
+          "items": {
+            "type": "object", "required": ["id", "kind", "title", "text", "status"],
+            "properties": {
+              "id": { "type": "string" },
+              "kind": { "enum": ["person", "team", "browser", "app", "phone", "ai", "service", "api", "database", "queue", "cloud", "storage", "file", "config", "auth", "secret", "payment", "money", "message", "email", "notification", "schedule", "job", "cli", "webhook", "package", "test", "search", "store", "delivery", "document", "other"], "description": "What the card is — picks its icon. Generic, never a brand." },
+              "title": { "type": "string", "description": "2–4 words: who or what." },
+              "text": { "type": "string", "description": "One plain sentence: what it does in this flow. No class or function names." },
+              "status": { "enum": ["added", "changed", "removed", "same"], "description": "What the diff did to this part of the story." },
+              "warning": { "type": "string", "description": "A problem a reviewer must see on the picture itself (a call to something undefined, a path that never fires). Plain language." },
+              "files": { "type": "array", "items": { "type": "string" }, "description": "Diff files behind this card; the first opens on click. Checked by validate.mjs." }
+            }
+          }
+        },
+        "arrows": {
+          "type": "array",
+          "items": {
+            "type": "object", "required": ["from", "to", "label"],
+            "properties": {
+              "from": { "type": "string", "description": "A card id." },
+              "to": { "type": "string", "description": "A card id." },
+              "label": { "type": "string", "description": "What passes along it, a few words." },
+              "status": { "enum": ["added", "changed", "removed", "same"] }
+            }
+          }
+        }
+      }
+    },
+
     "standards": {
       "type": "array",
       "items": {
