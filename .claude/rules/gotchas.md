@@ -5,6 +5,18 @@ future agents (and you) read this before touching the area.
 
 ## Viewer (`templates/viewer.html`)
 
+- **`hidden` loses to a CSS `display`.** An element styled `display: flex` stays visible
+  with the `hidden` attribute set. Give it a `[hidden] { display: none; }` rule (see
+  `.verdict[hidden]`). The verdict row shipped visible-when-empty until a test caught it.
+- **Measure only what is on screen.** A clamped note in a hidden pane measures 0, so a
+  "does it clip?" check at render time never fires. Re-run it when the tab is shown
+  (`revealNoteToggles` in `setTab('files')`).
+- **The reading column may not carry a fill, legends included.** `tests/design.mjs`
+  fails any filled element in `.main-panel` outside an SVG. Draw a legend sample as a
+  small SVG (`swatchSVG`), the way the diagram draws the mark. Storyboard cards are
+  outlined (status = `.sb-rail` edge), so design checks of diff fills sample only
+  `.diagram:not(.storyboard)`.
+
 - **The design gate covers the desktop shell too.** `tests/design.mjs` checks
   `app/src/renderer/styles.css` with the same rules it applies to the viewer (radius ≤ 5px,
   font ≥ 13px, weights 400/500, colour literals only above the `* { box-sizing… }` marker,

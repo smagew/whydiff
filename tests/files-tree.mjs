@@ -86,10 +86,13 @@ const browser = await chromium.launch()
   const box = await nav.boundingBox()
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
   const y0 = await page.evaluate(() => scrollY), s0 = await nav.evaluate(n => n.scrollTop)
-  await page.mouse.wheel(0, 300)
+  // Wheel toward the side that has room: the revealed row can leave the tree scrolled
+  // to its very end, where a wheel down has nowhere to go.
+  const atEnd = await nav.evaluate(n => n.scrollTop >= n.scrollHeight - n.clientHeight - 1)
+  await page.mouse.wheel(0, atEnd ? -300 : 300)
   await page.waitForTimeout(250)
   const y1 = await page.evaluate(() => scrollY), s1 = await nav.evaluate(n => n.scrollTop)
-  check(s1 > s0, `wide: wheel over the tree must scroll the tree (scrollTop ${s0} → ${s1})`)
+  check(atEnd ? s1 < s0 : s1 > s0, `wide: wheel over the tree must scroll the tree (scrollTop ${s0} → ${s1})`)
   check(y1 === y0, `wide: wheel over the tree must not scroll the page (scrollY ${y0} → ${y1})`)
   await page.close()
 }

@@ -426,7 +426,9 @@
   .fchip:hover { border-color: var(--sc, var(--accent)); transform: translateY(-1px); }
   .fchip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .fchip .dot { display: inline-block; width: 7px; height: 7px; border-radius: 3px; margin-right: 6px; background: var(--sc, var(--accent)); }
-  .link-row { display: flex; gap: 9px; align-items: baseline; color: var(--muted); font-size: 13px; font-style: italic; padding: 7px 4px 7px 18px; position: relative; }
+  .fchip .fc-dir { margin-left: 8px; color: var(--ink-3); }
+  /* the reason one step leads to the next: the point of the Summary, so plain text */
+  .link-row { display: flex; gap: 9px; align-items: baseline; color: var(--ink-2); font-size: 14px; padding: 7px 4px 7px 18px; position: relative; }
   .link-row::before { content: ''; position: absolute; left: 24px; top: 0; bottom: 0; width: 2px; background: var(--line); }
   .link-row .la { font-style: normal; color: var(--accent); position: relative; z-index: 1; background: var(--surface); padding: 0 1px; margin-left: 1px; }
 
@@ -470,7 +472,7 @@
   /* Single-diagram pop-out (#dg=<i>): hide the report chrome and every diagram but the
      focused one — a clean window that is still a full viewer (palette, and ask/note
      when served). */
-  body.dg-focus .kicker, body.dg-focus #title, body.dg-focus .sub, body.dg-focus #statbar,
+  body.dg-focus .kicker, body.dg-focus #title, body.dg-focus .sub, body.dg-focus #statbar, body.dg-focus #verdict,
   body.dg-focus #scopebar, body.dg-focus #consistency, body.dg-focus .modebar,
   body.dg-focus #tabs, body.dg-focus #diagramsHint, body.dg-focus .footstrip { display: none !important; }
   body.dg-focus .wrap { max-width: none !important; padding: 12px 16px !important; }
@@ -911,11 +913,27 @@
   .listcard h3 .cnt { font-family: var(--mono); font-size: 13px; color: var(--muted); font-weight: 500; }
   .listcard ul { margin: 0; padding: 0 0 0 18px; font-size: 13px; }
   .listcard li { margin: 0 0 6px; }
+  #ops { display: flex; flex-direction: column; gap: 16px; }
+  .ops-note { margin: 0; color: var(--ink-2); max-width: var(--measure); }
+  .ops-none { margin: 0; color: var(--ink-3); font-size: 14px; }
+  .deploy-check { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .deploy-check li { margin: 0; max-width: var(--measure); }
+  .deploy-check label { display: grid; grid-template-columns: 18px 18px 1fr; gap: 8px; align-items: baseline; cursor: pointer; font-size: 14px; }
+  .deploy-check input { margin: 0; accent-color: var(--pass); position: relative; top: 2px; }
+  .deploy-check .dc-n { font-variant-numeric: tabular-nums; color: var(--ink-3); text-align: right; }
+  .deploy-check input:checked ~ .dc-t { color: var(--ink-3); text-decoration: line-through; text-decoration-color: var(--line-strong); }
+  .env-list { list-style: none; padding: 0 !important; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 8px 18px; align-items: baseline; }
+  .env-list li { display: contents; }
+  .env-list .env-d { font-size: 14px; color: var(--ink-2); max-width: var(--measure); }
+  .env-list .env-st { color: var(--ink); }
   .listcard.good { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
   .listcard.bad { border-color: color-mix(in srgb, var(--flag) 50%, var(--line)); }
   .empty-good { border: 1px solid var(--line); background: var(--accent-bg); color: var(--accent); border-radius: var(--r-panel); padding: 10px 14px; font-size: 13px; margin: 0 0 12px; }
   /* an optional pass that has not been run: what it is, and a button that runs it */
-  .lazy { max-width: 62ch; padding: 8px 0; }
+  .lazy { max-width: 62ch; padding: 18px 20px; border: 1px dashed var(--line-strong); border-radius: 3px; margin: 4px 0; }
+  .lazy-cost { margin: 8px 0 0; font-size: 13px; color: var(--ink-3); }
+  .lazy-static { margin: 0; font-size: 14px; color: var(--ink); }
+  .tab.not-gen { color: var(--ink-3); }
   .lazy-title { font-size: 15px; font-weight: 500; color: var(--ink); margin: 0 0 6px; }
   .lazy-what { color: var(--ink-2); font-size: 14px; line-height: 1.55; margin: 0 0 14px; }
   .lazy-gen { font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; color: var(--accent-ink);
@@ -951,22 +969,30 @@
   .dg-broken-copy:hover { border-color: var(--accent); color: var(--accent); }
   .dg-broken-steps { font-family: var(--mono); font-size: 13px; color: var(--ink-3); margin-top: 10px; }
   .dg-broken-err { color: var(--flag); font-size: 13px; margin-top: 10px; }
-  .lazy-inline { padding: 0; }
+  .lazy-inline { padding: 0; border: none; }
   .lazy-inline .lazy-what { margin: 0 0 10px; font-size: 13px; }
   .brow { border: 1px solid var(--line); border-radius: 3px; padding: 10px 14px; margin: 0 0 10px; background: var(--surface); font-size: 13px; }
   .brow .bpath { font-family: var(--mono); font-size: 13px; font-weight: 500; overflow-wrap: anywhere; }
   .brow .bwhy { margin-top: 3px; color: var(--muted); }
   .section-note { background: var(--surface-2); border-left: 3px solid var(--accent); border-radius: 0 8px 8px 0; padding: 10px 14px; margin: 0 0 14px; font-size: 13.5px; }
   /* overview note collapses to a single line; the toggle appears only when it clips */
-  .ovg-note.clamped { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
-  .ovg-note-more { display: none; margin: -10px 0 14px; font: inherit; font-size: 13px; cursor: pointer;
+  /* A group: its name with its role as a word on the right ("read carefully" in the flag
+     colour), then WHY in two plain lines — the reason is what the group is for, so it is
+     never cut to one line, and it is text, not another left-ruled box. */
+  .ovg-head { display: flex; align-items: baseline; gap: 10px; }
+  .ovg-head .ovg-name { flex: 1; min-width: 0; margin-bottom: 2px; }
+  .ovg-role { flex: none; max-width: 45%; text-align: right; font-size: 13px; color: var(--ink-3); }
+  .ovg-role.hot { color: var(--flag); }
+  .ovg-note { font-size: 14px; color: var(--ink-2); line-height: 1.5; margin: 0 0 8px; }
+  .ovg-note.clamped { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .ovg-note-more { display: none; margin: -6px 0 8px; font: inherit; font-size: 13px; cursor: pointer;
     background: none; border: none; padding: 0; color: var(--accent); }
   .ovg-note-more.show { display: block; }
   #blastTitle { font-size: 15px; margin: 18px 0 4px; }
 
   /* inspector */
   .inspector { background: var(--surface); border: 1px solid var(--line); border-radius: 3px; padding: 18px 18px 20px; position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow-y: auto; }
-  .insp-tag { font-family: var(--mono); font-size: 13px;  font-weight: 500; margin: 0 0 6px; }
+  .insp-tag { font-size: 13px; font-weight: 500; margin: 0 0 6px; }
   .inspector h3 { margin: 0 0 10px; font-size: 15.5px; font-weight: 500; letter-spacing: -.01em; font-family: var(--mono); overflow-wrap: anywhere; }
   .inspector h3.prose { font-family: var(--sans); }
   .why { background: var(--surface-2); border-left: 3px solid var(--accent); border-radius: 0 8px 8px 0; padding: 10px 14px; margin: 0 0 14px; font-size: 14px; max-height: 12em; overflow-y: auto; overscroll-behavior: contain; }
@@ -1037,10 +1063,19 @@
   /* The rail carries the severity, so it is legible before the word is read and
      a column of findings scans as a shape. info keeps the default rule: it is
      the neutral of the three, and colouring it would leave nothing quiet. */
-  .finding { display: block; }
-  .finding.warn { border-left-color: var(--flag); }
-  .finding.ok { border-left-color: var(--line-strong); }
-  .finding .sev { display: inline-block; margin: 0 0 4px; }
+  /* A finding: severity in its own column (seen before the text is read), then the text,
+     then where it is and which rule. ok is quiet: grey, no rule line. */
+  .finding { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 0 14px; border-left: none;
+    padding: 12px 0; margin: 0; border-top: 1px solid var(--line); }
+  #standards .finding:first-child { border-top: none; padding-top: 2px; }
+  .finding .sev { font-family: var(--ui); font-size: 14px; padding: 0; top: 0; background: none !important; }
+  .finding .sev.warn { color: var(--flag); }
+  .finding .sev.info { color: var(--ink-3); }
+  .finding .sev.ok { color: var(--pass); }
+  .finding .fbody { font-size: 14px; max-width: var(--measure); }
+  .finding.ok .fbody { color: var(--ink-3); }
+  .finding .floc { margin-top: 5px; color: var(--ink-3); }
+  .finding .fpattern { margin: 0; display: inline; }
   .listcard { border: none; border-radius: 0; padding: 0; }
   .diagram { border: none; border-radius: 0; padding: 0; margin: 0 0 26px; }
   .diagram .mermaid-box { background: none; border-radius: 0; padding: 0; }
@@ -1099,7 +1134,39 @@
   .mermaid .sbw .sbi { width: 16px; height: 16px; margin-top: 1px; }
   .mermaid .sbw .sbi svg { width: 16px; height: 16px; }
   .mermaid g.node .sbc .sbw, .mermaid g.node .sbc .sbw span, .mermaid g.node .sbc .sbw .sbi { color: var(--flag) !important; }
-  .sb-legend { margin: 8px 0 0; font-size: 13px; color: var(--muted); }
+  /* Storyboard status is an EDGE on the card's left (fillStoryIcons draws it): solid for
+     new, double for changed, dashed for removed — the card body stays one calm surface, so
+     the text reads the same on every card and the status is seen before it is read. The
+     tag is a coloured word, not a box (a boxed word looked like a button). */
+  .storyboard .mermaid g.node > rect.label-container {
+    fill: var(--panel) !important; stroke: var(--line-strong) !important; stroke-width: 1px !important; stroke-dasharray: none !important; }
+  .storyboard .mermaid g.node.removed > rect.label-container { fill: none !important; stroke-dasharray: 5 4 !important; }
+  .storyboard .mermaid g.node :is(.nodeLabel, span) { color: var(--ink) !important; }
+  .storyboard .mermaid g.node .sbx { color: var(--ink-2) !important; }
+  .storyboard .mermaid g.node.removed :is(.sbh, .sbx) { color: var(--ink-3) !important; }
+  .storyboard .mermaid g.node .sbtag { border: 0; padding: 0; font-family: var(--ui); font-size: 13px; font-weight: 400; }
+  .storyboard .mermaid g.node.added .sbtag { color: var(--add-edge) !important; }
+  .storyboard .mermaid g.node.changed .sbtag { color: var(--mark) !important; }
+  .storyboard .mermaid g.node.removed .sbtag { color: var(--del-edge) !important; }
+  .storyboard .mermaid g.node .sbc .sbw, .storyboard .mermaid g.node .sbc .sbw span { color: var(--flag) !important; }
+  .storyboard .mermaid .sb-rail { stroke: none !important; }
+  .storyboard .mermaid .sb-rail.added { fill: var(--add-edge) !important; }
+  .storyboard .mermaid .sb-rail.changed { fill: var(--mark) !important; }
+  .storyboard .mermaid .sb-rail.removed { fill: var(--del-edge) !important; }
+  /* the legend: the three edges as samples, then the warning mark — not a paragraph */
+  .dg-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; margin: 8px 0 0; font-size: 13px; color: var(--ink-2); }
+  .dg-legend .lg { display: inline-flex; align-items: center; gap: 7px; }
+  /* samples are drawn in SVG, the way the diagram itself draws the mark */
+  .dg-legend .sw { width: 24px; height: 16px; flex: none; }
+  .dg-legend .sw .box { fill: var(--panel); stroke: var(--line-strong); }
+  .dg-legend .sw .e-added { fill: var(--add-edge); }
+  .dg-legend .sw .e-changed { fill: var(--mark); }
+  .dg-legend .sw .e-removed { fill: var(--del-edge); }
+  .dg-legend .sw .n-added { fill: var(--add-bg); stroke: var(--add-edge); }
+  .dg-legend .sw .n-changed { fill: var(--sunken); stroke: var(--mark); stroke-width: 2; }
+  .dg-legend .sw .n-removed { fill: none; stroke: var(--del-edge); stroke-dasharray: 3 2; }
+  .dg-legend .warn { color: var(--flag); }
+  .dg-legend .lg-note { color: var(--ink-3); }
   /* erDiagram (mermaid 11) draws attribute rows as .row-rect-odd/.row-rect-even and
      ignores the theme's attribute-background variables — its default light "odd" row
      lands unreadable in a dark palette. Force both rows onto dark tokens (light in a
@@ -1155,6 +1222,19 @@
     font-variant-numeric: tabular-nums; margin: 14px 0 10px; display: flex; flex-wrap: wrap; gap: 0 18px; }
   .statline b { font-weight: 500; color: var(--ink); }
   .statline .hot { color: var(--flag); }
+  /* The verdict: what to check, before how big the change is. One flag-tinted band;
+     each finding is a link-like button to where it lives. */
+  .verdict { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 16px 0 4px;
+    padding: 9px 14px; border-left: 3px solid var(--flag); background: var(--flag-soft); max-width: 100%; }
+  .verdict[hidden] { display: none; }
+  .verdict .v-k { font-weight: 500; color: var(--ink); }
+  .verdict .v-items { display: flex; flex-wrap: wrap; gap: 6px; }
+  .verdict .v-chip { font: inherit; font-size: 14px; cursor: pointer; color: var(--flag); background: var(--panel);
+    border: 1px solid var(--flag); border-radius: 3px; padding: 2px 9px; }
+  .verdict .v-chip:hover { background: var(--flag); color: var(--panel); }
+  .verdict .v-chip:focus-visible { outline: 2px solid var(--flag); outline-offset: 2px; }
+  .verdict .v-read { margin-left: auto; font-size: 13px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .statline { color: var(--ink-3); }
 
   /* A read-only exported map (assemble --journal): the notes render and read back, but
      every affordance that would ask, decide, or run work is removed — there is no server
@@ -1202,7 +1282,7 @@
     .askpanel, .askbar, .rail, .rc-grip, .rc-grip-pill, .rightcol, .modebar, .content-tools,
     #edges, #elabels, .elabels, .elabel, .dg-badges, .dg-region,
     .files-nav, .files-modebar, #filesCall,
-    .kicker, #title, .sub, #statbar,
+    .kicker, #title, .sub, #statbar, #verdict,
     #diagramsHint, #blastHint, .dg-actions, .dg-zoom, [data-pop] { display: none !important; }
     /* Clamp the whole reading column to the paper width. The PDF renderer lays out at the
        on-screen viewport width and crops to the page, so a full-width column would spill
@@ -1237,6 +1317,7 @@
   <p class="kicker" id="metaLine"></p>
   <h1 id="title"></h1>
   <p class="sub" id="intent"></p>
+  <div class="verdict" id="verdict" hidden></div>
   <div class="statbar" id="statbar"></div>
   <div class="scopebar" id="scopebar"></div>
   <div class="consistency" id="consistency"></div>
@@ -1357,12 +1438,23 @@ const RM = normalizeMap(__REVIEW_MAP_JSON__)
 const STORY_ICONS = __STORY_ICONS__
 
 // ── i18n: viewer chrome follows the report language (meta.lang), default en ──
+// Russian plural: 1 файл, 2 файла, 5 файлов (11–14 take the "many" form).
+function ruN(n, one, few, many) {
+  const m10 = n % 10, m100 = n % 100
+  return m10 === 1 && m100 !== 11 ? one : m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14) ? few : many
+}
 const I18N = {
   en: {
     titlePrefix: 'Change map: ',
     statFiles: (c, n) => `files (${c} mod. + ${n} new)`,
     statLines: 'lines', statGroups: 'cause groups',
     statAttention: 'files need careful reading', statEnv: 'env changes',
+    vTitle: 'Check',
+    vCareful: (n) => n === 1 ? '1 file to read carefully' : `${n} files to read carefully`,
+    vStory: (n) => n === 1 ? '1 problem on the storyboard' : `${n} problems on the storyboard`,
+    vStd: (n) => n === 1 ? '1 standards warning' : `${n} standards warnings`,
+    vGaps: (n) => n === 1 ? '1 case without a test' : `${n} cases without tests`,
+    vStories: (n) => n === 1 ? '1 user story not delivered' : `${n} user stories not delivered`,
     consistency: 'Manifest entries missing a description on the map: ',
     tabs: { story: 'Summary', tasks: 'Review', stories: 'User stories', diagrams: 'Diagrams', standards: 'Standards', tests: 'Tests', ops: 'Ops & risks', files: 'Files' },
     tasksHint: 'What is still unsettled about this change: work you agreed to, plans you turned down, questions nobody has answered, and problems the map found that nobody has decided about. Nothing here runs on its own.',
@@ -1410,13 +1502,19 @@ const I18N = {
     generateStatic: 'Not in this export — re-run whydiff with a full report to include it.',
     blastLazy: 'Not generated yet — comes with the Standards pass.',
     lazy: {
-      story: { title: 'Summary', what: 'The change told as a causal chain — what it does and why, block by block, in plain language. Useful for a walkthrough, but the Diagrams and Code map carry the structure on their own. Generate to add this pass.' },
-      stories: { title: 'User stories', what: 'What changed on the outside, in each actor’s words, with a verdict on whether the code actually delivers it. Generate to add this pass to the report.' },
-      standards: { title: 'Standards & blast radius', what: 'The change checked against this project’s own conventions, plus the reverse dependencies it reaches outside the diff. Generate to add this pass.' },
-      tests: { title: 'Tests', what: 'What the tests now pin down, and — more usefully — what this change leaves uncovered. Generate to add this pass.' },
+      story: { title: 'The summary is not written yet', act: 'Write the summary', what: 'The change told as a causal chain: what it does and why, step by step, in plain language.' },
+      stories: { title: 'User stories are not built yet', act: 'Build user stories', what: 'What changed for each person or system that uses this code, with a verdict on whether the code delivers it.' },
+      standards: { title: 'Standards are not checked yet', act: 'Check standards', what: 'The change checked against this project’s own conventions, plus the code outside the diff that depends on it.' },
+      tests: { title: 'Tests are not analysed yet', act: 'Analyse tests', what: 'What the tests now pin down and, more usefully, what this change leaves uncovered.' },
     },
+    lazyCost: 'About a minute, one more analysis pass.',
+    lazyStaticTitle: (t) => `${t}: not in this export`,
+    lazyStaticHow: 'Run /whydiff with a full report, or open this map in the whydiff app, which can build it.',
     storyboardTitle: 'How it works now',
     sbTag: { added: 'new', changed: 'changed', removed: 'removed' },
+    sev: { warn: '⚠ Important', info: 'Note', ok: '✓ Holds' }, rule: 'rule',
+    lgWarn: 'a problem to look at', lgClick: 'Click a card to open its code.',
+    lgNodes: 'Drawn only where a flow changed. Click a node to open its file.',
     sbLegend: 'Cards are the parts of the story; a tag says what this change did to each. ⚠ marks a problem to look at. Click a card to open its code.',
     diagramsHint: 'A node is marked the way a diff line is: added takes the fill, removed the dashed outline, changed a heavier edge. Diagrams exist only where a control or data flow changed. Nodes tied to a changed file are clickable — details open in the inspector.',
     diagramsEmpty: 'No diagrams: this change altered no control or data flow, so there is nothing to draw. See the Code map for the files it touched.',
@@ -1521,6 +1619,12 @@ const I18N = {
     statFiles: (c, n) => `файлов (${c} изм. + ${n} новых)`,
     statLines: 'строк', statGroups: 'групп причин',
     statAttention: 'файла внимательного чтения', statEnv: 'env-изменений',
+    vTitle: 'Проверить',
+    vCareful: (n) => `${n} ${ruN(n, 'файл', 'файла', 'файлов')} читать внимательно`,
+    vStory: (n) => `${n} ${ruN(n, 'проблема', 'проблемы', 'проблем')} на схеме`,
+    vStd: (n) => `${n} ${ruN(n, 'замечание', 'замечания', 'замечаний')} по стандартам`,
+    vGaps: (n) => `${n} ${ruN(n, 'сценарий', 'сценария', 'сценариев')} без тестов`,
+    vStories: (n) => `${n} ${ruN(n, 'история не выполнена', 'истории не выполнены', 'историй не выполнено')}`,
     consistency: 'В манифесте есть файлы без описания на карте: ',
     tabs: { story: 'Сводка', tasks: 'Ревью', stories: 'User stories', diagrams: 'Диаграммы', standards: 'Стандарты', tests: 'Тесты', ops: 'Операции и риски', files: 'Файлы' },
     tasksHint: 'Что по этому изменению ещё не решено: задачи, на которые вы согласились, отклонённые планы, вопросы без ответа и находки карты, по которым никто не принял решения. Само здесь ничего не запускается.',
@@ -1568,13 +1672,19 @@ const I18N = {
     generateStatic: 'Нет в этом экспорте — перезапусти whydiff с полным отчётом, чтобы включить.',
     blastLazy: 'Ещё не сгенерировано — идёт вместе с проходом «Стандарты».',
     lazy: {
-      story: { title: 'Сводка', what: 'Изменение как причинная цепочка — что делает и почему, блок за блоком, человеческим языком. Полезно для прохода по шагам, но структуру и так несут Диаграммы и Карта кода. Нажми, чтобы добавить проход.' },
-      stories: { title: 'User stories', what: 'Что изменилось снаружи, языком каждого актора, с вердиктом — даёт ли это код на самом деле. Нажми, чтобы добавить этот проход в отчёт.' },
-      standards: { title: 'Стандарты и радиус влияния', what: 'Проверка изменения против правил самого проекта плюс обратные зависимости за пределами диффа, которых оно касается. Нажми, чтобы добавить проход.' },
-      tests: { title: 'Тесты', what: 'Что теперь фиксируют тесты и — важнее — что это изменение оставляет без покрытия. Нажми, чтобы добавить проход.' },
+      story: { title: 'Сводка ещё не написана', act: 'Написать сводку', what: 'Изменение как причинная цепочка: что делает и почему, шаг за шагом, простым языком.' },
+      stories: { title: 'Истории пользователей ещё не собраны', act: 'Собрать истории', what: 'Что изменилось для каждого, кто пользуется этим кодом, и выполняет ли код обещанное.' },
+      standards: { title: 'Стандарты ещё не проверены', act: 'Проверить стандарты', what: 'Изменение против правил самого проекта плюс код за пределами диффа, который от него зависит.' },
+      tests: { title: 'Тесты ещё не разобраны', act: 'Разобрать тесты', what: 'Что теперь фиксируют тесты и, главное, что это изменение оставляет без покрытия.' },
     },
+    lazyCost: 'Около минуты, ещё один проход анализа.',
+    lazyStaticTitle: (t) => `${t}: нет в этом экспорте`,
+    lazyStaticHow: 'Запусти /whydiff с полным отчётом или открой карту в приложении whydiff, там это можно собрать.',
     storyboardTitle: 'Как это работает теперь',
     sbTag: { added: 'новое', changed: 'изменено', removed: 'убрано' },
+    sev: { warn: '⚠ Важно', info: 'Заметка', ok: '✓ Соблюдено' }, rule: 'правило',
+    lgWarn: 'проблема, на которую стоит посмотреть', lgClick: 'Клик по карточке открывает её код.',
+    lgNodes: 'Рисуются только там, где изменился поток. Клик по узлу открывает файл.',
     sbLegend: 'Карточки — части истории; метка говорит, что с каждой сделало изменение. ⚠ — проблема, на которую стоит посмотреть. Клик по карточке открывает её код.',
     diagramsHint: 'Нода помечена так же, как строка диффа: добавленное берёт заливку, удалённое — пунктирный контур, изменённое — усиленную рамку. Диаграммы есть только там, где меняется поток управления или данных. Ноды изменённых файлов кликабельны — детали откроются в инспекторе.',
     diagramsEmpty: 'Диаграмм нет: это изменение не затронуло поток управления или данных — рисовать нечего. Что затронуто, смотри на вкладке «Карта кода».',
@@ -1722,7 +1832,12 @@ const fnameHTML = (p) => {
   const dir = parent ? (parts.length ? '…/' : '') + parent + '/' : ''
   return `<span class="fdir">${esc(dir)}</span><span class="fbase">${esc(base)}</span>`
 }
-const chip = (path) => `<button class="fchip" data-goto="${esc(path)}" style="--sc:${gcolor(fileGroup[path])}">${fileIconSVG(path)}${esc(shortName(path))}</button>`
+// The file's whole name first (it is the identity), its folder after it in grey — never
+// a path cut from the front ("…/middleware/rateLimit.ts" hid the name in the middle).
+const chip = (path) => {
+  const i = path.lastIndexOf('/'), dir = i > 0 ? path.slice(0, i) : ''
+  return `<button class="fchip" data-goto="${esc(path)}" title="${esc(path)}" style="--sc:${gcolor(fileGroup[path])}">${fileIconSVG(path)}${esc(path.slice(i + 1))}${dir ? `<span class="fc-dir">${esc(dir)}</span>` : ''}</button>`
+}
 
 // ── header ───────────────────────────────────────────────────────────────────
 document.getElementById('metaLine').textContent = `${RM.meta.project} · ${RM.meta.ref} · ${RM.meta.generatedAt}`
@@ -1738,9 +1853,34 @@ statEl.innerHTML = [
   [totalFiles, L.statFiles(st.filesChanged || 0, st.filesNew || 0)],
   [`+${st.added || 0} / −${st.deleted || 0}`, L.statLines],
   [RM.groups.length, L.statGroups],
-  [st.attentionFiles ?? '—', L.statAttention, true],
   [(RM.ops?.env || []).length, L.statEnv],
 ].map(([v, l, hot]) => `<span class="${hot ? 'hot' : ''}"><b>${v}</b> ${esc(l)}</span>`).join('')
+
+// ── verdict: what this map found that needs a look, first, each a link to it ──
+// The counts below the title say how big the change is; this row says what to check.
+// Every chip jumps to the place the finding lives. Only what a pass actually found
+// (a pass that did not run says nothing here).
+function renderVerdict() {
+  const el = document.getElementById('verdict')
+  const items = []
+  const careful = RM.groups.filter(g => g.role === 'read')
+  const carefulFiles = new Set(careful.flatMap(g => g.files)).size
+  if (carefulFiles) items.push({ n: carefulFiles, text: L.vCareful(carefulFiles), attr: `data-gogroup="${esc(careful[0].id)}"` })
+  const sbWarn = (RM.storyboard?.cards || []).filter(c => c.warning).length
+  if (sbWarn) items.push({ text: L.vStory(sbWarn), attr: 'data-vtab="diagrams"' })
+  const stdWarn = isGen('standards') ? (RM.standards || []).filter(s => s.severity === 'warn').length : 0
+  if (stdWarn) items.push({ text: L.vStd(stdWarn), attr: 'data-vtab="standards"' })
+  const gaps = isGen('tests') ? (RM.tests?.gaps || []).length : 0
+  if (gaps) items.push({ text: L.vGaps(gaps), attr: 'data-vtab="tests"' })
+  const undelivered = isGen('stories') ? (RM.userStories?.stories || []).filter(s => PROBLEM_STATUS.has(s.status)).length : 0
+  if (undelivered) items.push({ text: L.vStories(undelivered), attr: 'data-vtab="stories"' })
+  if (!items.length) { el.hidden = true; return }
+  el.hidden = false
+  el.innerHTML = `<span class="v-k">${esc(L.vTitle)}</span><span class="v-items">` +
+    items.map(i => `<button type="button" class="v-chip" ${i.attr}>${esc(i.text)}</button>`).join('') +
+    `</span><span class="v-read" id="vRead"></span>`
+  el.addEventListener('click', (e) => { const t = e.target.closest('[data-vtab]'); if (t) setTab(t.dataset.vtab) })
+}
 
 // ── scopes & languages: which parts of the project the change touches ────────
 // Labelled in mono, not colour-coded: a per-language palette would be a third
@@ -1809,7 +1949,7 @@ function fileTreeHTML(paths, { scope, label, rowClass = '' }) {
     return `<li role="treeitem" class="ft-item ft-file st-${st} ${rowClass}" aria-level="${lvl + 1}" aria-selected="false" tabindex="-1" data-path="${esc(n.path)}" data-gofile="${esc(n.path)}" title="${esc(n.path)}">` +
       row(lvl, `<span class="ft-chev" aria-hidden="true"></span>${fileIconSVG(n.path)}<span class="ft-name">${name}${from ? `<span class="ft-from"> ← ${esc(from.split('/').slice(0, -1).join('/') === n.path.split('/').slice(0, -1).join('/') ? baseName(from) : from)}</span>` : ''}</span>` +
         `<span class="ft-st" title="${esc(stTitle)}"><span class="ft-st-l" aria-hidden="true">${ST_LETTER[st]}</span><span class="sr-only">${esc(stTitle)}</span></span>` +
-        `<span class="ft-stat"><span class="a">+${f.add ?? 0}</span> <span class="d">−${f.del ?? 0}</span></span>`) + '</li>'
+        `<span class="ft-stat">${f.add ? `<span class="a">+${f.add}</span>` : ''}${f.add && f.del ? ' ' : ''}${f.del ? `<span class="d">−${f.del}</span>` : ''}</span>`) + '</li>'
   }
   const nodes = buildFileTree(paths)
   if (!nodes.length) return ''
@@ -1871,7 +2011,31 @@ let scopeFilter = null
 // ── static chrome strings ────────────────────────────────────────────────────
 // The hint explains how to read diagrams; with none, say there is nothing to draw
 // (diagrams are a core pass, so empty means the change altered no flow — not lazy).
-document.getElementById('diagramsHint').textContent = (RM.diagrams || []).length || RM.storyboard ? L.diagramsHint : L.diagramsEmpty
+// With diagrams, the hint is a legend of the three node marks (samples, not a paragraph);
+// the storyboard carries its own legend under it.
+{
+  const hint = document.getElementById('diagramsHint')
+  if (!(RM.diagrams || []).length && !RM.storyboard) hint.textContent = L.diagramsEmpty
+  else if ((RM.diagrams || []).length) {
+    hint.className = 'dg-legend'
+    hint.innerHTML = ['added', 'changed', 'removed'].map(k => `<span class="lg">${swatchSVG('node', k)}${esc(L.sbTag[k])}</span>`).join('') +
+      `<span class="lg lg-note">${esc(L.lgNodes)}</span>`
+    hint.title = L.diagramsHint
+    // It explains the engineering diagrams, so it sits right above the first of them,
+    // after the storyboard (whose cards use edges, not fills).
+    const first = document.querySelector('#pane-diagrams .diagram[data-dg="0"]')
+    if (first && RM.storyboard) first.before(hint)
+  } else hint.hidden = true
+}
+// A legend sample: a storyboard card with its status edge, or a diagram node with its mark.
+function swatchSVG(type, st) {
+  const box = '<rect class="box" x="0.5" y="0.5" width="23" height="15" rx="2"/>'
+  const body = type === 'node' ? `<rect class="n-${st}" x="1" y="1" width="22" height="14" rx="2"/>`
+    : box + (st === 'added' ? '<rect class="e-added" x="0.5" y="0.5" width="4" height="15"/>'
+      : st === 'changed' ? '<rect class="e-changed" x="0.5" y="0.5" width="1.6" height="15"/><rect class="e-changed" x="3.3" y="0.5" width="1.6" height="15"/>'
+        : '<rect class="e-removed" x="0.5" y="0.5" width="4" height="4"/><rect class="e-removed" x="0.5" y="6" width="4" height="4"/><rect class="e-removed" x="0.5" y="11.5" width="4" height="4"/>')
+  return `<svg class="sw" viewBox="0 0 24 16" aria-hidden="true">${body}</svg>`
+}
 // The storyboard's source is built here, not by the assembler, so its tags speak the
 // report language; its title falls back to ours.
 function storyLabels() { return L.sbTag }
@@ -1881,8 +2045,9 @@ function storyLabels() { return L.sbTag }
     sbEl.querySelector('pre.mermaid[data-story]').textContent = storyboardMermaid(RM.storyboard, storyLabels())
     const h = sbEl.querySelector('h3'); if (h && !h.textContent.trim()) h.textContent = L.storyboardTitle
     const legend = document.createElement('p')
-    legend.className = 'sb-legend'
-    legend.textContent = L.sbLegend
+    legend.className = 'dg-legend'
+    legend.innerHTML = ['added', 'changed', 'removed'].map(k => `<span class="lg">${swatchSVG('edge', k)}${esc(L.sbTag[k])}</span>`).join('') +
+      `<span class="lg warn">⚠ ${esc(L.lgWarn)}</span><span class="lg lg-note">${esc(L.lgClick)}</span>`
     sbEl.querySelector('.mermaid-wrap').after(legend)
   }
 }
@@ -1893,6 +2058,24 @@ function fillStoryIcons(box) {
   for (const slot of box.querySelectorAll('.sbi')) {
     const body = slot.dataset.m ? STORY_ICONS.marks[slot.dataset.m] : (STORY_ICONS.kinds[slot.dataset.k] || STORY_ICONS.kinds.other)
     slot.innerHTML = `<svg viewBox="${STORY_ICONS.viewBox}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`
+  }
+  // The status edge: drawn inside the card's own shape, on its left, in SVG units so it
+  // scales and prints with the diagram. Changed is two thin bars, removed short dashes.
+  const NS = 'http://www.w3.org/2000/svg'
+  for (const node of box.querySelectorAll('g.node')) {
+    const st = ['added', 'changed', 'removed'].find(c => node.classList.contains(c))
+    const shape = node.querySelector(':scope > rect.label-container')
+    if (!st || !shape || node.querySelector('.sb-rail')) continue
+    const x = +shape.getAttribute('x'), y = +shape.getAttribute('y'), h = +shape.getAttribute('height')
+    const bar = (bx, by, w, bh) => {
+      const r = document.createElementNS(NS, 'rect')
+      r.setAttribute('class', `sb-rail ${st}`)
+      for (const [k, v] of Object.entries({ x: bx, y: by, width: w, height: bh })) r.setAttribute(k, v)
+      shape.after(r)
+    }
+    if (st === 'added') bar(x, y, 5, h)
+    else if (st === 'changed') { bar(x, y, 2, h); bar(x + 4, y, 2, h) }
+    else for (let dy = 0; dy < h; dy += 10) bar(x, y + dy, 5, Math.min(6, h - dy))
   }
 }
 document.getElementById('fixedTitle').textContent = L.fixedTitle
@@ -1934,7 +2117,7 @@ const defaultTab = (RM.diagrams || []).length || RM.storyboard ? 'diagrams' : 'f
 const tabsEl = document.getElementById('tabs')
 for (const [id, name, cnt] of PANES) {
   const b = document.createElement('button')
-  b.className = 'tab' + (id === defaultTab ? ' active' : '')
+  b.className = 'tab' + (id === defaultTab ? ' active' : '') + (['story', 'stories', 'standards', 'tests'].includes(id) && !isGen(id) ? ' not-gen' : '')
   b.innerHTML = esc(name) + (cnt ? ` <span class="cnt">${cnt}</span>` : '')
   b.addEventListener('click', () => setTab(id))
   b.dataset.pane = id
@@ -1947,6 +2130,7 @@ helpBtn.title = L.overviewTitle
 helpBtn.setAttribute('aria-label', L.overviewTitle)
 helpBtn.addEventListener('click', () => helpModal.showModal())
 tabsEl.appendChild(helpBtn)
+renderVerdict()
 
 // A PDF button that belongs to the CONTENT, not the page chrome: it sits at the top-right of
 // the reading column and exports the tab you are looking at. Real PDF export (notes as real
@@ -2043,6 +2227,7 @@ function setTab(id) {
   for (const [pid] of PANES) document.getElementById('pane-' + pid).hidden = pid !== id
   if (id === 'files') {
     requestAnimationFrame(drawEdges)
+    requestAnimationFrame(revealNoteToggles)
     // The file view fills the main area: show the current file (a cross-tab drill may have set
     // one), else land on the first file. showFile routes into #filesView while this tab is active.
     const path = currentFile || (typeof allPaths !== 'undefined' ? allPaths[0] : null)
@@ -2302,13 +2487,19 @@ else for (const item of RM.story) {
 function canGenerate() { return !!(window.__WHYDIFF_SERVE__ && window.__WHYDIFF_SERVE__.token) }
 function lazyPane(section) {
   const m = L.lazy[section]
+  // One state, one message: with a server, what the pass gives and ONE button named for
+  // what it does; in a static file, that it is not in this export and how to get it.
+  if (!canGenerate()) return `<div class="lazy">
+    <div class="lazy-title">${esc(L.lazyStaticTitle(L.tabs[section]))}</div>
+    <p class="lazy-what">${esc(m.what)}</p>
+    <p class="lazy-static">${esc(L.lazyStaticHow)}</p>
+  </div>`
   return `<div class="lazy">
     <div class="lazy-title">${esc(m.title)}</div>
     <p class="lazy-what">${esc(m.what)}</p>
-    ${canGenerate()
-      ? `<button class="lazy-gen" data-section="${section}">${esc(L.generate)}</button>
-         <div class="lazy-steps" hidden></div><div class="lazy-err" hidden></div>`
-      : `<p class="lazy-static">${esc(L.generateStatic)}</p>`}
+    <button class="lazy-gen" data-section="${section}">${esc(m.act)}</button>
+    <p class="lazy-cost">${esc(L.lazyCost)}</p>
+    <div class="lazy-steps" hidden></div><div class="lazy-err" hidden></div>
   </div>`
 }
 // A live progress view for a generate / regenerate stream: an APPROXIMATE progress bar,
@@ -2452,14 +2643,16 @@ document.addEventListener('click', (e) => {
 // ── standards ────────────────────────────────────────────────────────────────
 // A warn finding is a problem, so it is a place a remark can attach to and a place
 // options can be asked for. `ok`/`info` are not: there is nothing to decide.
+// Severity is a column of its own (a word with a mark), warnings first; what holds (ok)
+// is one quiet line at the end. Anchors keep the pass's ORIGINAL index.
+const SEV_RANK = { warn: 0, info: 1, ok: 2 }
 document.getElementById('standards').innerHTML = isGen('standards')
-  ? (RM.standards || []).map((s, i) => `
+  ? (RM.standards || []).map((s, i) => [s, i]).sort((a, b) => (SEV_RANK[a[0].severity] ?? 1) - (SEV_RANK[b[0].severity] ?? 1) || a[1] - b[1]).map(([s, i]) => `
   <div class="finding ${s.severity}${s.severity === 'warn' ? ' askable fixable' : ''}"
     ${s.severity === 'warn' ? `data-anchor="finding:${i}" data-anchor-label="${esc(s.finding.slice(0, 90))}"` : ''}>
-    <span class="sev ${s.severity}">${s.severity}</span>
+    <span class="sev ${s.severity}">${esc(L.sev[s.severity] || s.severity)}</span>
     <div class="fbody">${prose(s.finding)}
-      ${s.file ? `<div class="floc"><button class="loclink" data-goto="${esc(s.file)}">${esc(s.file)}${s.line ? ':' + s.line : ''}</button></div>` : ''}
-      ${s.pattern ? `<div class="fpattern">${esc(s.pattern)}</div>` : ''}
+      ${s.file || s.pattern ? `<div class="floc">${s.file ? `<button class="loclink" data-goto="${esc(s.file)}">${esc(s.file)}${s.line ? ':' + s.line : ''}</button>` : ''}${s.pattern ? `<span class="fpattern">${s.file ? ' · ' : ''}${esc(L.rule)}: ${esc(s.pattern)}</span>` : ''}</div>` : ''}
     </div>
   </div>`).join('')
   : lazyPane('standards')
@@ -2511,16 +2704,21 @@ if (isGen('tests')) {
 
 // ── ops & blast radius ───────────────────────────────────────────────────────
 {
+  // Deploy first, as a checklist: it is the part someone DOES, in order, so its steps are
+  // numbered and can be ticked (remembered per map, like files read). Then env vars and
+  // migrations. "None" is a quiet line, not a box: an absent migration is not a warning.
   const ops = RM.ops || {}
   let html = ''
-  if (ops.note) html += `<div class="section-note">${prose(ops.note)}</div>`
+  if ((ops.deploy || []).length) html += `<div class="listcard ops-deploy"><h3>${L.deployTitle}</h3><ol class="deploy-check">${ops.deploy.map((d, i) =>
+    `<li><label><input type="checkbox" data-deploy="${i}"><span class="dc-n">${i + 1}</span><span class="dc-t">${prose(d)}</span></label></li>`).join('')}</ol></div>`
+  if (ops.note) html += `<p class="ops-note">${prose(ops.note)}</p>`
   html += (ops.env || []).length
-    ? `<div class="listcard" style="margin-bottom:12px"><h3>${L.envTitle}</h3><ul>${ops.env.map(e => `<li><code>${esc(e.name)}</code> — ${L.envStatus[e.status] || esc(e.status)}${e.note ? ': ' + prose(e.note) : ''}</li>`).join('')}</ul></div>`
-    : `<div class="empty-good">${L.envNone}</div>`
+    ? `<div class="listcard"><h3>${L.envTitle}</h3><ul class="env-list">${ops.env.map(e => `<li><code>${esc(e.name)}</code><span class="env-d"><span class="env-st">${L.envStatus[e.status] || esc(e.status)}</span>${e.note ? ` · ${prose(e.note)}` : ''}</span></li>`).join('')}</ul></div>`
+    : `<p class="ops-none">${L.envNone}</p>`
+  const noteSaysMigr = /migrat|миграц/i.test(ops.note || '')
   html += (ops.migrations || []).length
-    ? `<div class="listcard" style="margin-bottom:12px"><h3>${L.migrTitle}</h3><ul>${ops.migrations.map(m => `<li>${prose(m)}</li>`).join('')}</ul></div>`
-    : `<div class="empty-good">${L.migrNone}</div>`
-  if ((ops.deploy || []).length) html += `<div class="listcard" style="margin-bottom:12px"><h3>${L.deployTitle}</h3><ul>${ops.deploy.map(d => `<li>${prose(d)}</li>`).join('')}</ul></div>`
+    ? `<div class="listcard"><h3>${L.migrTitle}</h3><ul>${ops.migrations.map(m => `<li>${prose(m)}</li>`).join('')}</ul></div>`
+    : noteSaysMigr ? '' : `<p class="ops-none">${L.migrNone}</p>`
   document.getElementById('ops').innerHTML = html
   document.getElementById('blast').innerHTML = isGen('standards')
     ? (RM.blastRadius || []).map(b => `
@@ -2918,9 +3116,11 @@ const legendHTML = () => `<ul class="glegend">${RM.groups.map(g => `
 // [data-goto] into the file, so the overview doubles as an index.
 const overviewGroupsHTML = () => RM.groups.map(g => `
   <section class="ovg">
-    <p class="insp-tag" style="color:${gcolor(g.id)}">${esc(g.tag || g.role)}</p>
-    <button type="button" class="ovg-name" data-gogroup="${esc(g.id)}" title="${esc(L.jumpToGroup)}">${esc(g.name)}</button>
-    ${g.why ? `<div class="section-note ovg-note clamped">${prose(g.why)}</div><button type="button" class="ovg-note-more">${esc(L.edgeMore)}</button>` : ''}
+    <div class="ovg-head">
+      <button type="button" class="ovg-name" data-gogroup="${esc(g.id)}" title="${esc(L.jumpToGroup)}">${esc(g.name)}</button>
+      <span class="ovg-role${g.role === 'read' ? ' hot' : ''}">${esc(L.roles[g.role] || g.tag || g.role)}</span>
+    </div>
+    ${g.why ? `<div class="ovg-note clamped">${prose(g.why)}</div><button type="button" class="ovg-note-more">${esc(L.edgeMore)}</button>` : ''}
     ${fileTreeHTML(g.files.filter(p => RM.files[p]), { scope: `g:${g.id}`, label: g.name, rowClass: 'ovg-file' })}
   </section>`).join('')
 
@@ -2976,11 +3176,15 @@ function showOverview() {
        ${overviewGroupsHTML()}
        <p class="note">${L.completeness(RM.manifest.length)} · <button class="linklike" data-help>${L.helpLink}</button></p>`)
   if (cg) return
-  // reveal the more/less toggle only where the one-line note actually clips
-  inspector.querySelectorAll('.ovg-note').forEach(note => {
+  revealNoteToggles()
+}
+// Reveal a group note's more/less toggle only where the clamped note actually clips. A
+// hidden pane measures 0, so this also runs when the Files tab is shown.
+function revealNoteToggles() {
+  document.querySelectorAll('.ovg-note.clamped').forEach(note => {
     const btn = note.nextElementSibling
-    if (!btn || !btn.classList.contains('ovg-note-more')) return
-    if (note.scrollHeight - note.clientHeight > 1) btn.classList.add('show')
+    if (!btn || !btn.classList.contains('ovg-note-more') || !note.clientHeight) return
+    btn.classList.toggle('show', note.scrollHeight - note.clientHeight > 1)
   })
 }
 function setActive(id) {
@@ -3093,6 +3297,17 @@ const SESSION = (() => {
   return { get: (k, d) => (st[k] === undefined ? d : st[k]), set: (k, v) => { st[k] = v; save() } }
 })()
 document.body.classList.add('can-read')
+// The deploy checklist remembers its ticks per map.
+{
+  const done = new Set(SESSION.get('deployDone', []))
+  for (const cb of document.querySelectorAll('[data-deploy]')) {
+    cb.checked = done.has(+cb.dataset.deploy)
+    cb.addEventListener('change', () => {
+      cb.checked ? done.add(+cb.dataset.deploy) : done.delete(+cb.dataset.deploy)
+      SESSION.set('deployDone', [...done])
+    })
+  }
+}
 
 // A remembered "show all links" choice overrides the size-based default above.
 {
@@ -3325,6 +3540,8 @@ function refreshSeen() {
   }
   const n = allPaths.filter(p => seen.has(p)).length
   fsCount.textContent = L.readProgress(n, allPaths.length)
+  const vRead = document.getElementById('vRead')
+  if (vRead) vRead.textContent = L.readProgress(n, allPaths.length)
   fsBar.style.width = `${allPaths.length ? (n / allPaths.length) * 100 : 0}%`
   // Per-group progress: the count in the header, a "done" tint, and the ✓ button
   // state. On a collapsed big map this is the only read signal a group shows.
