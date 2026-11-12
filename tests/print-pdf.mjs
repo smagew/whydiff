@@ -42,7 +42,7 @@ const errors = []
 page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`))
 await page.goto('file://' + html)
 await page.locator('#tabs .tab[data-pane="diagrams"]').click()
-await page.waitForSelector('#pane-diagrams svg', { timeout: 15000 })
+await page.waitForSelector('#pane-diagrams pre.mermaid > svg', { timeout: 15000 })
 
 const disp = (sel) => page.evaluate((s) => { const e = document.querySelector(s); return e ? getComputedStyle(e).display : 'MISSING' }, sel)
 const text = (sel) => page.evaluate((s) => document.querySelector(s)?.textContent || '', sel)

@@ -34,9 +34,10 @@ page.on('console', (m) => { if (m.type() === 'error') errors.push(`console: ${m.
 
 await page.goto('file://' + htmlPath)
 await page.locator('#tabs .tab[data-pane="diagrams"]').click()
+await page.locator('#dgTabs .dg-tab[data-dgkey="0"]').click() // the broken one is diagram 0; one is on screen at a time
 // Wait until the valid diagrams have rendered and the broken one has its fallback.
 await page.waitForSelector('#pane-diagrams .mermaid-box.broken .dg-broken', { timeout: 15000 })
-await page.waitForSelector('#pane-diagrams .mermaid-box svg', { timeout: 15000 })
+await page.waitForSelector('#pane-diagrams .mermaid-box:not(.broken) pre.mermaid > svg', { state: 'attached', timeout: 15000 })
 await page.waitForTimeout(300)
 
 const broken = await page.locator('#pane-diagrams .mermaid-box.broken').count()
@@ -50,7 +51,8 @@ if ((await page.locator('.dg-broken-regen').count()) !== 0) fail('a standalone f
 
 // mermaid's error graphic (bomb) must be gone — neither its "Syntax error" heading
 // nor its "mermaid version" line (which the post-run check keys on) may reach the page.
-const bodyText = await page.locator('body').innerText()
+// textContent, not innerText: the diagrams on other tabs are out of sight but still in the page
+const bodyText = await page.locator('#pane-diagrams').textContent()
 if (/Syntax error|mermaid version/i.test(bodyText)) fail('mermaid\'s "Syntax error" graphic reached the page')
 const svgs = await page.locator('#pane-diagrams .mermaid-box:not(.broken) svg').count()
 if (svgs < validCount) fail(`valid diagrams did not render alongside the broken one (${svgs} < ${validCount})`)
