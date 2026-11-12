@@ -1,0 +1,7 @@
+/* Applied only while a screenshot is taken (toHaveScreenshot `stylePath`). A full-page
+   capture stitches the page at its full height, so a position:fixed strip would be
+   stamped across the middle of the image; let it sit at the end of the page instead. */
+.footstrip { position: static !important; }
+/* The plugin version changes on every release; it must not invalidate every baseline.
+   Hidden, not removed, so the strip's layout is still what users see. */
+.footstrip .fs-ver { visibility: hidden !important; }

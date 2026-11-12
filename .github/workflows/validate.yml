@@ -8,6 +8,11 @@ on:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    # The screenshot baselines (tests/visual) are recorded in this exact image, so CI renders
+    # with the same Chromium and fonts. Keep the tag equal to @playwright/test's version —
+    # tests/visual/viewer.spec.mjs fails when they drift.
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
     steps:
       - uses: actions/checkout@v5
 
@@ -25,9 +30,9 @@ jobs:
       - name: Validate the reference example against the schema contract
         run: node scripts/validate.mjs examples/rate-limit/review-map.json
 
-      - name: Browser smoke test + coverage gate (assemble + clickable diagrams)
+      - name: Browser smoke test + coverage gate (assemble + clickable diagrams + screenshots)
         run: |
-          npx playwright install --with-deps chromium
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
           npm run coverage   # runs the full suite under c8 and fails below the floor
 
   # The desktop app has its own package + tests (main-process modules + renderer logic).

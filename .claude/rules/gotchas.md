@@ -41,6 +41,12 @@ future agents (and you) read this before touching the area.
   NOT restore the last tab visited. Only a one-shot `flashTab` (set by `generate()`
   before its reload) survives, so Generate returns you to its tab. Don't
   reintroduce last-tab persistence.
+- **Look at a screenshot baseline before you commit it.** `tests/visual` compares every tab
+  against committed PNGs, which locks in whatever they show, bugs included. The first baselines
+  showed both reference diagrams clipped on screen, a bug no behaviour test had caught. After
+  `make screenshots-update`, open every changed PNG. A full-page capture stamps
+  `position: fixed` elements mid-image, and the footer version changes per release. Both are
+  neutralised in `tests/visual/capture.css`; add anything similar there, not to the viewer.
 
 ## PDF export (`docs/pdf-export.md` is the spec — read it first)
 

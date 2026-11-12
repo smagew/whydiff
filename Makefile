@@ -19,7 +19,7 @@ FIXDIR     ?= $(HOME)/.cache/whydiff/fixtures
 export WHYDIFF_FIXTURES := $(FIXDIR)
 EXAMPLE    := examples/rate-limit/review-map.json
 
-.PHONY: help check coverage pdf-e2e preview fixtures clean-fixtures bump hooks eval
+.PHONY: help check coverage pdf-e2e preview fixtures clean-fixtures bump hooks eval screenshots-update
 .DEFAULT_GOAL := help
 
 help: ## show this help
@@ -76,6 +76,15 @@ map-%: ## open the HTML map produced by the last run against fixture <name>
 serve-%: ## serve fixture <name>'s map with live Q&A (asks via `claude -p`)
 	@echo "→ open the printed URL; the ask UI exists only on this served copy"
 	@node scripts/serve.mjs $(FIXDIR)/$*/.whydiff/review-map.json --repo $(FIXDIR)/$*
+
+# Re-record the viewer screenshot baselines — ONLY after a deliberate visual change, and
+# look at every changed PNG before committing. Both platforms: this Mac (-darwin) and the
+# official Playwright image (-linux), which is the image CI runs in (pixel parity).
+PW_IMAGE := mcr.microsoft.com/playwright:v$(shell node -p "require('@playwright/test/package.json').version")-noble
+screenshots-update: ## re-record viewer screenshot baselines (darwin + linux via docker) after a deliberate visual change
+	npx playwright test -c tests/visual --update-snapshots
+	docker run --rm -v "$(PLUGIN_DIR)":/work -v /work/node_modules -v /work/app/node_modules -w /work $(PW_IMAGE) \
+		bash -c "npm ci --no-audit --no-fund >/dev/null && npx playwright test -c tests/visual --update-snapshots"
 
 CASES ?=
 RUNS  ?= 1

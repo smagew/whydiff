@@ -14,6 +14,7 @@ make run-<fixture>    # prepare a fixture and open Claude there with THIS workin
 make serve-<fixture>  # serve a fixture's map with the live ask/Generate UI
 make bump BUMP=minor  # bump the version everywhere + open a CHANGELOG section
 make hooks            # install the pre-push version guard (.githooks)
+make screenshots-update  # re-record viewer screenshot baselines after a DELIBERATE visual change (tests/visual/README.md)
 make eval             # score the ANALYSIS on known fixtures — costs tokens, on demand only (evals/README.md)
 ```
 

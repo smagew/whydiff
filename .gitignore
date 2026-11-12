@@ -8,3 +8,5 @@ examples-private/
 coverage/
 .nyc_output/
 evals/results/
+test-results/
+playwright-report/
