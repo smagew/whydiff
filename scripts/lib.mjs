@@ -3,6 +3,7 @@
 import { execFileSync } from 'node:child_process'
 import { readFileSync, appendFileSync, existsSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
+import { checkSchema } from './schema-check.mjs'
 
 /**
  * Appends a timing event to <dir>/timing.jsonl. By default it only logs when
@@ -22,12 +23,17 @@ export function logTiming(dir, event, meta = {}, { create = false } = {}) {
  * completeness is enforced by script, not by the LLM).
  * Returns an array of error strings; empty means valid.
  */
-export function validateStructure(rm) {
+export function validateStructure(rm, { schema = true } = {}) {
   const errors = []
   for (const key of ['meta', 'intent', 'story', 'groups', 'files', 'edges', 'manifest']) {
     if (!rm[key]) errors.push(`missing required section: ${key}`)
   }
   if (errors.length) return errors
+  // Shape, from schema/review-map.schema.json: every required field, type and enum.
+  // The cross-reference checks below cannot see a group without a name or an ops
+  // entry that is an object — and the viewer renders those as "undefined" /
+  // "[object Object]".
+  if (schema) errors.push(...checkSchema(rm))
 
   const filePaths = new Set(Object.keys(rm.files))
   for (const row of rm.manifest) {

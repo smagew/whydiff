@@ -165,6 +165,39 @@ let wrote = true
 try { readFileSync(join(wd, 'review-map.json')) } catch { wrote = false }
 check(!wrote, 'merge.mjs must not write a map that does not validate')
 
+const runMerge = () => {
+  try { execFileSync('node', [join(root, 'scripts', 'merge.mjs'), '--repo', repo], { encoding: 'utf8', stdio: 'pipe' }); return { ok: true, err: '' } }
+  catch (e) { return { ok: false, err: `${e.stdout || ''}${e.stderr || ''}` } }
+}
+const baseNarrative = { meta: { lang: 'en', ref: 'working tree', title: 'Merge test' }, intent: 'A test change.', story: [] }
+
+// ── group metadata nobody supplied: refuse, and say where it belongs ─────────
+// Seen in a real run: the orchestrator passed GROUPS: to the classifier (which then
+// rightly emitted { id, files } only) but wrote narrative.json without `groups`. The
+// map went out with nameless groups and the viewer printed "undefined" as headings.
+w('narrative.json', baseNarrative)
+w('classifier-b.json', { files: { 'fresh.txt': { service: 'core', role: 'new', why: 'brand new file' } }, groups: [{ id: 'g2', files: ['fresh.txt'] }], edges: [] })
+let r = runMerge()
+check(!r.ok, 'merge.mjs must refuse a map whose groups carry no name/role/why')
+check(/g1/.test(r.err) && /narrative\.json/.test(r.err) && /\bname\b/.test(r.err),
+  `the refusal must name the group, the missing field and narrative.json, got:\n${r.err}`)
+
+// ── ops lists are strings; an agent's { name, note } objects are flattened ───
+// The classifier emitted migrations as objects; the viewer rendered "[object Object]".
+w('narrative.json', { ...baseNarrative, groups: [{ id: 'g1', name: 'One', role: 'read', why: 'w' }, { id: 'g2', name: 'Two', role: 'context', why: 'w' }] })
+w('classifier-b.json', {
+  files: { 'fresh.txt': { service: 'core', role: 'new', why: 'brand new file' } }, groups: [{ id: 'g2', files: ['fresh.txt'] }], edges: [],
+  ops: { env: [], migrations: [{ name: '0806_add_flag', note: 'adds a nullable column' }, 'plain string'], deploy: [{ step: 'run migrate' }] },
+})
+r = runMerge()
+check(r.ok, `merge.mjs must accept object-form ops entries by flattening them, got:\n${r.err}`)
+if (r.ok) {
+  const m2 = JSON.parse(readFileSync(join(wd, 'review-map.json'), 'utf8'))
+  check(JSON.stringify(m2.ops.migrations) === JSON.stringify(['0806_add_flag — adds a nullable column', 'plain string']),
+    `ops.migrations must be strings, got ${JSON.stringify(m2.ops.migrations)}`)
+  check(JSON.stringify(m2.ops.deploy) === JSON.stringify(['run migrate']), `ops.deploy must be strings, got ${JSON.stringify(m2.ops.deploy)}`)
+}
+
 rmSync(repo, { recursive: true, force: true })
 if (failures) { console.error(`\n${failures} check(s) failed`); process.exit(1) }
 console.log(`OK: merge.mjs contract (${paths.length} files, ${rm.groups.length} groups, ${rm.edges.length} edges)`)

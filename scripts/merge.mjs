@@ -95,6 +95,7 @@ if (dropped.length) console.warn(`warning: ${dropped.length} described file(s) a
 // ── groups: metadata from the orchestrator, membership from the shards ────────
 // Seeding from narrative.json keeps name/role/why authored once instead of once
 // per shard, and keeps shards from describing the same group three different ways.
+const GROUP_META = ['name', 'role', 'tag', 'why', 'collapsed']
 const groups = []
 const byId = new Map()
 for (const g of narrative.groups || []) {
@@ -105,8 +106,10 @@ for (const g of narrative.groups || []) {
 for (const { data } of shards) {
   for (const g of data.groups || []) {
     const seen = byId.get(g.id)
-    if (!seen) { const copy = { ...g, files: [...(g.files || [])] }; byId.set(g.id, copy); groups.push(copy) }
-    else for (const p of g.files || []) if (!seen.files.includes(p)) seen.files.push(p)
+    if (!seen) { const copy = { ...g, files: [...(g.files || [])] }; byId.set(g.id, copy); groups.push(copy); continue }
+    for (const p of g.files || []) if (!seen.files.includes(p)) seen.files.push(p)
+    // The orchestrator's metadata wins; a shard only fills what it left out.
+    for (const k of GROUP_META) if (seen[k] == null && g[k] != null) seen[k] = g[k]
   }
 }
 
@@ -175,12 +178,21 @@ for (const { data } of shards) {
 
 // ── ops: the orchestrator's version wins; otherwise concatenate the shards ───
 const shardOps = shards.map(s => s.data.ops).filter(Boolean)
-const ops = narrative.ops || {
+const rawOps = narrative.ops || {
   env: shardOps.flatMap(o => o.env || []),
   migrations: shardOps.flatMap(o => o.migrations || []),
   deploy: shardOps.flatMap(o => o.deploy || []),
   note: shardOps.map(o => o.note).filter(Boolean).join(' '),
 }
+// migrations/deploy are lists of strings (the schema, and what the viewer renders).
+// An agent sometimes emits { name, note } objects instead — the viewer then printed
+// "[object Object]". Nothing is lost by joining an object's string fields, so do it
+// here rather than fail the run.
+const asLine = (e) => e && typeof e === 'object' && !Array.isArray(e)
+  ? Object.values(e).filter(v => typeof v === 'string' && v.trim()).join(' — ')
+  : e
+const ops = { ...rawOps }
+for (const k of ['migrations', 'deploy']) if (Array.isArray(ops[k])) ops[k] = ops[k].map(asLine)
 
 // ── assemble ──────────────────────────────────────────────────────────────────
 const intent = narrative.intent || shards.map(s => s.data.intent).find(Boolean)
@@ -226,7 +238,13 @@ const rm = {
 
 // The same two checks validate.mjs runs, so a map merge.mjs wrote needs no second
 // validate pass unless someone edits it afterwards.
-const errors = [...validateStructure(rm), ...crossCheckManifest(rm, repo, ref)]
+// A group's name/role/why come from narrative.json `groups` (or a shard that wrote a
+// full group object). When neither did — the orchestrator passed GROUPS: to the
+// classifier, which rightly emitted { id, files }, then left `groups` out of the
+// narrative — say exactly where the metadata belongs; the viewer would otherwise
+// show the group with no heading.
+const nameless = liveGroups.flatMap(g => ['name', 'role', 'why'].filter(k => typeof g[k] !== 'string' || !g[k].trim()).map(k => `group ${g.id}: no "${k}" — add { "id": "${g.id}", "name", "role", "why" } to "groups" in ${WORKDIR}/narrative.json (the list you passed the classifier as GROUPS:)`))
+const errors = [...nameless, ...validateStructure(rm).filter(e => !/^\$\.groups\[\d+\]: missing required "(name|role|why)"$/.test(e)), ...crossCheckManifest(rm, repo, ref)]
 if (errors.length) {
   console.error(errors.map(e => '- ' + e).join('\n'))
   console.error(`\nFAILED: the merged map has ${errors.length} error(s); nothing written`)

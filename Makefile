@@ -82,9 +82,9 @@ serve-%: ## serve fixture <name>'s map with live Q&A (asks via `claude -p`)
 # official Playwright image (-linux), which is the image CI runs in (pixel parity).
 PW_IMAGE := mcr.microsoft.com/playwright:v$(shell node -p "require('@playwright/test/package.json').version")-noble
 screenshots-update: ## re-record viewer screenshot baselines (darwin + linux via docker) after a deliberate visual change
-	npx playwright test -c tests/visual --update-snapshots
+	npx playwright test -c tests/visual --update-snapshots=all
 	docker run --rm -v "$(PLUGIN_DIR)":/work -v /work/node_modules -v /work/app/node_modules -w /work $(PW_IMAGE) \
-		bash -c "npm ci --no-audit --no-fund >/dev/null && npx playwright test -c tests/visual --update-snapshots"
+		bash -c "npm ci --no-audit --no-fund >/dev/null && npx playwright test -c tests/visual --update-snapshots=all"
 
 CASES ?=
 RUNS  ?= 1

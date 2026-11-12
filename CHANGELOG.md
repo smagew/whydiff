@@ -4,6 +4,40 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.47.2] — 2026-11-12
+
+### Fixed
+- **Groups no longer show "undefined" as their heading.** A run passed `GROUPS:` to the
+  classifier, which then (by design) wrote groups as `{ id, files }`, and the
+  orchestrator left `groups` out of `narrative.json`. Nothing checked required fields,
+  so the map passed as "structure valid" and the Files overview, the group drill-down
+  and the help legend printed "undefined". The map is now held to
+  `schema/review-map.schema.json`: `merge.mjs` and `validate.mjs` refuse a map that
+  drifts from it (required fields, types, enums), via a dependency-free checker
+  (`scripts/schema-check.mjs`). For a nameless group, `merge.mjs` says what to add to
+  `narrative.json`, and the skill now states that `groups` is required there whenever
+  `GROUPS:` was passed.
+- **Ops no longer shows "[object Object]".** The classifier sometimes writes
+  `ops.migrations` / `ops.deploy` as `{ name, note }` objects. `merge.mjs` flattens them
+  to strings.
+- **Old maps render cleanly.** `assemble.mjs` only warns about schema drift, so a map
+  saved by an earlier run still opens. The viewer normalises it at load: a nameless
+  group shows its id, and object entries are flattened. Guarded by
+  `tests/viewer-degrade.mjs`: no "undefined" or "[object Object]" on any tab or Files
+  mode.
+- **File names in the Files navigator are never torn mid-word.** Paths wrapped at any
+  character ("aut / h.ts", "rateLimit.t / s" on Linux), and the Files list cut the end
+  of the path, which hid the file name. The directory is now muted and gives way first,
+  with an ellipsis on a single line. The file name is always whole; when it is longer
+  than the column it breaks only after `-`, `.` or `_`. The full path shows on hover.
+  Guarded by `tests/file-paths.mjs`, which checks every character's rendered line.
+
+### Changed
+- **Screenshot tests catch smaller changes.** The budget is now `maxDiffPixels: 100`
+  instead of 0.2% of the page: the path change above (~2,700px) passed under the old
+  ratio. Same-platform renders proved byte-identical, so there is no noise to absorb.
+  `make screenshots-update` re-records with `--update-snapshots=all`.
+
 ## [0.47.1] — 2026-11-12
 
 ### Fixed
