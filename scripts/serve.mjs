@@ -25,6 +25,7 @@ import { randomBytes } from 'node:crypto'
 import { resolve, dirname, join, sep, isAbsolute } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { anchorOffers, appendEvents, coverage, migrateThreads, newId, readReview, threadOf, turns, REVIEW_LOG } from './review.mjs'
+import { LANG_RE, readCatalog, writeCatalog, plan as trPlan, chunks as trChunks, promptFor as trPromptFor, parseReply, mergeReply } from './translate.mjs'
 
 const args = process.argv.slice(2)
 const jsonPath = args.find(a => !a.startsWith('--'))
@@ -288,9 +289,10 @@ const DENY_WRITES = 'Edit,Write,NotebookEdit,Bash,Task,Agent'
 // Only the worker gets these, and only inside a throwaway worktree: editing is the
 // job there, and the shell is what lets it run the test its criterion names.
 const WRITE_TOOLS = 'Read,Grep,Glob,Edit,Write,Bash'
-const run = (prompt, on, { cwd = repo, tools = READ_ONLY_TOOLS, deny = DENY_WRITES, timeout = timeoutMs } = {}) => new Promise((ok, no) => {
+const run = (prompt, on, { cwd = repo, tools = READ_ONLY_TOOLS, deny = DENY_WRITES, timeout = timeoutMs, model = '' } = {}) => new Promise((ok, no) => {
   const child = spawn(claudeCmd, [
     '-p', prompt,
+    ...(model ? ['--model', model] : []),
     '--allowedTools', tools,
     ...(deny ? ['--disallowedTools', deny] : []),
     '--output-format', 'stream-json', '--include-partial-messages', '--verbose',
@@ -735,6 +737,54 @@ const generateSection = async (res, payload) => {
   } finally { inFlight--; res.end() }
 }
 
+// ── translating the report on demand ───────────────────────────────────────────
+// Only when the reader asks (the language menu's Translate), never as part of a run: it
+// is a paid model call. The strings go out in batches of CHUNK, a few at a time, each a
+// read-only call with no repo access needed (the text is in the prompt). Each batch is
+// saved as it lands, so a stopped run resumes where it ended and an update after a
+// Generate sends only the new text. The map itself is never touched.
+const TRANSLATE_PARALLEL = 3
+const translateReport = async (res, payload) => {
+  const lang = String(payload.lang || '')
+  if (!LANG_RE.test(lang)) return json(res, 400, { error: 'lang wants a language code such as de, ru or pt-BR' })
+  let map
+  try { map = JSON.parse(readFileSync(mapPath, 'utf8')) } catch (e) { return json(res, 500, { error: e.message }) }
+  if ((map.meta?.lang || 'en') === lang) return json(res, 400, { error: `the report is already in ${lang}` })
+  const cat = readCatalog(reviewDir, lang)
+  const p = trPlan(map, cat)
+  res.writeHead(200, { 'content-type': 'application/x-ndjson; charset=utf-8', 'cache-control': 'no-cache', 'x-accel-buffering': 'no' })
+  const emit = (o) => { try { res.write(JSON.stringify(o) + '\n') } catch {} }
+  inFlight++
+  process.stdout.write(`  + translate ${lang} (${p.items.length} strings)\n`)
+  try {
+    const batches = trChunks(p.items)
+    let done = 0, taken = 0, refused = 0, failed = 0
+    emit({ kind: 'progress', done, total: batches.length })
+    const queue = [...batches]
+    const worker = async () => {
+      for (let b; (b = queue.shift());) {
+        try {
+          const reply = parseReply(await run(trPromptFor(lang, b), () => {}, { tools: 'Read', timeout: genTimeoutMs, model: 'sonnet' }))
+          if (!reply) throw new Error('the reply held no JSON object')
+          const r = mergeReply(cat, p, reply)
+          taken += r.taken; refused += r.refused
+          writeCatalog(reviewDir, cat)
+        } catch (e) { failed++; process.stdout.write(`  ! translate batch: ${e.message}\n`) }
+        emit({ kind: 'progress', done: ++done, total: batches.length })
+      }
+    }
+    await Promise.all(Array.from({ length: Math.min(TRANSLATE_PARALLEL, batches.length) }, worker))
+    if (!taken && p.items.length) throw new Error(failed ? 'every batch failed — see the server log' : 'nothing came back translated')
+    writeCatalog(reviewDir, cat)
+    rebuildPage()
+    process.stdout.write(`  ✓ translated ${lang}: ${taken} strings${refused ? `, ${refused} kept in the original` : ''}${failed ? `, ${failed} batch(es) failed` : ''}\n`)
+    emit({ kind: 'done', lang, taken, refused, failedBatches: failed })
+  } catch (e) {
+    process.stdout.write(`  ✗ translate ${lang}: ${e.message}\n`)
+    emit({ kind: 'error', error: e.message })
+  } finally { inFlight--; res.end() }
+}
+
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost')
   if (url.pathname === '/' || url.pathname === '/index.html') {
@@ -780,6 +830,7 @@ const server = createServer(async (req, res) => {
   if (url.pathname === '/api/instruct') return exchange(res, payload, 'instruct')
   if (url.pathname === '/api/propose') return exchange(res, payload, 'propose')
   if (url.pathname === '/api/generate') return generateSection(res, payload)
+  if (url.pathname === '/api/translate') return translateReport(res, payload)
 
   if (url.pathname === '/api/work' || url.pathname === '/api/apply') {
     if (!workMode) return json(res, 403, { error: 'this server was started without --work: it reads and plans, it does not change the repo' })

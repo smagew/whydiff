@@ -53,10 +53,16 @@ chaining or substitution — goes through the normal permission flow
 /whydiff HEAD~3             # a commit range
 /whydiff main..feature      # any git range
 /whydiff lang:de            # write the report in German (any language code: ru, pt-BR…)
+/whydiff translate:fr       # translate the map already in .whydiff/ into French
 ```
 
 Without `lang:` the report is written in the language you talk to Claude in. The
 desktop app has a **Report language** setting for the same choice.
+
+A finished report can be translated later from its title bar: the language button
+lists the original and every translation, and in the app or under `whydiff serve`
+offers **Translate to…** with an estimate first. Only the report's text is sent, the
+map is never rewritten, and switching languages is instant.
 
 The run **serves** the map on `http://127.0.0.1:<port>/` and opens it in your
 browser. Served means live: you can ask about any part of it, pin notes, instruct a

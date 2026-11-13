@@ -302,6 +302,30 @@
   .pdf-pop a.pp-get { color: var(--accent); text-decoration: none; font-weight: 500; display: inline-block; margin-top: 9px; }
   .pdf-pop .pp-all { display: block; margin-top: 6px; }
   .pdf-pop .pp-all a { color: var(--muted); text-decoration: none; font-size: 13px; }
+  /* Report language: a title-bar button (same family as PDF) and its popover. */
+  .langpick { position: relative; }
+  .lang-pop { position: absolute; top: calc(100% + 6px); right: 0; z-index: 60; width: 300px;
+    font-size: 13px; line-height: 1.5; color: var(--ink-2);
+    background: var(--surface); border: 1px solid var(--line-strong); border-radius: 5px; padding: 8px; }
+  .lang-pop[hidden] { display: none; }
+  .lang-pop .lp-head { font-weight: 500; color: var(--ink); padding: 2px 6px 6px; }
+  .lang-pop .lp-opt { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; font: inherit; font-size: 13px;
+    color: var(--ink); background: none; border: 0; border-radius: 3px; padding: 5px 6px; cursor: pointer; }
+  .lang-pop .lp-opt:hover, .lang-pop .lp-opt:focus-visible { background: var(--surface-2); outline: none; }
+  .lang-pop .lp-opt .lp-dot { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--line-strong); flex: none; }
+  .lang-pop .lp-opt[aria-checked="true"] .lp-dot { border-color: var(--accent); background: var(--accent); }
+  .lang-pop .lp-opt .lp-note { margin-left: auto; color: var(--ink-3); }
+  .lang-pop .lp-tr { border-top: 1px solid var(--line); margin-top: 6px; padding: 8px 6px 2px; display: grid; gap: 7px; }
+  .lang-pop .lp-row { display: flex; gap: 6px; align-items: center; }
+  .lang-pop select { flex: 1; min-width: 0; font: inherit; font-size: 13px; color: var(--ink); background: var(--surface-2);
+    border: 1px solid var(--line); border-radius: 3px; padding: 5px 6px; }
+  .lang-pop .btn { padding: 5px 12px; }
+  .lang-pop .btn:disabled { opacity: .5; cursor: default; }
+  .lang-pop .lp-est, .lang-pop .lp-live { color: var(--ink-3); }
+  .lang-pop .lp-err { color: var(--del-ink, var(--ink)); }
+  .lang-pop .lp-prog { height: 3px; background: var(--line); border-radius: 2px; overflow: hidden; }
+  .lang-pop .lp-prog > i { display: block; height: 100%; width: 0; background: var(--accent); transition: width var(--t); }
+  .lang-pop .lp-prog[hidden], .lang-pop .lp-err[hidden] { display: none; }
   .fs-app { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-3); text-decoration: none; }
   .fs-app:hover { color: var(--accent); }
   .fs-app svg { width: 14px; height: 14px; flex: none; }
@@ -1294,7 +1318,8 @@
   .sidebar :is(.tab, .help-btn) { position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; width: 100%; padding: 8px 2px 7px;
     border: none; border-radius: 3px; background: none; color: var(--ink-2); font-size: 13px; font-weight: 400; text-align: center; line-height: 1.25; }
   .sidebar :is(.tab, .help-btn) svg.ti { width: 22px; height: 22px; flex: none; }
-  .sidebar :is(.tab, .help-btn) .tl { overflow-wrap: anywhere; }
+  /* A long word (a translated "Zusammenfassung") breaks with a hyphen where the language allows. */
+  .sidebar :is(.tab, .help-btn) .tl { overflow-wrap: anywhere; hyphens: auto; -webkit-hyphens: auto; }
   .sidebar :is(.tab, .help-btn) .cnt { position: absolute; top: 3px; right: 6px; margin: 0; opacity: 1; font-family: var(--ui); font-size: 13px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
   .sidebar :is(.tab, .help-btn) .cnt.hot { color: var(--flag); }
   .sidebar :is(.tab, .help-btn):hover { background: var(--sunken); color: var(--ink); }
@@ -1598,7 +1623,42 @@ __VIEWER_LOGIC__
 // annotation subsystem below runs read-only: it renders the notes but offers no ask/edit.
 window.__WHYDIFF_THREADS__ = __THREADS__
 window.__WHYDIFF_REVIEW__ = __REVIEW__
-const RM = normalizeMap(__REVIEW_MAP_JSON__)
+// Translations of this report: { <lang>: { strings, ui } } (assemble.mjs reads them from
+// .whydiff/translations/). The language a reader picked is remembered per map; the map is
+// shown with that catalog laid over it (applyTranslation), never rewritten. A language
+// with no catalog any more falls back to the original.
+const TRANSLATIONS = __TRANSLATIONS__ || {}
+const RM_SOURCE = __REVIEW_MAP_JSON__
+const SOURCE_LANG = RM_SOURCE?.meta?.lang || 'en'
+const VIEW_LANG_KEY = `whydiff:${RM_SOURCE?.meta?.project}:${RM_SOURCE?.meta?.ref}`
+const VIEW_LANG = (() => {
+  try { const l = (JSON.parse(localStorage.getItem(VIEW_LANG_KEY)) || {}).viewLang; return l && TRANSLATIONS[l] ? l : '' } catch { return '' }
+})()
+const RM = normalizeMap(VIEW_LANG ? applyTranslation(RM_SOURCE, TRANSLATIONS[VIEW_LANG].strings) : RM_SOURCE)
+if (VIEW_LANG) { RM.meta.lang = VIEW_LANG; RM.meta.sourceLang = SOURCE_LANG }
+// A translated diagram label → its original, so a note pinned to a node in one language
+// finds the node in another (node anchors are keyed by the label's slug).
+// A translated report swaps in its own diagram cards (baked by assemble.mjs per language)
+// before anything reads or renders them.
+if (VIEW_LANG) {
+  const tpl = document.querySelector(`#pane-diagrams template[data-dg-lang="${CSS.escape(VIEW_LANG)}"]`)
+  if (tpl) {
+    for (const d of document.querySelectorAll('#pane-diagrams > .diagram')) d.remove()
+    tpl.before(tpl.content.cloneNode(true))
+  }
+}
+const DG_LABEL_ORIGIN = new Map()
+// The label a node anchor is keyed by: the original one, whatever language is shown.
+function labelOrigin(t) { return DG_LABEL_ORIGIN.get(t) || t }
+if (VIEW_LANG) {
+  // A <br/> reads as a space or as nothing in the drawn node's text, depending on the
+  // diagram type, so both spellings lead back to the original.
+  const norm = (t, br) => String(t).replace(/<br\s*\/?>/gi, br).replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim()
+  for (const [id, e] of Object.entries(TRANSLATIONS[VIEW_LANG].strings || {})) {
+    if (!id.includes('"mermaid"') || !e || typeof e.text !== 'string') continue
+    for (const br of [' ', '']) DG_LABEL_ORIGIN.set(norm(mmSafe(e.text), br), norm(e.src, br))
+  }
+}
 // The storyboard's card icons (a Lucide subset, ISC — templates/storyboard-icons.LICENSE.md).
 const STORY_ICONS = __STORY_ICONS__
 
@@ -1782,6 +1842,13 @@ const I18N = {
     groupMarkRead: 'Mark all files in this group read', groupMarkUnread: 'Mark all files in this group unread',
     groupFocus: 'Focus this group — hide the rest (Esc to exit)',
     setPalette: 'Palette', setDiff: 'Diff colours',
+    langBtn: 'Language', langHead: 'Report language', langOriginal: 'original', langTranslation: 'translation',
+    langTranslateTo: 'Translate to', langTranslate: 'Translate', langUpdate: 'Update', langTranslating: 'Translating…',
+    langEstimate: (n, k) => `${n} strings, about ${k}k tokens on Sonnet. Nothing runs until you click Translate.`,
+    langStale: (n) => n === 1 ? '1 string is new since this translation and shows in the original.' : `${n} strings are new since this translation and show in the original.`,
+    langProgress: (d, t) => `Translating: ${d} of ${t} batches`,
+    langUpToDate: 'This translation is complete.',
+    langFailed: 'Translation failed', langNeedsLive: 'Translating needs the whydiff app, or the map served with whydiff serve. Translations made there travel inside this file.',
     diffPal: { quiet: 'one hue', safe: 'colourblind-safe', classic: 'classic' },
   },
   ru: {
@@ -1955,10 +2022,20 @@ const I18N = {
     groupMarkRead: 'Пометить все файлы группы прочитанными', groupMarkUnread: 'Снять отметку со всех файлов группы',
     groupFocus: 'Фокус на группе — скрыть остальные (Esc — выход)',
     setPalette: 'Палитра', setDiff: 'Цвета диффа',
+    langBtn: 'Язык', langHead: 'Язык отчёта', langOriginal: 'оригинал', langTranslation: 'перевод',
+    langTranslateTo: 'Перевести на', langTranslate: 'Перевести', langUpdate: 'Обновить', langTranslating: 'Перевожу…',
+    langEstimate: (n, k) => `${n} ${ruN(n, 'строка', 'строки', 'строк')}, около ${k} тыс. токенов на Sonnet. Ничего не запускается, пока вы не нажмёте «Перевести».`,
+    langStale: (n) => `${n} ${ruN(n, 'строка появилась', 'строки появились', 'строк появилось')} после этого перевода и ${n === 1 ? 'показана' : 'показаны'} в оригинале.`,
+    langProgress: (d, t) => `Перевожу: ${d} из ${t} частей`,
+    langUpToDate: 'Этот перевод полный.',
+    langFailed: 'Перевод не удался', langNeedsLive: 'Для перевода нужно приложение whydiff или карта, открытая через whydiff serve. Сделанные там переводы сохраняются внутри этого файла.',
     diffPal: { quiet: 'один тон', safe: 'безопасные', classic: 'классические' },
   },
 }
-const L = I18N[RM.meta.lang] || I18N.en
+// A language the viewer has no table for takes the labels its translation carried
+// (uiTable rebuilds the counted ones); anything missing stays English.
+const L = I18N[RM.meta.lang] || (VIEW_LANG && TRANSLATIONS[VIEW_LANG].ui ? uiTable(I18N.en, TRANSLATIONS[VIEW_LANG].ui) : I18N.en)
+document.documentElement.lang = RM.meta.lang || 'en'
 
 // ── group palette: color assigned by group ordinal ──────────────────────────
 const groupIndex = {}
@@ -2638,11 +2715,19 @@ async function runDiagramsOnce() {
   // exception, or the bomb graphic injected in place (parse can pass where render
   // fails). Any failure becomes the readable fallback instead.
   for (const n of pres) {
-    const src = n.dataset.src ?? n.textContent
+    let src = n.dataset.src ?? n.textContent
     n.dataset.src = src
     const box = n.closest('.mermaid-box')
-    let ok = true
-    try { ok = await mermaid.parse(src, { suppressErrors: true }) } catch { ok = false }
+    const parses = async (t) => { try { return await mermaid.parse(t, { suppressErrors: true }) } catch { return false } }
+    let ok = await parses(src)
+    // A translated diagram that does not parse is drawn from its original source:
+    // the labels stay in the original language, the picture stays whole.
+    if (!ok && n.dataset.srcOrig) {
+      src = n.dataset.src = n.dataset.srcOrig
+      delete n.dataset.srcOrig
+      n.dataset.untranslated = ''
+      ok = await parses(src)
+    }
     if (!ok) { if (box) renderBrokenDiagram(box, src); continue }
     n.textContent = src
     n.removeAttribute('data-processed')
@@ -3754,6 +3839,102 @@ for (const v of PALETTES) {
   b.addEventListener('click', () => applyPalette(v))
   themePick.appendChild(b)
 }
+// ── report language: the original, its translations, and Translate (live only) ──
+// A translation is made on demand by the server (/api/translate) and kept beside the map;
+// switching is a reload with the chosen catalog laid over the map. A standalone file lists
+// the translations it carries and says where new ones are made.
+{
+  const LIVE_TR = window.__WHYDIFF_SERVE__?.token ? window.__WHYDIFF_SERVE__ : null
+  const have = Object.keys(TRANSLATIONS)
+  if (LIVE_TR || have.length) {
+    const name = (l) => LANGUAGE_NAMES[l] || LANGUAGE_NAMES[l.split('-')[0]] || l
+    const wrap = document.createElement('div'); wrap.className = 'langpick'
+    const btn = document.createElement('button')
+    btn.className = 'content-pdf lang-btn'; btn.type = 'button'
+    btn.setAttribute('aria-haspopup', 'dialog'); btn.setAttribute('aria-expanded', 'false')
+    btn.title = L.langHead
+    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18a14 14 0 0 1 0-18"/></svg>' +
+      `<span>${esc(name(RM.meta.lang || SOURCE_LANG))}</span>`
+    const pop = document.createElement('div'); pop.className = 'lang-pop'; pop.hidden = true
+    pop.setAttribute('role', 'dialog'); pop.setAttribute('aria-label', L.langHead)
+    const opt = (l, note) => `<button type="button" class="lp-opt" role="radio" data-lang="${esc(l)}" aria-checked="${(VIEW_LANG || SOURCE_LANG) === l}"><span class="lp-dot"></span>${esc(name(l))}<span class="lp-note">${esc(note)}</span></button>`
+    const stale = VIEW_LANG ? untranslated(RM_SOURCE, TRANSLATIONS[VIEW_LANG].strings).length : 0
+    const targets = Object.keys(LANGUAGE_NAMES).filter(l => l !== SOURCE_LANG)
+    // Offer a stale translation first (it has new text to catch up), else a language not yet made.
+    const firstTarget = (VIEW_LANG && stale ? VIEW_LANG : targets.find(l => !TRANSLATIONS[l])) || targets[0]
+    pop.innerHTML = `<div class="lp-head">${esc(L.langHead)}</div>
+      <div role="radiogroup" aria-label="${esc(L.langHead)}">${opt(SOURCE_LANG, L.langOriginal)}${have.filter(l => l !== SOURCE_LANG).map(l => opt(l, L.langTranslation)).join('')}</div>
+      ${stale ? `<div class="lp-tr"><div class="lp-live">${esc(L.langStale(stale))}</div></div>` : ''}
+      <div class="lp-tr">${LIVE_TR ? `
+        <label class="lp-row"><span>${esc(L.langTranslateTo)}</span><select class="lp-sel">${targets.map(l => `<option value="${esc(l)}"${l === firstTarget ? ' selected' : ''}>${esc(name(l))}</option>`).join('')}</select></label>
+        <div class="lp-row"><button type="button" class="btn primary lp-go">${esc(L.langTranslate)}</button></div>
+        <div class="lp-est"></div><div class="lp-prog" hidden><i></i></div><div class="lp-err" hidden></div>`
+        : `<div class="lp-live">${esc(L.langNeedsLive)}</div>`}</div>`
+    wrap.append(btn, pop)
+    document.getElementById('tbRight').appendChild(wrap)
+    const radios = [...pop.querySelectorAll('.lp-opt')]
+    const open = (on) => {
+      pop.hidden = !on; btn.setAttribute('aria-expanded', String(on))
+      if (on) (radios.find(r => r.getAttribute('aria-checked') === 'true') || radios[0])?.focus()
+    }
+    btn.addEventListener('click', () => open(pop.hidden))
+    document.addEventListener('click', (e) => { if (!pop.hidden && !wrap.contains(e.target)) open(false) }, true)
+    pop.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { open(false); btn.focus(); return }
+      const i = radios.indexOf(document.activeElement)
+      if (i >= 0 && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) { e.preventDefault(); radios[(i + (e.key === 'ArrowDown' ? 1 : radios.length - 1)) % radios.length].focus() }
+    })
+    const choose = (l) => { SESSION.set('viewLang', l === SOURCE_LANG ? '' : l); location.reload() }
+    for (const r of radios) r.addEventListener('click', () => { if (r.getAttribute('aria-checked') !== 'true') choose(r.dataset.lang) })
+    if (LIVE_TR) {
+      const sel = pop.querySelector('.lp-sel'), go = pop.querySelector('.lp-go'), est = pop.querySelector('.lp-est')
+      const prog = pop.querySelector('.lp-prog'), bar = prog.querySelector('i'), err = pop.querySelector('.lp-err')
+      // What a run would send: the strings this language's catalog lacks, plus the viewer's
+      // labels for a language it has no table for. Tokens ≈ chars/3 each way + a prompt per batch.
+      const UI_COUNT = 330
+      const estimate = () => {
+        const l = sel.value, cat = TRANSLATIONS[l]
+        const todo = untranslated(RM_SOURCE, cat?.strings || {})
+        const uniq = new Set(todo.map(t => t.text))
+        const chars = [...uniq].reduce((a, t) => a + t.length, 0)
+        const ui = I18N[l] || cat?.ui ? 0 : UI_COUNT
+        const n = uniq.size + ui
+        go.textContent = cat ? L.langUpdate : L.langTranslate
+        go.disabled = !n
+        est.textContent = n ? L.langEstimate(n, Math.max(1, Math.round(((chars + ui * 26) * 2 / 3 + Math.ceil(n / 80) * 1200) / 1000))) : L.langUpToDate
+      }
+      sel.addEventListener('change', estimate)
+      estimate()
+      go.addEventListener('click', async () => {
+        const l = sel.value
+        go.disabled = sel.disabled = true; go.textContent = L.langTranslating
+        err.hidden = true; prog.hidden = false; bar.style.width = '4%'
+        try {
+          const res = await fetch('/api/translate', { method: 'POST', headers: { 'content-type': 'application/json', 'x-whydiff-token': LIVE_TR.token }, body: JSON.stringify({ lang: l }) })
+          if (res.headers.get('content-type')?.includes('application/json')) { const j = await res.json(); throw new Error(j.error || `HTTP ${res.status}`) }
+          const reader = res.body.getReader(), dec = new TextDecoder()
+          let buf = ''
+          for (;;) {
+            const { value, done } = await reader.read()
+            if (done) break
+            buf += dec.decode(value, { stream: true })
+            const lines = buf.split('\n'); buf = lines.pop()
+            for (const ln of lines) {
+              let ev; try { ev = JSON.parse(ln) } catch { continue }
+              if (ev.kind === 'progress' && ev.total) { bar.style.width = Math.max(4, Math.round(100 * ev.done / ev.total)) + '%'; est.textContent = L.langProgress(ev.done, ev.total) }
+              else if (ev.kind === 'error') throw new Error(ev.error)
+              else if (ev.kind === 'done') return choose(l)
+            }
+          }
+          throw new Error('the server closed the stream')
+        } catch (e) {
+          err.hidden = false; err.textContent = `${L.langFailed}: ${e.message}`
+          prog.hidden = true; sel.disabled = false; estimate()
+        }
+      })
+    }
+  }
+}
 document.getElementById('tbRight').appendChild(themePick)
 const syncThemePick = () => {
   const cur = document.documentElement.dataset.p || 'graphite'
@@ -4653,7 +4834,7 @@ if (SERVE?.token || EMBEDDED) (() => {
         } else {
           // Node: match the label slug, convert its screen position to SVG user coords, drop the
           // locator there.
-          const node = dgNodes(box).find((n) => nslug(nodeText(n).slice(0, 90)).slice(0, 40) === tail)
+          const node = dgNodes(box).find((n) => nslug(labelOrigin(nodeText(n)).slice(0, 90)).slice(0, 40) === tail)
           const ctm = svg.getScreenCTM && svg.getScreenCTM()
           if (node && ctm) {
             const b = node.getBoundingClientRect()
@@ -4856,7 +5037,7 @@ if (SERVE?.token || EMBEDDED) (() => {
   const dgNodes = (scope) => [...scope.querySelectorAll(DG_NODE_SEL)]
   const nodeAnchor = (dg, i, label) => ({
     kind: 'diagram-node',
-    key: `diagram:${i}:${nslug(label).slice(0, 40)}`,
+    key: `diagram:${i}:${nslug(labelOrigin(label)).slice(0, 40)}`,
     label: `${dg.querySelector('h3')?.textContent || ''} → ${label}`,
     files: filesOf(dg),
     context: `Node "${label}" in this diagram:\n${dgSource(i)}`,
@@ -4943,7 +5124,7 @@ if (SERVE?.token || EMBEDDED) (() => {
         } else {
           // A node anchor: find the node whose label slug matches the key's tail.
           const slug = key.slice(`diagram:${i}:`.length)
-          const node = svgNodes.find(n => nslug(nodeText(n).slice(0, 90)).slice(0, 40) === slug)
+          const node = svgNodes.find(n => nslug(labelOrigin(nodeText(n)).slice(0, 90)).slice(0, 40) === slug)
           if (!node) continue
           const b = node.getBoundingClientRect()
           place(badgesEl(e.anchor, e.chat, e.note), b.right, b.top)

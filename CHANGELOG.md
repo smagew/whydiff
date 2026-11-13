@@ -4,6 +4,11 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.54.0] — 2026-11-13
+
+### Changed
+- **Translate a finished report.** A language button in the report's title bar lists the original and every translation and switches between them instantly; in the app or under `whydiff serve` it also offers **Translate to…** with an estimate before anything runs (`/whydiff translate:de` in the plugin). Only reader-facing text is sent (descriptions, diagram and interface labels, checklists — never paths, code, ids or diagram syntax), one Sonnet pass in batches of 80, and the result is kept beside the map in `.whydiff/translations/<lang>.json`: the map itself is never rewritten. A reply that drops a `<code>` span or a `{0}` placeholder is refused and that string stays in the original; a translated diagram that would not parse draws from its original labels; after a Generate, **Update** sends only the new text; a note pinned to a diagram node shows in every language. Languages the viewer has no interface table for (all but English and Russian) get their interface labels from the same pass.
+
 ## [0.53.1] — 2026-11-13
 
 ### Fixed
