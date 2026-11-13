@@ -83,6 +83,40 @@ await page.waitForTimeout(300)
 const zoomed = await page.evaluate((s) => document.querySelector(s).classList.contains('dg-zoomed'), boxSel)
 ok(!zoomed, 'header Fit-to-width should leave zoom mode (the responsive fit-to-width default)')
 
+// GOAL — pinch / ⌘-wheel zoom is smooth: a small gesture is a small change, the zoom follows
+// how far the fingers moved (not how many events the trackpad sent), and the same gesture back
+// returns to where it started. (It used to multiply by 1.12 per EVENT: a trackpad sends dozens
+// per gesture, so a light pinch slammed to the maximum and a light one back to tiny.)
+{
+  await click('.dg-zoom [data-dg-fit="screen"]'); await page.waitForTimeout(300)
+  const w0 = (await svgSize()).w
+  const box = await page.locator(boxSel).boundingBox()
+  const cx = box.x + box.width / 2, cy = box.y + Math.min(box.height, 400) / 2
+  const pinch = async (dy, n) => {
+    await page.evaluate(({ sel, dy, n, cx, cy }) => {
+      const el = document.querySelector(sel)
+      for (let i = 0; i < n; i++) el.dispatchEvent(new WheelEvent('wheel', { deltaY: dy, deltaMode: 0, ctrlKey: true, clientX: cx, clientY: cy, bubbles: true, cancelable: true }))
+    }, { sel: boxSel, dy, n, cx, cy })
+    await page.waitForTimeout(250)
+  }
+  // a light pinch-out on a trackpad: ~20 small events
+  await pinch(-2, 20)
+  const w1 = (await svgSize()).w
+  ok(w1 > w0 * 1.02 && w1 < w0 * 1.35, `a light pinch zooms in a little, not to the max (×${(w1 / w0).toFixed(2)})`)
+  // the same gesture back returns to where it started
+  await pinch(2, 20)
+  const w2 = (await svgSize()).w
+  ok(Math.abs(w2 / w0 - 1) < 0.03, `the same pinch back returns to the start (×${(w2 / w0).toFixed(3)})`)
+  // one notch of a mouse wheel (deltaY 100 px, or 3 lines) is one modest step
+  await pinch(-100, 1)
+  const w3 = (await svgSize()).w
+  ok(w3 > w2 * 1.04 && w3 < w2 * 1.2, `one wheel notch is one modest step (×${(w3 / w2).toFixed(2)})`)
+  await page.evaluate(({ sel, cx, cy }) => document.querySelector(sel).dispatchEvent(new WheelEvent('wheel', { deltaY: -3, deltaMode: 1, ctrlKey: true, clientX: cx, clientY: cy, bubbles: true, cancelable: true })), { sel: boxSel, cx, cy })
+  await page.waitForTimeout(250)
+  const w4 = (await svgSize()).w
+  ok(w4 > w3 * 1.04 && w4 < w3 * 1.2, `a line-mode wheel notch (Firefox, Windows) is the same modest step (×${(w4 / w3).toFixed(2)})`)
+}
+
 if (errors.length) fail('page errors:\n' + errors.join('\n'))
 await browser.close()
-console.log('OK: diagram zoom — a too-tall diagram fits the screen whole; zoom in magnifies within a bounded, pannable viewport; Fit restores the whole; header Fit-to-width exits zoom')
+console.log('OK: diagram zoom — a too-tall diagram fits the screen whole; zoom in magnifies within a bounded, pannable viewport; Fit restores the whole; header Fit-to-width exits zoom; pinch/wheel zoom is proportional and reversible')

@@ -80,8 +80,14 @@ say({ type: 'result', subtype: 'success', result: 'STUB **ANSWER** (' + sawAncho
 chmodSync(stub, 0o755)
 
 const port = 7791 + (process.pid % 90)
+// "Open in editor" runs this instead of the OS opener, so the test sees the call and
+// nothing launches on the machine.
+const openLog = join(work, 'opened.txt')
+const opener = join(work, 'opener.sh')
+writeFileSync(opener, `#!/bin/sh\necho "$1" >> '${openLog}'\n`)
+chmodSync(opener, 0o755)
 const proc = spawn('node', [join(root, 'scripts', 'serve.mjs'), '--no-open', mapPath, '--repo', root, '--port', String(port), '--claude-cmd', stub],
-  { stdio: ['ignore', 'pipe', 'pipe'] })
+  { stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, WHYDIFF_OPEN_CMD: opener } })
 let out = ''
 proc.stdout.on('data', (d) => { out += d })
 proc.stderr.on('data', (d) => { out += d })
@@ -329,22 +335,21 @@ if (!declined.notes.some(n => n.kind === 'decision')) fail('the decision was not
 if (declined.counts.tasks !== 3) fail(`a declined plan opened a task anyway: ${JSON.stringify(declined.counts)}`)
 
 // ── the Tasks tab: the merge gate ─────────────────────────────────────────────
-// The review is not one of the report's tabs: it is its own destination at the end
-// of the strip, and the report's tabs are hidden while you are in it.
-if ((await page.locator('.modebar .modetab').count()) !== 2) fail('the served page has no Report/Review switch')
-if (await page.locator('#tabs .tab[data-pane="tasks"]').count()) fail('the review is still a report tab')
+// The review is one more section of the report: an item in the side bar (no separate
+// Report/Review switch), with a count of what still needs a decision.
+const reviewItem = page.locator('#sidebar #tabs .tab[data-pane="tasks"]')
+if (await page.locator('.modebar').count()) fail('the served page still has a Report/Review switch')
+if (!(await reviewItem.isVisible()) || !/Review/.test(await reviewItem.locator('.tl').textContent())) fail('Review is not a labelled section in the side bar')
 // The badge counts everything this page exists for: what blocks, what nobody has
 // decided, and what is waiting to be applied — 3 tasks plus 3 undecided findings here.
-const badge0 = await page.locator('.modebar .modetab').nth(1).locator('.cnt').textContent()
+const badge0 = await reviewItem.locator('.cnt').textContent()
 const live0 = await (await fetch(base + '/api/review', { headers: H })).json()
 const want0 = String(live0.counts.blocking + live0.coverage.open.length)
 if (badge0 !== want0) fail(`the review badge does not count what needs deciding (got "${badge0}", expected ${want0})`)
-await page.locator('.modebar .modetab').nth(1).click()
+await reviewItem.click()
 await page.waitForTimeout(200)
-if (!(await page.locator('body.reviewing').count())) fail('opening the review did not leave the report')
-if (await page.evaluate(() => !!document.querySelector('#tabs .tab[data-pane="story"]')?.offsetParent)) {
-  fail('the report tabs are still competing for attention inside the review')
-}
+if (!(await page.locator('body.reviewing').count()) || await page.locator('#pane-tasks').evaluate(e => e.hidden)) fail('the Review item did not open the review')
+if (!(await reviewItem.evaluate(t => t.classList.contains('active')))) fail('the Review item is not marked as the open section')
 const verdict = await page.locator('#tkVerdict').textContent()
 if (!/blocking 3/.test(verdict || '')) fail(`the verdict does not lead with what blocks: "${verdict}"`)
 if (!/·/.test(verdict || '')) fail(`the verdict's parts ran together: "${verdict}"`)
@@ -375,7 +380,7 @@ if (!(await page.locator('#tabs .tab[data-pane="stories"].active').count())) fai
 if (!(await page.locator('.askpanel.on').count())) fail('opening a task did not open its thread')
 
 // Declining needs a reason, and the journal is what says so.
-await page.locator('.modebar .modetab').nth(1).click()
+await reviewItem.click()
 await page.waitForTimeout(200)
 await page.locator('.tkcard .tk-decline').first().click()
 if (!(await page.locator('.tkrow .tk-do[disabled]').count())) fail('decline was offered without a reason')
@@ -385,7 +390,7 @@ await page.waitForFunction(() => document.querySelector('.tkcard.declined'), nul
   .catch(() => fail('declining did not land on the card'))
 if (!/blocking 2/.test(await page.locator('#tkVerdict').textContent())) fail('the verdict did not drop the declined task from what blocks')
 const liveAfter = await (await fetch(base + '/api/review', { headers: H })).json()
-if ((await page.locator('.modebar .modetab').nth(1).locator('.cnt').textContent()) !== String(liveAfter.counts.blocking + liveAfter.coverage.open.length)) {
+if ((await reviewItem.locator('.cnt').textContent()) !== String(liveAfter.counts.blocking + liveAfter.coverage.open.length)) {
   fail('the review badge still counts a declined task')
 }
 if (!/burst window question/.test(await page.locator('.tkcard.declined .tkmeta').textContent())) fail('the decline reason is not shown where the decision is')
@@ -398,10 +403,9 @@ if (/Reject over-limit calls/.test(clip2)) fail('the queue handed over a task th
 if (!/Guard the unshipped path/.test(clip2)) fail('the queue dropped the still-open task chosen from an option')
 
 // ── options from the UI: only on a finding, and a chosen one becomes the task ──
-// The switch is also the way back into the report.
-await page.locator('.modebar .modetab').first().click()
-if (await page.locator('body.reviewing').count()) fail('the switch did not take us back to the report')
-if (!(await page.locator('#tabs .tab[data-pane="story"]').isVisible())) fail('the report tabs did not come back')
+// Any other section takes you out of the review.
+await page.locator('#tabs .tab[data-pane="story"]').click()
+if (await page.locator('body.reviewing').count()) fail('opening another section did not leave the review')
 // Refused where there is no finding to cite: a Logic block is a place to ask about,
 // not a problem the map reported.
 await page.locator('#tabs .tab[data-pane="story"]').click()
@@ -412,7 +416,7 @@ const propBtn = page.locator('.askpanel .dk-mode button[data-mode="propose"]')
 if (await propBtn.isVisible()) fail('the Options tab showed on a Logic block, which cites no finding')
 
 // Offered where the map did report a problem — reached from the undecided list.
-await page.locator('.modebar .modetab').nth(1).click()
+await reviewItem.click()
 await page.waitForTimeout(200)
 await page.locator('.tkcard.undecided .tk-open').first().click()
 await page.waitForTimeout(500)
@@ -518,6 +522,37 @@ if (await page.evaluate(() => document.querySelector('.askpanel .dk-threads').sc
   fail('opening a thread jumped past the question to the end of the last answer')
 }
 await page.evaluate(() => scrollTo(0, 0))
+
+// ── the file menu, live: the full path, and Open in editor through the server ──
+{
+  await page.locator('#tabs .tab[data-pane="files"]').click(); await page.waitForTimeout(300)
+  const row = page.locator('#filesOverview .ft-file').first()
+  const rel = await row.getAttribute('data-path')
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write'])
+  await row.click({ button: 'right' }); await page.waitForTimeout(150)
+  const menu = page.locator('#ctxMenu')
+  if (!(await menu.locator('[data-act="copy"]').textContent()).includes('full path')) fail('live: the menu does not offer the full path')
+  await menu.locator('[data-act="copy"]').click(); await page.waitForTimeout(150)
+  const clip = await page.evaluate(() => navigator.clipboard.readText())
+  if (clip !== `${root}/${rel}`) fail(`live: "Copy full path" copied "${clip}", want "${root}/${rel}"`)
+  await row.click({ button: 'right' }); await page.waitForTimeout(150)
+  if (await menu.locator('[data-act="open"]').isDisabled()) fail('live: Open in editor is disabled')
+  await menu.locator('[data-act="open"]').click(); await page.waitForTimeout(600)
+  // The fixture map's files are not in this repo's tree: Open must say it could not, not break.
+  const toastText = await page.locator('.ctx-toast').textContent()
+  if (existsSync(join(root, rel))) {
+    if (!readFileSync(openLog, 'utf8').includes(join(root, rel))) fail(`live: Open in editor did not open ${rel}`)
+  } else if (!/Could not open/.test(toastText)) fail(`live: opening a file missing from the tree did not say so ("${toastText}")`)
+  // the server opens only files inside the repo, only with the token
+  const post = (body, h = H) => fetch(base + '/api/open', { method: 'POST', headers: { ...h, 'content-type': 'application/json' }, body: JSON.stringify(body) })
+  if ((await post({ path: '../../etc/passwd' })).status !== 400) fail('live: /api/open accepted a path outside the repo')
+  if ((await post({ path: '/etc/passwd' })).status !== 400) fail('live: /api/open accepted an absolute path')
+  if ((await post({ path: 'package.json' }, {})).status !== 403) fail('live: /api/open worked without the token')
+  const okOpen = await post({ path: 'package.json' })
+  if (okOpen.status !== 200 || !(await okOpen.json()).ok) fail('live: /api/open refused a real file in the repo')
+  for (let i = 0; i < 30 && !(existsSync(openLog) && readFileSync(openLog, 'utf8').includes('package.json')); i++) await new Promise(r => setTimeout(r, 100))
+  if (!existsSync(openLog) || !readFileSync(openLog, 'utf8').includes(join(root, 'package.json'))) fail(`live: /api/open did not hand the file to the opener (log: ${existsSync(openLog) ? readFileSync(openLog, 'utf8') : 'none'}, opener ${opener})`)
+}
 
 // ── and now the negative case: the plain assembled file must have no ask UI ───
 const plainHtml = join(work, 'plain.html')

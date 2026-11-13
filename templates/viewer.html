@@ -114,6 +114,12 @@
   /* Reserve the scrollbar's width always, so switching to a tab that does not
      scroll does not widen the page by ~15px and shift everything sideways. */
   html { scrollbar-gutter: stable; }
+  /* Scroll bars belong to the palette: thin, in the palette's line colour, on no track — and
+     native controls follow the palette's light/dark (color-scheme), so a dark palette never
+     gets the system's light-grey bar. */
+  * { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+  html { color-scheme: dark; }
+  html[data-p="slate"], html[data-p="bond"] { color-scheme: light; }
   body { margin: 0; background: var(--canvas); color: var(--ink); font-family: var(--font-ui); font-size: 14px;
     line-height: 1.45; -webkit-font-smoothing: antialiased; font-variant-numeric: tabular-nums; }
   /* The report uses the whole window, IDE-style: no centred column, a small gutter.
@@ -345,7 +351,7 @@
      a long file. Its height is fitted by fitFilesNav() from where it starts on screen
      (below the header until the page is scrolled); this is the no-JS fallback. */
   .files-nav-body { position: sticky; top: 12px; max-height: calc(100vh - 12px - 48px);
-    overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding-right: 2px; }
+    overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding-right: 8px; }
   .files-main { flex: 1 1 auto; min-width: 0; }
   /* Call graph fills the main column full-width; the file view sits beneath it. */
   .files-callfull { margin: 0 0 16px; }
@@ -398,6 +404,22 @@
   .ft-dir > .ft-row > .ft-chev::before { content: "▾"; }
   .ft-dir[aria-expanded="false"] > .ft-row > .ft-chev::before { content: "▸"; }
   .ft-dir[aria-expanded="false"] > ul { display: none; }
+  .ft-fold { flex: none; width: 16px; height: 16px; color: var(--syn-fn); margin-right: 5px; }
+  .ft-dir[aria-expanded="true"] > .ft-row .ft-fold .c, .ft-dir[aria-expanded="false"] > .ft-row .ft-fold .o { display: none; }
+  /* a file's context menu (right-click, or the Menu key / Shift+F10 on a focused row) */
+  .ctxmenu { position: fixed; z-index: 60; min-width: 230px; padding: 4px; background: var(--panel); border: 1px solid var(--line-strong); border-radius: 5px; }
+  .ctxmenu[hidden] { display: none; }
+  .ctxmenu .ctx-head { padding: 5px 10px 6px; font-family: var(--mono); font-size: 13px; color: var(--ink-3); border-bottom: 1px solid var(--line); margin-bottom: 4px;
+    max-width: 420px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ctxmenu button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 6px 10px; border: none; border-radius: 3px; background: none;
+    font: inherit; font-size: 14px; color: var(--ink); text-align: left; cursor: pointer; }
+  .ctxmenu button svg { width: 16px; height: 16px; color: var(--ink-2); flex: none; }
+  .ctxmenu button:hover, .ctxmenu button:focus-visible { background: var(--sunken); outline: none; }
+  .ctxmenu button:disabled { color: var(--ink-3); cursor: default; background: none; }
+  .ctxmenu .ctx-note { padding: 4px 10px 6px 36px; font-size: 13px; color: var(--ink-3); max-width: 300px; }
+  .ctx-toast { position: fixed; z-index: 61; left: 50%; bottom: calc(var(--foot-h, 33px) + 14px); transform: translateX(-50%); padding: 6px 12px; border-radius: 3px;
+    background: var(--ink); color: var(--panel); font-size: 13px; max-width: 80vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ctx-toast[hidden] { display: none; }
   .ft-dname { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); }
   .ft-row > svg { flex: none; align-self: center; }
   .ft-name { flex: 1; min-width: 0; color: var(--st-c, var(--ink)); }
@@ -803,7 +825,6 @@
   .modetab .cnt { font-family: var(--mono); font-size: 13px; font-weight: 500; color: var(--flag);
     background: var(--flag-soft); border-radius: 3px; padding: 1px 7px; min-width: 8px; text-align: center; }
   .modetab .cnt:empty { display: none; }
-  body.reviewing #tabs { display: none; }
   .tkhead-row { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin: 0 0 10px; }
   .tkhead-row h2 { margin: 0; font-size: 16px; font-weight: 500; flex: 1; }
 
@@ -1251,8 +1272,16 @@
     padding: 0 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
   .tb-crumb { display: flex; align-items: baseline; gap: 8px; min-width: 0; flex: 1 1 auto; white-space: nowrap; }
   .titlebar .kicker { margin: 0; display: flex; align-items: baseline; gap: 8px; font-family: var(--ui); font-size: 14px; color: var(--ink-2); flex: none; }
-  .titlebar .tb-ref { font-family: var(--mono); font-size: 13px; color: var(--ink-3); }
-  .titlebar .tb-sep { color: var(--line-strong); }
+  /* a shell prompt: [AC] acme-api  ⎇ feature/x  vs main  ❯  the change */
+  .titlebar .kicker { align-items: center; gap: 10px; font-family: var(--mono); font-size: 13px; }
+  .tb-badge { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 4px; background: var(--mark); color: var(--mark-ink);
+    font-family: var(--ui); font-size: 13px; font-weight: 500; letter-spacing: 0; }
+  .tb-proj { color: var(--ink); font-weight: 500; }
+  .tb-branch { display: inline-flex; align-items: center; gap: 5px; color: var(--pass); }
+  .tb-branch .tb-ico { width: 14px; height: 14px; }
+  .tb-base { color: var(--ink-3); }
+  .tb-dirty { color: var(--caution); }
+  .tb-prompt { color: var(--mark); font-size: 15px; margin-left: 2px; }
   .titlebar h1 { margin: 0; font-size: 15px; letter-spacing: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
   .tb-right { display: flex; align-items: center; gap: 10px; flex: none; }
   .titlebar .themepick { position: static; }
@@ -1588,6 +1617,10 @@ const I18N = {
     statLines: 'lines', statGroups: 'cause groups',
     statAttention: 'files need careful reading', statEnv: 'env changes',
     vShort: { careful: (n) => `${n} to read`, story: (n) => `${n} on storyboard`, std: (n) => `${n} standards`, gaps: (n) => `${n} untested`, stories: (n) => `${n} stories` },
+    ctxCopyFull: 'Copy full path', ctxCopyRel: 'Copy path', ctxOpen: 'Open in editor',
+    ctxOpenNeedsLive: 'Opening a file needs the whydiff app, or the map served with whydiff serve.', ctxOpenDeleted: 'This change deletes the file: there is nothing to open.',
+    ctxCopied: (p) => `Copied ${p}`, ctxCopyFailed: 'Could not copy: the browser refused the clipboard', ctxOpening: (p) => `Opening ${p}`, ctxOpenFailed: 'Could not open the file',
+    refVs: (b) => `vs ${b}`, refDirty: 'uncommitted', refDirtyTitle: 'The working tree: changes not committed yet',
     vTitle: 'Check', navResize: 'Resize the file list', helpShort: 'Help', sbWideShort: 'Wider', sbNarrowShort: 'Narrow side bar', sbExpand: 'Show names beside icons', sbCollapse: 'Narrow side bar',
     vCareful: (n) => n === 1 ? '1 file to read carefully' : `${n} files to read carefully`,
     vStory: (n) => n === 1 ? '1 problem on the storyboard' : `${n} problems on the storyboard`,
@@ -1759,6 +1792,10 @@ const I18N = {
     statLines: 'строк', statGroups: 'групп причин',
     statAttention: 'файла внимательного чтения', statEnv: 'env-изменений',
     vShort: { careful: (n) => `${n} читать`, story: (n) => `${n} на схеме`, std: (n) => `${n} стандарты`, gaps: (n) => `${n} без тестов`, stories: (n) => `${n} истории` },
+    ctxCopyFull: 'Скопировать полный путь', ctxCopyRel: 'Скопировать путь', ctxOpen: 'Открыть в редакторе',
+    ctxOpenNeedsLive: 'Открыть файл можно из приложения whydiff или когда карта открыта через whydiff serve.', ctxOpenDeleted: 'Это изменение удаляет файл: открывать нечего.',
+    ctxCopied: (p) => `Скопировано: ${p}`, ctxCopyFailed: 'Не удалось скопировать: браузер не дал доступ к буферу', ctxOpening: (p) => `Открываю ${p}`, ctxOpenFailed: 'Не удалось открыть файл',
+    refVs: (b) => `против ${b}`, refDirty: 'не закоммичено', refDirtyTitle: 'Рабочее дерево: изменения ещё не закоммичены',
     vTitle: 'Проверить', navResize: 'Изменить ширину списка файлов', helpShort: 'Справка', sbWideShort: 'Шире', sbNarrowShort: 'Узкая панель', sbExpand: 'Показать названия рядом с иконками', sbCollapse: 'Узкая панель',
     vCareful: (n) => `${n} ${ruN(n, 'файл', 'файла', 'файлов')} читать внимательно`,
     vStory: (n) => `${n} ${ruN(n, 'проблема', 'проблемы', 'проблем')} на схеме`,
@@ -1980,8 +2017,7 @@ const chip = (path) => {
 }
 
 // ── header ───────────────────────────────────────────────────────────────────
-document.getElementById('metaLine').innerHTML = `<span class="tb-proj">${esc(RM.meta.project)}</span><span class="tb-sep">/</span><span class="tb-ref" title="${esc(RM.meta.generatedAt || '')}">${esc(RM.meta.ref)}</span><span class="tb-sep">/</span>`
-document.getElementById('title').textContent = L.titlePrefix + (RM.meta.title || RM.meta.project)
+document.getElementById('title').textContent = RM.meta.title || RM.meta.project
 document.getElementById('intent').innerHTML = prose(RM.intent)
 document.getElementById('title').title = document.getElementById('intent').textContent
 const st = RM.meta.stats || {}
@@ -2079,12 +2115,16 @@ const FILE_ICONS = {
 // icon, its whole name, git's status as colour + letter (A/M/D/R), and its +/− counts.
 // `scope` namespaces the remembered collapsed folders (one tree per group + the list).
 const ST_LETTER = { added: 'A', modified: 'M', deleted: 'D', renamed: 'R' }
+// A folder row carries a folder icon, closed or open with the folder (as IDEs draw it).
+const FOLDER_SVG = '<svg class="ft-fold" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+  '<path class="c" d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>' +
+  '<path class="o" d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></svg>'
 function fileTreeHTML(paths, { scope, label, rowClass = '' }) {
   const row = (lvl, inner) => `<div class="ft-row" style="--lvl:${lvl}">${inner}</div>`
   const item = (n, lvl) => {
     if (n.kind === 'dir') {
       return `<li role="treeitem" class="ft-item ft-dir" aria-level="${lvl + 1}" aria-expanded="true" tabindex="-1" data-dir="${esc(n.key)}">` +
-        row(lvl, `<span class="ft-chev" aria-hidden="true"></span><span class="ft-dname" title="${esc(n.key)}">${esc(n.name)}</span>`) +
+        row(lvl, `<span class="ft-chev" aria-hidden="true"></span>${FOLDER_SVG}<span class="ft-dname" title="${esc(n.key)}">${esc(n.name)}</span>`) +
         `<ul role="group">${n.children.map(c => item(c, lvl + 1)).join('')}</ul></li>`
     }
     const f = RM.files[n.path] || {}, st = fileStatus(f)
@@ -2321,7 +2361,13 @@ document.body.dataset.tab = defaultTab
 // Section icons for the side bar (Lucide-style strokes, ISC); the name is always shown
 // with the icon — an icon alone does not say what a section is.
 const SECTION_ICONS = {
-  diagrams: '<path d="M6 3v12"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/>',
+  diagrams: '<rect width="8" height="8" x="3" y="3" rx="2"/><path d="M7 11v4a2 2 0 0 0 2 2h4"/><rect width="8" height="8" x="13" y="13" rx="2"/>',
+  branch: '<path d="M6 3v12"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/>',
+  tasks: '<path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8M13 12h8M13 18h8"/>',
+  folder: '<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
+  folderOpen: '<path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/>',
+  copy: '<rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
+  open: '<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
   files: '<path d="M20 10a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1h-2.5a1 1 0 0 1-.8-.4l-.9-1.2A1 1 0 0 0 15 3h-2a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1Z"/><path d="M20 21a1 1 0 0 0 1-1v-3a1 1 0 0 0-1-1h-2.9a1 1 0 0 1-.88-.55l-.42-.85a1 1 0 0 0-.92-.6H13a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1Z"/><path d="M3 5a2 2 0 0 0 2 2h3"/><path d="M3 3v13a2 2 0 0 0 2 2h3"/>',
   stories: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
   story: '<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>',
@@ -2356,6 +2402,30 @@ helpBtn.setAttribute('aria-label', L.overviewTitle)
 helpBtn.addEventListener('click', () => helpModal.showModal())
 tabsEl.appendChild(helpBtn)
 renderVerdict()
+// The title bar reads like a shell prompt: the project, the branch the change is on (and
+// what it is compared with, or that it is not committed yet), then a prompt mark and the
+// change's name. `ref` is free text from the generator: "working tree (feat/x)",
+// "main..feature/x", "HEAD~3..HEAD", "PR #14"; anything else is shown as it is.
+function parseRef(ref) {
+  const r = String(ref || '').trim()
+  let m = /^working tree(?:\s*\((.+)\))?$/i.exec(r)
+  if (m) return { branch: m[1] || '', dirty: true }
+  m = /^(.+?)\.{2,3}(.+)$/.exec(r)
+  if (m) return { branch: m[2], base: m[1] }
+  return { branch: r }
+}
+{
+  const ref = parseRef(RM.meta.ref)
+  const initials = (String(RM.meta.project || '').replace(/[^A-Za-z0-9]/g, '').slice(0, 2) || '?').toUpperCase()
+  document.getElementById('metaLine').innerHTML =
+    `<span class="tb-badge" aria-hidden="true">${esc(initials)}</span>` +
+    `<span class="tb-proj">${esc(RM.meta.project)}</span>` +
+    (ref.branch ? `<span class="tb-branch" title="${esc(RM.meta.ref)}">${sectionIcon('branch', 'tb-ico')}<span class="tb-bn">${esc(ref.branch)}</span></span>` : '') +
+    (ref.base ? `<span class="tb-base">${esc(L.refVs(ref.base))}</span>` : '') +
+    (ref.dirty ? `<span class="tb-dirty" title="${esc(L.refDirtyTitle)}">● ${esc(L.refDirty)}</span>` : '') +
+    `<span class="tb-prompt" aria-hidden="true">❯</span>`
+  document.getElementById('metaLine').title = `${RM.meta.ref} · ${RM.meta.generatedAt || ''}`
+}
 // The side bar's width: narrow (icon over name) or wide (icon, name, count in a row). A
 // reading preference, so it is kept across maps. Reflowing the column re-fits what is
 // measured from live layout (diagrams, code-map edges, the file navigator).
@@ -2696,12 +2766,26 @@ function dgFit(box, mode) {
   })
   // Ctrl/⌘ + wheel — and a trackpad pinch, which the browser reports as ctrlKey — zooms at the
   // cursor; a plain wheel scrolls (pans) a zoomed box natively. Left-drag stays region-select.
+  // The step follows HOW FAR the wheel or fingers moved, not how many events arrived: a
+  // trackpad pinch sends dozens of tiny deltas, a mouse notch one big one (~100px, or 3 lines
+  // in line mode). Each delta, in px and capped, scales by e^(-k·delta), so a gesture and its
+  // reverse cancel out exactly; the events of one frame are applied together.
+  const ZOOM_K = 0.0025, ZOOM_CAP = 40
+  let zoomPend = null, zoomRAF = 0
   pane.addEventListener('wheel', (e) => {
     if (!(e.ctrlKey || e.metaKey)) return
     const box = e.target.closest?.('.mermaid-box'); if (!box) return
     e.preventDefault()
+    const px = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? innerHeight : 1)
+    const f = Math.exp(-Math.max(-ZOOM_CAP, Math.min(ZOOM_CAP, px)) * ZOOM_K)
     const r = box.getBoundingClientRect()
-    dgZoomBy(box, e.deltaY < 0 ? 1.12 : 1 / 1.12, e.clientX - r.left, e.clientY - r.top)
+    if (zoomPend && zoomPend.box === box) zoomPend.f *= f
+    else zoomPend = { box, f }
+    zoomPend.x = e.clientX - r.left; zoomPend.y = e.clientY - r.top
+    if (!zoomRAF) zoomRAF = requestAnimationFrame(() => {
+      const z = zoomPend; zoomPend = null; zoomRAF = 0
+      if (z) dgZoomBy(z.box, z.f, z.x, z.y)
+    })
   }, { passive: false })
   // The zoom pill sits over the box; swallow its mousedown so clicking a control never starts a
   // region-select drag.
@@ -3309,7 +3393,7 @@ function fileViewHTML(path, { back = false } = {}) {
   return `
     ${back ? `<div class="actions actions-top"><button class="btn btn-back">${L.back}</button></div>` : ''}
     <p class="insp-tag" style="color:${gcolor(g?.id)}">${esc(g?.tag || '')}</p>
-    <h3>${esc(path)}</h3>
+    <h3 data-ctxfile="${esc(path)}">${esc(path)}</h3>
     ${(() => { const st = fileStatus(f); return `<p class="fv-status st-${st}"><span class="ft-st">${ST_LETTER[st]}</span> ${esc(L.fileStatus[st])}${st === 'renamed' && f.from ? ` ${esc(L.renamedFrom(f.from))}` : ''}</p>` })()}
     <div class="why">${prose(f.why)}</div>
     ${codeboxHTML(path, f)}
@@ -4016,6 +4100,93 @@ function fitFilesNav() {
   // keep it inside the window when the window narrows
   addEventListener('resize', () => { if (width > max()) apply(width, false) })
   requestAnimationFrame(() => apply(width, false))
+}
+// ── a file's context menu ─────────────────────────────────────────────────────
+// Right-click a file (a tree row, a file chip, the open file's title), or press the Menu
+// key / Shift+F10 on a focused row: copy the file's full path, or open it in the editor
+// the user's OS assigns to it. Both need to know where the repo is, which only the live
+// server (serve / the desktop app) does: a standalone file copies the path inside the
+// repo and says how to get "Open". The WAI-ARIA menu pattern: arrows, Home/End, Esc.
+{
+  const LIVE = window.__WHYDIFF_SERVE__ || null
+  const menu = document.createElement('div')
+  menu.className = 'ctxmenu'; menu.id = 'ctxMenu'; menu.hidden = true
+  menu.setAttribute('role', 'menu')
+  document.body.appendChild(menu)
+  const toast = document.createElement('div')
+  toast.className = 'ctx-toast'; toast.hidden = true
+  toast.setAttribute('role', 'status'); toast.setAttribute('aria-live', 'polite')
+  document.body.appendChild(toast)
+  let toastT = 0
+  const say = (msg) => { toast.textContent = msg; toast.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => { toast.hidden = true }, 2200) }
+  const fullPath = (p) => LIVE?.repo ? `${String(LIVE.repo).replace(/[\\/]+$/, '')}/${p}` : p
+  const copy = async (text) => {
+    try { await navigator.clipboard.writeText(text); return true } catch {}
+    const ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0'
+    document.body.appendChild(ta); ta.select()
+    let ok = false; try { ok = document.execCommand('copy') } catch {}
+    ta.remove(); return ok
+  }
+  let back = null, current = ''
+  const items = () => [...menu.querySelectorAll('button:not(:disabled)')]
+  const close = (refocus) => { if (menu.hidden) return; menu.hidden = true; if (refocus && back) back.focus?.() }
+  const openFor = (path, x, y, from) => {
+    current = path; back = from
+    const gone = fileStatus(RM.files[path] || {}) === 'deleted'
+    menu.innerHTML = `<div class="ctx-head" title="${esc(fullPath(path))}">${esc(path)}</div>` +
+      `<button role="menuitem" data-act="copy">${sectionIcon('copy', '')}${esc(LIVE?.repo ? L.ctxCopyFull : L.ctxCopyRel)}</button>` +
+      `<button role="menuitem" data-act="open"${LIVE && !gone ? '' : ' disabled aria-disabled="true"'}>${sectionIcon('open', '')}${esc(L.ctxOpen)}</button>` +
+      (!LIVE ? `<div class="ctx-note">${esc(L.ctxOpenNeedsLive)}</div>` : gone ? `<div class="ctx-note">${esc(L.ctxOpenDeleted)}</div>` : '')
+    menu.hidden = false
+    const r = menu.getBoundingClientRect()
+    menu.style.left = `${Math.max(4, Math.min(x, innerWidth - r.width - 4))}px`
+    menu.style.top = `${Math.max(4, Math.min(y, innerHeight - r.height - 4))}px`
+    items()[0]?.focus()
+  }
+  const fileOf = (el) => {
+    const t = el?.closest?.('.ft-file[data-path], .fchip[data-goto], [data-ctxfile]')
+    if (!t) return null
+    return { el: t, path: t.dataset.path || t.dataset.goto || t.dataset.ctxfile }
+  }
+  document.addEventListener('contextmenu', (e) => {
+    const f = fileOf(e.target)
+    if (!f || !RM.files[f.path]) return
+    e.preventDefault()
+    openFor(f.path, e.clientX, e.clientY, f.el)
+  })
+  document.addEventListener('keydown', (e) => {
+    if (!(e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey))) return
+    const f = fileOf(document.activeElement)
+    if (!f || !RM.files[f.path]) return
+    e.preventDefault()
+    const r = f.el.getBoundingClientRect()
+    openFor(f.path, r.left + 24, r.bottom, f.el)
+  })
+  menu.addEventListener('keydown', (e) => {
+    const list = items(), i = list.indexOf(document.activeElement)
+    const to = { ArrowDown: i + 1, ArrowUp: i - 1, Home: 0, End: list.length - 1 }[e.key]
+    if (to !== undefined) { e.preventDefault(); list[(to + list.length) % list.length]?.focus(); return }
+    if (e.key === 'Escape' || e.key === 'Tab') { e.preventDefault(); close(true) }
+  })
+  menu.addEventListener('click', async (e) => {
+    const b = e.target.closest('button[data-act]'); if (!b || b.disabled) return
+    const path = current
+    close(true)
+    if (b.dataset.act === 'copy') {
+      const text = fullPath(path)
+      say((await copy(text)) ? L.ctxCopied(text) : L.ctxCopyFailed)
+    } else if (b.dataset.act === 'open') {
+      try {
+        const r = await fetch('/api/open', { method: 'POST', headers: { 'content-type': 'application/json', 'x-whydiff-token': LIVE.token }, body: JSON.stringify({ path }) })
+        const j = r.ok ? await r.json().catch(() => ({})) : {}
+        say(r.ok && j.ok ? L.ctxOpening(path) : L.ctxOpenFailed)
+      } catch { say(L.ctxOpenFailed) }
+    }
+  })
+  document.addEventListener('mousedown', (e) => { if (!menu.hidden && !menu.contains(e.target)) close(false) }, true)
+  addEventListener('scroll', () => close(false), { passive: true, capture: true })
+  addEventListener('resize', () => close(false))
+  addEventListener('blur', () => close(false))
 }
 let fitNavRaf = 0
 const fitFilesNavSoon = () => { cancelAnimationFrame(fitNavRaf); fitNavRaf = requestAnimationFrame(fitFilesNav) }
@@ -5214,46 +5385,18 @@ if (SERVE?.token || EMBEDDED) (() => {
   // "what is still unsettled" — a different job, on a different kind of page, so it
   // gets its own destination instead of hiding among the report's tabs.
   PANES.push(['tasks', L.tabs.tasks, ''])
-  // Report and Review are the two top-level modes, so they are a segmented switch
-  // that sits above the report's sub-tabs — peers, not one more tab in the strip.
-  const modebar = document.createElement('div')
-  modebar.className = 'modebar'
-  modebar.setAttribute('role', 'tablist')
-  const reportTab = document.createElement('button')
-  reportTab.className = 'modetab active'
-  reportTab.textContent = L.reviewBack
+  // Review is one more section of the report: an item in the side bar with its own
+  // count (what still needs a decision), not a separate mode with its own switch.
   const reviewTab = document.createElement('button')
-  reviewTab.className = 'modetab'
+  reviewTab.className = 'tab'
+  reviewTab.dataset.pane = 'tasks'
   reviewTab.title = L.reviewOpenTitle
-  reviewTab.innerHTML = `${esc(L.reviewOpen)} <span class="cnt"></span>`
-  modebar.append(reportTab, reviewTab)
-  // Above the board, not inside it: the mode switch chooses which page you are on,
-  // the tabbed card is that page.
-  const boardEl = document.querySelector('.board')
-  boardEl.parentNode.insertBefore(modebar, boardEl)
-  let lastReportTab = 'story'
-  const markMode = (on) => {
-    reportTab.classList.toggle('active', !on)
-    reviewTab.classList.toggle('active', on)
-  }
-  const setReviewing = (on) => {
-    document.body.classList.toggle('reviewing', on)
-    markMode(on)
-    if (on) setTab('tasks')
-    else setTab(lastReportTab)
-  }
-  reportTab.addEventListener('click', () => setReviewing(false))
-  reviewTab.addEventListener('click', () => setReviewing(true))
-  // Any move back into the report leaves review mode, including a jump from a card.
+  reviewTab.innerHTML = sectionIcon('tasks') + `<span class="tl">${esc(L.tabs.tasks)}</span> <span class="cnt"></span>`
+  reviewTab.addEventListener('click', () => setTab('tasks'))
+  tabsEl.insertBefore(reviewTab, tabsEl.querySelector('.help-btn'))
+  // body.reviewing marks the Review section being open (styles and tests key on it).
   const wrappedSetTab = setTab
-  setTab = (id) => {
-    if (id !== 'tasks') {
-      lastReportTab = id
-      document.body.classList.remove('reviewing')
-      markMode(false)
-    }
-    wrappedSetTab(id)
-  }
+  setTab = (id) => { document.body.classList.toggle('reviewing', id === 'tasks'); wrappedSetTab(id) }
   const tkVerdict = tkPane.querySelector('#tkVerdict')
   const tkGroups = tkPane.querySelector('#tkGroups')
   const tkSaid = tkPane.querySelector('.tk-said')

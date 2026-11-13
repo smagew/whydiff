@@ -50,7 +50,8 @@ const pane = async (p, id) => { await p.locator(`#tabs .tab[data-pane="${id}"]`)
   const p = await open()
   const tb = p.locator('#titlebar')
   const text = await tb.textContent()
-  check(text.includes(base.meta.project) && text.includes(base.meta.ref) && text.includes(base.meta.title), 'the title bar names the project, the ref and the change')
+  check(text.includes(base.meta.project) && text.includes(base.meta.ref.split('..').pop()) && text.includes(base.meta.title), 'the title bar names the project, the branch and the change')
+  check((await p.locator('#metaLine').getAttribute('title')).includes(base.meta.ref), 'the full ref is on hover')
   check((await p.locator('#title').getAttribute('title'))?.length > 20, 'hovering the change name gives its one-sentence intent')
   const chips = await p.locator('#titlebar .v-chip').evaluateAll(cs => cs.map(c => ({ shown: c.querySelector('.vt')?.textContent || '', vis: getComputedStyle(c.querySelector('.vt')).display !== 'none', full: c.title })))
   check(chips.length >= 3 && chips.every(c => /^\d+ \S/.test(c.shown) && c.vis && c.full.length > c.shown.length), `findings show as "number + word" with the full text on hover (${JSON.stringify(chips.map(c => c.shown))})`)
@@ -151,6 +152,77 @@ const pane = async (p, id) => { await p.locator(`#tabs .tab[data-pane="${id}"]`)
   check(g.row && g.wrapLeft < 30, `a narrow window turns the side bar into a row under the title bar (${JSON.stringify(g)})`)
   check(g.labels >= 7, `the row keeps its names (${g.labels})`)
   check(g.titleOneLine, 'the change name stays on one line')
+  await p.close()
+}
+
+// ── the title reads like a shell prompt ───────────────────────────────────────
+{
+  const p = await open()
+  const t = await p.evaluate(() => {
+    const k = document.getElementById('metaLine'), q = (sel) => k.querySelector(sel)?.textContent || ''
+    return { badge: q('.tb-badge'), proj: q('.tb-proj'), branch: q('.tb-bn'), base: q('.tb-base'), prompt: q('.tb-prompt'), branchIcon: !!k.querySelector('.tb-branch svg'),
+      title: document.getElementById('title').textContent }
+  })
+  check(t.badge === 'AC' && t.proj === 'acme-api' && t.branch === 'feature/rate-limit' && /main/.test(t.base) && t.prompt === '❯' && t.branchIcon,
+    `the title reads as a prompt: badge, project, branch, base, ❯ (${JSON.stringify(t)})`)
+  check(t.title === base.meta.title, `the change name stands alone, no "Change map:" prefix (${t.title})`)
+  check(!(await p.locator('#tabs .tab[data-pane="diagrams"] svg.ti circle').count()), 'the Diagrams icon is not the git-branch glyph')
+  await p.close()
+  // an uncommitted working tree
+  const m = JSON.parse(JSON.stringify(base)); m.meta.ref = 'working tree (feat/mcp-access)'
+  writeFileSync(join(work, 'wt.json'), JSON.stringify(m))
+  execFileSync(process.execPath, [join(root, 'scripts', 'assemble.mjs'), join(work, 'wt.json'), '--out', join(work, 'wt.html')], { stdio: 'ignore' })
+  const q = await browser.newPage({ viewport: { width: 1920, height: 1080 } })
+  await q.goto(pathToFileURL(join(work, 'wt.html')).href); await q.waitForTimeout(500)
+  const w = await q.evaluate(() => ({ branch: document.querySelector('#metaLine .tb-bn')?.textContent, dirty: document.querySelector('#metaLine .tb-dirty')?.textContent || '' }))
+  check(w.branch === 'feat/mcp-access' && /uncommitted/.test(w.dirty), `a working tree shows its branch and that it is uncommitted (${JSON.stringify(w)})`)
+  await q.close()
+}
+
+// ── folders, the file context menu (standalone file), scroll bars ─────────────
+{
+  const p = await open()
+  await pane(p, 'files')
+  const fold = () => p.evaluate(() => { const d = document.querySelector('#filesOverview .ft-dir'), v = (sel) => getComputedStyle(d.querySelector(`:scope > .ft-row .ft-fold ${sel}`)).display !== 'none'; return { closed: v('.c'), open: v('.o') } })
+  let f = await fold()
+  check(f.open && !f.closed, `an open folder shows an open-folder icon (${JSON.stringify(f)})`)
+  await p.locator('#filesOverview .ft-dir > .ft-row').first().click(); await p.waitForTimeout(150)
+  f = await fold()
+  check(f.closed && !f.open, `a collapsed folder shows a closed-folder icon (${JSON.stringify(f)})`)
+  await p.locator('#filesOverview .ft-dir > .ft-row').first().click(); await p.waitForTimeout(150)
+  // right-click a file
+  const row = p.locator('#filesOverview .ft-file').first()
+  const path = await row.getAttribute('data-path')
+  await p.context().grantPermissions(['clipboard-read', 'clipboard-write'])
+  await row.click({ button: 'right' }); await p.waitForTimeout(150)
+  const menu = p.locator('#ctxMenu')
+  check(await menu.isVisible(), 'right-clicking a file opens its menu')
+  check((await menu.locator('.ctx-head').textContent()) === path, 'the menu names the file')
+  check(await p.evaluate(() => document.activeElement?.getAttribute('role') === 'menuitem'), 'the menu takes focus on its first item')
+  check(await menu.locator('[data-act="open"]').isDisabled() && /app|serve/.test(await menu.locator('.ctx-note').textContent()), 'a standalone file cannot open files and says where it can')
+  await menu.locator('[data-act="copy"]').click(); await p.waitForTimeout(150)
+  check((await p.evaluate(() => navigator.clipboard.readText())) === path, 'a standalone file copies the path inside the repo (it does not know where the repo is)')
+  check(!(await menu.isVisible()) && /Copied/.test(await p.locator('.ctx-toast').textContent()), 'copying closes the menu and says so')
+  // keyboard: Shift+F10 on a focused row, arrows, Escape returns focus
+  await row.focus(); await p.keyboard.press('Shift+F10'); await p.waitForTimeout(100)
+  check(await menu.isVisible(), 'Shift+F10 on a focused file opens its menu')
+  await p.keyboard.press('Escape'); await p.waitForTimeout(100)
+  check(!(await menu.isVisible()) && await p.evaluate((pp) => document.activeElement?.dataset.path === pp, path), 'Escape closes the menu and returns focus to the file')
+  // the open file's title and a file chip have the same menu
+  await p.locator('#filesView h3[data-ctxfile]').click({ button: 'right' }); await p.waitForTimeout(100)
+  check(await menu.isVisible(), 'the open file\'s title has the menu too')
+  await p.keyboard.press('Escape')
+  // scroll bars: thin, in the palette's colours, and never over the counts
+  const sb = await p.evaluate(() => {
+    const n = document.getElementById('filesNavBody'), cs = getComputedStyle(n)
+    const right = Math.max(...[...n.querySelectorAll('.ft-stat')].map(e => e.getBoundingClientRect().right))
+    return { width: cs.scrollbarWidth, color: cs.scrollbarColor, scheme: getComputedStyle(document.documentElement).colorScheme,
+      inside: right <= n.getBoundingClientRect().left + n.clientWidth + 0.5 }
+  })
+  check(sb.width === 'thin' && sb.color !== 'auto' && sb.scheme === 'dark', `scroll bars are thin and themed; a dark palette is a dark color-scheme (${JSON.stringify(sb)})`)
+  check(sb.inside, 'the file counts stay clear of the scroll bar')
+  await p.locator('.themepick button[data-v="bond"]').click(); await p.waitForTimeout(300)
+  check(await p.evaluate(() => getComputedStyle(document.documentElement).colorScheme) === 'light', 'a light palette is a light color-scheme')
   await p.close()
 }
 

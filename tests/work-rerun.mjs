@@ -65,7 +65,7 @@ page.on('pageerror', e => errors.push(`pageerror: ${e.message}`))
 page.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errors.push(`console: ${m.text()}`) })
 await page.goto(base + '/')
 await page.waitForTimeout(400)
-await page.locator('.modebar .modetab').nth(1).click()
+await page.locator('#tabs .tab[data-pane="tasks"]').click()
 await page.waitForTimeout(300)
 
 const card = page.locator('.tkcard[data-id="t_r1"]')
