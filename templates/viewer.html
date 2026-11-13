@@ -12,7 +12,7 @@
      Three palettes, exactly one of which ships — graphite by default. Legacy names
      (--bg, --surface, --muted, --p1…) are aliases so no rule can resolve to a
      stale literal. */
-  /* graphite is the shipped default, so it sits on :root; slate and bond come
+  /* graphite is the shipped default, so it sits on :root; slate comes
      AFTER it and override when their attribute is set (equal specificity → source
      order decides, and :root always matches <html> whatever data-p says). */
   :root, [data-p="graphite"] {       /* dark-first, brass — ships by default */
@@ -41,18 +41,6 @@
     --del-bg:#EFE3E5; --del-edge:#8A2B3D; --del-ink:#4A1620;
     --mark-ink:#F8F9FA;
     --syn-key:#5B3B87; --syn-str:#3F6B45; --syn-num:#8A5A2B; --syn-fn:#2E5A87; --syn-type:#2E6E63;
-  }
-  [data-p="bond"] {                  /* neutral near-white, plum */
-    --canvas:#FBFBF9; --panel:#FFFFFF; --sunken:#F0F0EE;
-    --line:#E2E2DF;   --line-strong:#C9C9C5;
-    /* #191919 measures 17.0:1 on canvas; #2F2F2E lands at 12.9 / 13.4. */
-    --ink:#2F2F2E;    --ink-2:#3D3D3B;  --ink-3:#62625F;
-    --mark:#5B2B4A;   --flag:#8F2A2A;   --flag-soft:#F5EAEA;
-    --pass:#2F6E4E;   --caution:#8A5E1E;
-    --add-bg:#EAEFF4; --add-edge:#3E6389; --add-ink:#17324D;
-    --del-bg:#F5EAEA; --del-edge:#8F2A2A; --del-ink:#4A1616;
-    --mark-ink:#FFFFFF;
-    --syn-key:#6E3E7A; --syn-str:#3F6B45; --syn-num:#8A5A2B; --syn-fn:#2E5A87; --syn-type:#2E6E63;
   }
   /* quiet — what ships. One diff hue, and it sits on the side that was added.
      A removed line is gone: it needs no colour of its own, and a plate behind
@@ -119,7 +107,7 @@
      gets the system's light-grey bar. */
   * { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
   html { color-scheme: dark; }
-  html[data-p="slate"], html[data-p="bond"] { color-scheme: light; }
+  html[data-p="slate"] { color-scheme: light; }
   body { margin: 0; background: var(--canvas); color: var(--ink); font-family: var(--font-ui); font-size: 14px;
     line-height: 1.45; -webkit-font-smoothing: antialiased; font-variant-numeric: tabular-nums; }
   /* The report uses the whole window, IDE-style: no centred column, a small gutter.
@@ -1139,7 +1127,7 @@
   .mermaid g.node.removed tspan { color: var(--del-ink) !important; fill: var(--del-ink) !important; }
   /* changed has no diff token of its own: it is not an addition or a removal but
      the same node behaving differently, so it takes the palette's own signal —
-     a hue in graphite and bond, weight alone in monochrome slate. */
+     a hue in graphite, weight alone in monochrome slate. */
   .mermaid g.node.changed > rect, .mermaid g.node.changed > path,
   .mermaid g.node.changed > polygon, .mermaid g.node.changed > circle {
     fill: var(--sunken) !important; stroke: var(--mark) !important; stroke-width: 1.5px !important; }
@@ -1351,8 +1339,18 @@
   /* Everything that sticks while reading sticks BELOW the title bar (and, on a narrow
      window, below the sections row too): --stick is that line. */
   :root { --stick: calc(var(--tb-h) + 12px); }
-  @media (max-width: 900px) { :root { --stick: calc(var(--tb-h) + 84px); } }
+  @media (max-width: 900px) { :root { --stick: calc(var(--tb-h) + var(--sb-row, 81px) + 12px); } }
   body.dg-focus { --stick: 12px; }
+  /* A section's own menu (the diagram tabs; Overview / Files list / Call graph) is fixed
+     chrome too: it stays under the title bar while only the content scrolls. Things that
+     stick inside such a section stick below it. */
+  :root { --bar-top: var(--tb-h); }
+  @media (max-width: 900px) { :root { --bar-top: calc(var(--tb-h) + var(--sb-row, 81px)); } }
+  .dg-tabs, .files-modebar { position: sticky; top: var(--bar-top); z-index: 30; background: var(--canvas); }
+  .files-modebar { height: 38px; box-sizing: border-box; align-items: stretch; }
+  #pane-files { --stick: calc(var(--tb-h) + 38px + 10px); }
+  @media (max-width: 900px) { #pane-files { --stick: calc(var(--bar-top) + 38px + 10px); } }
+  body.dg-focus .dg-tabs { display: none; }
   .aside-toggle { top: calc(var(--stick) + 8px); }
   @media (min-width: 901px) { .files-nav-body { top: var(--stick); max-height: calc(100vh - var(--stick) - 48px); } }
   /* at most the window below the sticky line, less what sits under the column at the end
@@ -2770,7 +2768,7 @@ function dgFit(box, mode) {
   // trackpad pinch sends dozens of tiny deltas, a mouse notch one big one (~100px, or 3 lines
   // in line mode). Each delta, in px and capped, scales by e^(-k·delta), so a gesture and its
   // reverse cancel out exactly; the events of one frame are applied together.
-  const ZOOM_K = 0.0025, ZOOM_CAP = 40
+  const ZOOM_K = 0.0055, ZOOM_CAP = 40
   let zoomPend = null, zoomRAF = 0
   pane.addEventListener('wheel', (e) => {
     if (!(e.ctrlKey || e.metaKey)) return
@@ -3723,7 +3721,10 @@ rcGrip.addEventListener('pointerdown', (e) => {
 
 // Settings that change how the diff reads, never what it says.
 // One palette ships at a time; the others exist so the choice stays reviewable.
-const PALETTES = ['slate', 'graphite', 'bond']
+// Two: the dark default and one light palette. A map saved with the retired third palette
+// ("bond") opens in the light one.
+const PALETTES = ['slate', 'graphite']
+const RETIRED_PALETTE = { bond: 'slate' }
 // A swatch has to show a palette that is NOT the active one, so it cannot read the
 // live variables — but it must not restate their values either, or the swatches drift
 // the first time a token changes. A palette is an attribute selector, so an offscreen
@@ -3772,7 +3773,7 @@ const applyPalette = (v) => {
 let printOriginalPalette = null
 function beginPrintPalette() {
   if (printOriginalPalette == null) printOriginalPalette = document.documentElement.dataset.p || 'graphite'
-  document.documentElement.dataset.p = 'bond'  // set directly (not applyPalette) so it isn't persisted
+  document.documentElement.dataset.p = 'slate'  // set directly (not applyPalette) so it isn't persisted
   syncThemePick()
 }
 function endPrintPalette() {
@@ -3858,7 +3859,7 @@ const applyDiff = (v) => {
   else document.documentElement.dataset.diff = v
   SESSION.set('diff', v)
 }
-applyPalette(SESSION.get('palette', 'graphite'))
+applyPalette((p => RETIRED_PALETTE[p] || p)(SESSION.get('palette', 'graphite')))
 applyDiff(SESSION.get('diff', 'quiet'))
 
 const seen = new Set(SESSION.get('seen', []))
@@ -3879,6 +3880,12 @@ foot.insertBefore(document.querySelector('.facts'), foot.querySelector('.fs-ver'
   const setFootH = () => document.documentElement.style.setProperty('--foot-h', `${foot.offsetHeight}px`)
   setFootH()
   if ('ResizeObserver' in window) new ResizeObserver(setFootH).observe(foot)
+  // On a narrow window the side bar is a row under the title bar; what sticks below it needs
+  // its real height (labels may wrap to two lines).
+  const sbEl = document.getElementById('sidebar')
+  const setSbRow = () => document.documentElement.style.setProperty('--sb-row', `${sbEl.offsetHeight}px`)
+  setSbRow()
+  if ('ResizeObserver' in window) new ResizeObserver(setSbRow).observe(sbEl)
 }
 const fsBar = foot.querySelector('.fs-bar')
 const fsCount = foot.querySelector('.fs-count')
@@ -4054,7 +4061,13 @@ function fitFilesNav() {
   const top = Math.max(filesNavBody.getBoundingClientRect().top, parseFloat(getComputedStyle(filesNavBody).top) || 12)
   const foot = document.querySelector('.footstrip')
   const footH = foot && foot.getClientRects().length ? foot.getBoundingClientRect().height : 0
-  filesNavBody.style.maxHeight = `${Math.max(160, innerHeight - top - footH - 12)}px`
+  // ...and never taller than the room between its sticky line and the end of its column at the
+  // bottom of the page: a sticky box rides up with the end of its column, and a full-height
+  // one would then slide under the Files menu and the title bar.
+  const stickTop = parseFloat(getComputedStyle(filesNavBody).top) || 12
+  const layoutEl = document.getElementById('filesLayout')
+  const below = document.documentElement.scrollHeight - (layoutEl.getBoundingClientRect().bottom + scrollY)
+  filesNavBody.style.maxHeight = `${Math.max(160, Math.min(innerHeight - top - footH - 12, innerHeight - stickTop - below))}px`
 }
 // ── the navigator/file splitter ──────────────────────────────────────────────
 // Drag the rule between the file tree and the file to resize the tree, as in an IDE. The

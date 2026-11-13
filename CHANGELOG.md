@@ -4,6 +4,43 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.53.0] — 2026-11-13
+
+### Changed
+- **The title reads like a shell prompt:** the project's badge and name, the branch
+  with a git mark (and what it is compared with, or "● uncommitted" for a working
+  tree), a `❯`, then the change's name. The "Change map:" prefix is gone; the full ref
+  is on hover.
+- **Review is a section in the side bar**, with its count of what still needs a
+  decision. The separate Report | Review switch is gone.
+- **A file's context menu** (right-click a file in the tree, a file chip or the open
+  file's title; or the Menu key / Shift+F10): copy its full path, or open it in the
+  editor the OS assigns to it. Both need the live server (the app or `whydiff serve`,
+  via a new token-guarded `/api/open` that opens only files inside the repo); a
+  standalone file copies the path inside the repo and says where Open works. A file
+  the change deletes cannot be opened.
+- **Folder icons** in the file tree, open or closed with the folder.
+- **The Diagrams icon** is a flow chart, not a git branch.
+- **A section's own menu stays put.** The diagram tabs and Files' Overview / Files list
+  / Call graph are pinned under the title bar; only the content scrolls under them.
+  The file tree sticks below that menu.
+- **Two palettes: one dark, one light.** The third (`bond`) is gone; a map saved with it
+  opens in the light palette (`slate`), and PDF export prints in `slate`.
+- **Choose the report language.** A `lang:<code>` argument (`/whydiff lang:de`) wins
+  over the conversation's language; `scripts/run.mjs --lang <code>` passes it on (a
+  malformed code is a usage error). The desktop app gains a **Report language**
+  setting (English by default, plus Russian, Ukrainian, German, Spanish, French,
+  Portuguese, Italian, Polish, Turkish, Chinese, Japanese) applied to every new run.
+- **Scroll bars match the palette:** thin, in the palette's line colour, and native
+  controls follow the palette's light or dark scheme. The file list keeps its numbers
+  clear of the scroll bar.
+
+### Fixed
+- **Pinch and ⌘-wheel zoom on diagrams is smooth.** It multiplied by 1.12 per event,
+  and a trackpad sends dozens per gesture, so a light pinch jumped to the maximum. The
+  step now follows how far the fingers or wheel moved (e^(−k·delta), per frame), so a
+  gesture and its reverse cancel out and a wheel notch is one clear step (~×1.25).
+
 ## [0.52.0] — 2026-11-13
 
 ### Changed
@@ -23,29 +60,8 @@ to receive an update.
 
   No text block sits above any section any more: every section starts right under
   the title bar. The frame around the content is gone.
-- **The title reads like a shell prompt:** the project's badge and name, the branch
-  with a git mark (and what it is compared with, or "● uncommitted" for a working
-  tree), a `❯`, then the change's name. The "Change map:" prefix is gone; the full ref
-  is on hover.
-- **Review is a section in the side bar**, with its count of what still needs a
-  decision. The separate Report | Review switch is gone.
-- **A file's context menu** (right-click a file in the tree, a file chip or the open
-  file's title; or the Menu key / Shift+F10): copy its full path, or open it in the
-  editor the OS assigns to it. Both need the live server (the app or `whydiff serve`,
-  via a new token-guarded `/api/open` that opens only files inside the repo); a
-  standalone file copies the path inside the repo and says where Open works. A file
-  the change deletes cannot be opened.
-- **Folder icons** in the file tree, open or closed with the folder.
-- **The Diagrams icon** is a flow chart, not a git branch.
-- **Scroll bars match the palette:** thin, in the palette's line colour, and native
-  controls follow the palette's light or dark scheme. The file list keeps its numbers
-  clear of the scroll bar.
 
 ### Fixed
-- **Pinch and ⌘-wheel zoom on diagrams is smooth.** It multiplied by 1.12 per event,
-  and a trackpad sends dozens per gesture, so a light pinch jumped to the maximum. The
-  step now follows how far the fingers or wheel moved (e^(−k·delta), per frame), so a
-  gesture and its reverse cancel out and a wheel notch is one modest step.
 - Sticky panels (the chat panel, the file inspector, the Files navigator) stick below
   the title bar instead of sliding under it, and a sticky panel no longer rides off
   the top of the window at the end of a short page.

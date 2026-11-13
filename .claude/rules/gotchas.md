@@ -16,6 +16,16 @@ future agents (and you) read this before touching the area.
   var(--stick)`, not a few px, or it slides under the bar. A sticky panel as tall as the
   window also rides up with the end of its column on a short page: cap its height to
   leave room for what sits below the column (see `.askpanel, .inspector`).
+- **Two sticky lines: `--bar-top` and `--stick`.** A section's own menu (`.dg-tabs`,
+  `.files-modebar`) pins at `--bar-top` (under the title bar, and under the side-bar row
+  on a narrow window — its height is measured into `--sb-row`). What sticks inside such
+  a section uses that section's `--stick` (`#pane-files` sets it below its menu). A
+  sticky box as tall as the window must also be capped by the room left at the very end
+  of the page (`fitFilesNav` measures what sits below the column), or it rides up under
+  the menus there.
+- **Two palettes.** `graphite` (dark, default) and `slate` (light, also the print
+  palette). `bond` was retired: `RETIRED_PALETTE` maps a saved one to `slate`. Tests that
+  need a light palette switch to `slate`.
 - **Section tabs live in the side bar.** `#tabs` is inside `#sidebar`; the Help button is
   in the same list but is not a `.tab` (tests count tabs). Select a section with
   `#tabs .tab[data-pane=…]`. The intent block (`.sub`) is hidden on screen (it is the

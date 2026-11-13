@@ -155,6 +155,33 @@ const pane = async (p, id) => { await p.locator(`#tabs .tab[data-pane="${id}"]`)
   await p.close()
 }
 
+// ── a section's own menu stays put; only the content scrolls ──────────────────
+for (const vp of [{ width: 1440, height: 640 }, { width: 800, height: 700 }]) {
+  const p = await open(vp)
+  const pinned = async (sel) => p.evaluate((sel) => {
+    const bar = document.querySelector(sel).getBoundingClientRect()
+    const tb = document.getElementById('titlebar').getBoundingClientRect(), sb = document.getElementById('sidebar').getBoundingClientRect()
+    const under = innerWidth > 900 ? tb.bottom : Math.max(tb.bottom, sb.bottom)
+    return { top: Math.round(bar.top), under: Math.round(under), y: scrollY }
+  }, sel)
+  // Diagrams: the diagram tabs
+  await p.evaluate(() => scrollTo(0, 400)); await p.waitForTimeout(200)
+  const d = await pinned('#dgTabs')
+  check(d.y > 40 && Math.abs(d.top - d.under) <= 2, `${vp.width}px: the diagram tabs stay right under the bar while the diagram scrolls (${JSON.stringify(d)})`)
+  // Files: Overview / Files list / Call graph, and the tree sticks below that menu
+  await pane(p, 'files')
+  await p.locator('#filesOverview .ft-file[data-path="src/middleware/rateLimit.ts"]').click(); await p.waitForTimeout(300)
+  await p.evaluate(() => scrollTo(0, 500)); await p.waitForTimeout(250)
+  const f = await pinned('#filesModebar')
+  check(f.y > 100 && Math.abs(f.top - f.under) <= 2, `${vp.width}px: the Files menu stays right under the bar while the file scrolls (${JSON.stringify(f)})`)
+  if (vp.width > 900) {
+    const navTop = await p.evaluate(() => document.getElementById('filesNavBody').getBoundingClientRect().top)
+    const barBottom = await p.evaluate(() => document.getElementById('filesModebar').getBoundingClientRect().bottom)
+    check(navTop >= barBottom - 1, `the file tree sticks below the Files menu, not under it (tree ${Math.round(navTop)}, menu ends ${Math.round(barBottom)})`)
+  }
+  await p.close()
+}
+
 // ── the title reads like a shell prompt ───────────────────────────────────────
 {
   const p = await open()
@@ -221,8 +248,13 @@ const pane = async (p, id) => { await p.locator(`#tabs .tab[data-pane="${id}"]`)
   })
   check(sb.width === 'thin' && sb.color !== 'auto' && sb.scheme === 'dark', `scroll bars are thin and themed; a dark palette is a dark color-scheme (${JSON.stringify(sb)})`)
   check(sb.inside, 'the file counts stay clear of the scroll bar')
-  await p.locator('.themepick button[data-v="bond"]').click(); await p.waitForTimeout(300)
+  await p.locator('.themepick button[data-v="slate"]').click(); await p.waitForTimeout(300)
   check(await p.evaluate(() => getComputedStyle(document.documentElement).colorScheme) === 'light', 'a light palette is a light color-scheme')
+  check(JSON.stringify(await p.locator('.themepick button').evaluateAll(bs => bs.map(b => b.dataset.v))) === JSON.stringify(['slate', 'graphite']), 'two palettes: one light, one dark')
+  // a map saved with the retired third palette opens in the light one
+  await p.evaluate(() => { for (const k of Object.keys(localStorage)) if (k.startsWith('whydiff:') && k.includes(':')) { try { const v = JSON.parse(localStorage.getItem(k)); if (v && typeof v === 'object') { v.palette = 'bond'; localStorage.setItem(k, JSON.stringify(v)) } } catch {} } })
+  await p.reload(); await p.waitForTimeout(500)
+  check(await p.evaluate(() => document.documentElement.dataset.p) === 'slate', 'a saved "bond" palette opens as slate')
   await p.close()
 }
 

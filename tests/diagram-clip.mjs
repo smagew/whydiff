@@ -53,11 +53,11 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 900, height: 1000
   if (c.length) fail(`${label} graphite: ${c.length} node(s) clipped: ${c.join('; ')}`)
 
   // Switch palette the way the UI does — it re-renders every diagram.
-  await page.locator('.themepick button[data-v="bond"]').click()
+  await page.locator('.themepick button[data-v="slate"]').click()
   await page.waitForFunction(() => document.querySelector('#pane-diagrams .mermaid-box svg g.node'))
   await page.waitForTimeout(300)
   c = await clipped(page)
-  if (c.length) fail(`${label} bond (after re-render): ${c.length} node(s) clipped: ${c.join('; ')}`)
+  if (c.length) fail(`${label} slate (after re-render): ${c.length} node(s) clipped: ${c.join('; ')}`)
 
   // Resize: fitDiagrams re-runs; the content must stay whole.
   await page.setViewportSize({ width: viewport.width === 1440 ? 1100 : 1300, height: viewport.height })

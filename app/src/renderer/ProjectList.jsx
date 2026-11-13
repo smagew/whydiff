@@ -3,6 +3,16 @@ import RowMenu from './RowMenu.jsx'
 import { LOGO } from './logo.mjs'
 import { refLabel, reviewPills } from './logic.mjs'
 
+// The report languages offered, each named in itself. The viewer's own buttons and labels
+// exist in English and Russian; a report in another language keeps English chrome.
+const REPORT_LANG_OPTIONS = [
+  // 'auto' sends no --lang: an app run has no conversation to follow, so the skill's own
+  // fallback, English, applies. Shown as that, so there is no second "English" to confuse.
+  ['auto', 'English (default)'], ['ru', 'Русский'], ['uk', 'Українська'],
+  ['de', 'Deutsch'], ['es', 'Español'], ['fr', 'Français'], ['pt', 'Português'], ['it', 'Italiano'],
+  ['pl', 'Polski'], ['tr', 'Türkçe'], ['zh', '中文'], ['ja', '日本語'],
+]
+
 // The project list: add a local folder or a GitHub URL, and open one to review it.
 
 // The same two glyphs the map's diagram badges use (CHAT_ICON / NOTE_ICON in
@@ -75,6 +85,7 @@ export default function ProjectList({ onOpen }) {
   const [checkMsg, setCheckMsg] = useState('') // result of a manual "Check for updates"
   const [busyId, setBusyId] = useState(null) // "<id>:html" | "<id>:pdf" — one export at a time
   const [theme, setThemeState] = useState('system') // 'system' | 'light' | 'dark'
+  const [reportLang, setReportLangState] = useState('auto') // 'auto' | a language code
 
   const refresh = async () => {
     setProjects(await window.api.listProjects())
@@ -86,6 +97,7 @@ export default function ProjectList({ onOpen }) {
     refresh().catch((e) => setError(e?.message || String(e)))
     window.api.appVersion?.().then(setVer).catch(() => {})
     window.api.getTheme?.().then((t) => setThemeState(t?.preference || 'system')).catch(() => {})
+    window.api.getReportLang?.().then((l) => setReportLangState(l || 'auto')).catch(() => {})
   }, [])
   // Check for a newer app build once, and remember a dismissal per version so the
   // banner doesn't nag — until an even newer one ships.
@@ -116,6 +128,7 @@ export default function ProjectList({ onOpen }) {
     catch (e) { setError(e?.message || String(e)) } finally { setBusyId(null) }
   }
   const pickTheme = async (t) => { setThemeState(t); try { await window.api.setTheme?.(t) } catch {} }
+  const pickReportLang = async (l) => { setReportLangState(l); try { await window.api.setReportLang?.(l) } catch {} }
   const saveToken = () => guard(async () => { setToken(await window.api.setToken(tokenInput.trim())); setTokenInput(''); setShowToken(false) })
   const clearToken = () => guard(async () => { setToken(await window.api.clearToken()) })
 
@@ -251,6 +264,12 @@ export default function ProjectList({ onOpen }) {
           onClick={() => window.api.openGithub?.()}>
           <GithubIcon />
         </button>
+        <label className="lang-pick" title="The language new reports are written in.">
+          <span className="lang-label">Report language</span>
+          <select value={reportLang} onChange={(e) => pickReportLang(e.target.value)}>
+            {REPORT_LANG_OPTIONS.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
+          </select>
+        </label>
         <span className="seg" role="radiogroup" aria-label="Appearance">
           {[['system', 'System'], ['light', 'Light'], ['dark', 'Dark']].map(([v, label]) => (
             <button key={v} role="radio" aria-checked={theme === v} className={`seg-btn ${theme === v ? 'on' : ''}`} onClick={() => pickTheme(v)}>{label}</button>

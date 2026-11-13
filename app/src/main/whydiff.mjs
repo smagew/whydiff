@@ -17,7 +17,7 @@ export const pluginDir = () => process.env.WHYDIFF_PLUGIN_DIR || resolve(here, '
  * streams which pass is running to stderr; each line is handed to `onProgress`. On
  * success the map is at <repo>/.whydiff/review-map.json.
  */
-export function runAnalysis(repo, range, { onProgress, onChild, logPath, runScript, node = 'node', env, timeout = 1_800_000, full = false, sections, progressJson = false } = {}) {
+export function runAnalysis(repo, range, { onProgress, onChild, logPath, runScript, node = 'node', env, timeout = 1_800_000, full = false, sections, progressJson = false, lang = '' } = {}) {
   return new Promise((resolveP, reject) => {
     const script = runScript || join(pluginDir(), 'scripts', 'run.mjs')
     // No range → the working tree (whydiff's default); pass only the repo then.
@@ -27,6 +27,7 @@ export function runAnalysis(repo, range, { onProgress, onChild, logPath, runScri
     if (full) args.push('--full')
     else if (sections && sections.length) args.push('--sections', sections.join(','))
     if (progressJson) args.push('--progress-json') // emit @stage markers for a host progress UI
+    if (lang && lang !== 'auto') args.push('--lang', lang) // the report language chosen in the app
     const child = spawn(node, args, { stdio: ['ignore', 'pipe', 'pipe'], env: env || process.env })
     onChild?.(child) // hand the child back so the caller can cancel the run (analyze:cancel)
     let timedOut = false

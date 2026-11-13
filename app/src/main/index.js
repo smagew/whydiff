@@ -160,6 +160,8 @@ app.whenReady().then(() => {
     for (const w of BrowserWindow.getAllWindows()) if (!w.isDestroyed()) w.setBackgroundColor(paper())
   })
   ipcMain.handle('theme:get', () => ({ preference: settings.getTheme(), dark: nativeTheme.shouldUseDarkColors }))
+  ipcMain.handle('reportLang:get', () => settings.getReportLang())
+  ipcMain.handle('reportLang:set', (_e, lang) => settings.setReportLang(lang))
   ipcMain.handle('theme:set', (_e, pref) => {
     const saved = settings.setTheme(pref)
     nativeTheme.themeSource = saved
@@ -288,7 +290,7 @@ app.whenReady().then(() => {
     if (!whichBin('git')) throw new Error('`git` was not found on your PATH. Install git, then reopen this app.')
     try {
       const { mapPath } = await runAnalysis(repo, range || '', {
-        onProgress, full: !!full, sections: sections || [], progressJson: true, node: nodeCmd(), env: nodeEnv(),
+        onProgress, full: !!full, sections: sections || [], progressJson: true, node: nodeCmd(), env: nodeEnv(), lang: settings.getReportLang(),
         logPath: lastRunLog, onChild: (c) => { analyzeChild = c },
       })
       // analysisId → regenerate that analysis in place (same id + dir, files overwritten);

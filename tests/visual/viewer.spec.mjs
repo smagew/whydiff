@@ -31,7 +31,7 @@ test('CI image matches @playwright/test', () => {
 })
 
 const TAB_COUNT = 7  // Diagrams · Files · User stories · Summary · Ops & risks · Standards · Tests
-const PALETTES = { dark: 'graphite', light: 'bond' }
+const PALETTES = { dark: 'graphite', light: 'slate' }
 const WINDOWS = { wide: { width: 1440, height: 900 }, narrow: { width: 900, height: 1000 } }
 
 for (const [winName, viewport] of Object.entries(WINDOWS)) {
