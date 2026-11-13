@@ -11,6 +11,13 @@ future agents (and you) read this before touching the area.
 - **Measure only what is on screen.** A clamped note in a hidden pane measures 0, so a
   "does it clip?" check at render time never fires. Re-run it when the tab is shown
   (`revealNoteToggles` in `setTab('files')`).
+- **Diagrams on other tabs are `.dg-off`, never `display:none`.** Mermaid must measure a
+  diagram to render, fit or re-render it on a palette switch, so an inactive diagram is
+  taken out of flow with `visibility:hidden` and height 0. Anything that leads into a
+  diagram must call `showDiagram`/`revealDiagramOf` first. Print and the app's PDF export
+  (`body.dg-print`, set by `preparePrint`) show every diagram again. In tests, open the
+  diagram's tab (`#dgTabs .dg-tab[data-dgkey=…]`) before interacting, and select a
+  diagram's SVG with `pre.mermaid > svg`: legend samples are SVGs too.
 - **The reading column may not carry a fill, legends included.** `tests/design.mjs`
   fails any filled element in `.main-panel` outside an SVG. Draw a legend sample as a
   small SVG (`swatchSVG`), the way the diagram draws the mark. Storyboard cards are

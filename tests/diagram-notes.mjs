@@ -101,6 +101,9 @@ const frameActors = async (dgIndex, sel) => { const f = await page.locator(`#pan
 const region = async (dgIndex, sel, label) => {
   // By key, not position: the storyboard renders first (data-dg="story"), so the Nth
   // .diagram is no longer RM.diagrams[N]. Notes are keyed the same way.
+  // One diagram is on screen at a time: open its tab first, as a reader would.
+  const dgTab = page.locator(`#dgTabs .dg-tab[data-dgkey="${dgIndex}"]`)
+  if (await dgTab.count()) { await dgTab.click(); await page.waitForTimeout(300) }
   const boxLoc = page.locator(`#pane-diagrams .diagram[data-dg="${dgIndex}"]`).locator('.mermaid-box')
   await boxLoc.evaluate((el) => el.scrollIntoView({ block: 'start' }))
   await page.waitForTimeout(150)
@@ -133,6 +136,7 @@ const region = async (dgIndex, sel, label) => {
   await page.reload()
   await page.locator('#tabs .tab[data-pane="diagrams"]').click()
   await page.waitForSelector('#pane-diagrams .mermaid-box svg', { timeout: 15000 })
+  if (await dgTab.count()) { await dgTab.click(); await page.waitForTimeout(400) } // a load opens the first diagram
   await page.waitForFunction(() => document.querySelector('#pane-diagrams .dg-region'), null, { timeout: 10000 })
     .catch(() => fail(`[${label}] the region frame did not survive a reload`))
   await page.waitForTimeout(300)

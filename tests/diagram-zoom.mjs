@@ -39,6 +39,7 @@ const errors = []
 page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`))
 await page.goto('file://' + html)
 await page.locator('#tabs .tab[data-pane="diagrams"]').click()
+await page.locator('#dgTabs .dg-tab[data-dgkey="0"]').click() // one diagram on screen at a time
 await page.waitForSelector('#pane-diagrams .diagram[data-dg="0"] .mermaid-box svg', { timeout: 15000 })
 await page.waitForTimeout(400)
 

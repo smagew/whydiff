@@ -224,11 +224,15 @@ const tab = async (p, id) => { await p.locator(`#tabs .tab[data-pane="${id}"]`).
 // ── 8 chips, transitions, legend ─────────────────────────────────────────────
 {
   const p = await open(url)
-  const hint = await p.evaluate(() => {
-    const h = document.getElementById('diagramsHint'), d0 = document.querySelector('#pane-diagrams .diagram[data-dg="0"]')
-    return { legend: h.classList.contains('dg-legend'), sw: h.querySelectorAll('.sw').length, before: h.nextElementSibling === d0 }
+  const hint = async () => p.evaluate(() => {
+    const h = document.getElementById('diagramsHint')
+    return { legend: h.classList.contains('dg-legend'), sw: h.querySelectorAll('.sw').length, afterTabs: h.previousElementSibling?.id === 'dgTabs', shown: h.getClientRects().length > 0 }
   })
-  check(hint.legend && hint.sw === 3 && hint.before, `the diagrams hint is a 3-sample legend right above the first diagram (${JSON.stringify(hint)})`)
+  const onStory = await hint()
+  check(onStory.legend && onStory.sw === 3 && onStory.afterTabs, `the diagrams hint is a 3-sample legend under the diagram tabs (${JSON.stringify(onStory)})`)
+  check(!onStory.shown, 'the node legend is hidden on the storyboard (its cards use edges)')
+  await p.locator('#dgTabs .dg-tab[data-dgkey="0"]').click(); await p.waitForTimeout(200)
+  check((await hint()).shown, 'the node legend shows on an engineering diagram')
   await tab(p, 'story')
   const chips = await p.evaluate(() => [...document.querySelectorAll('#pane-story .fchip')].map(c => ({ text: c.textContent, path: c.dataset.goto })))
   check(chips.length > 0, 'the Summary has file chips')

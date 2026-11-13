@@ -4,6 +4,27 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.51.0] — 2026-11-12
+
+### Changed
+- **The report uses the whole window.** The centred 1360px column is gone; the
+  report spans the window with a 20px gutter. Running text keeps its line length;
+  diagrams, code and the file tree get the room.
+- **One diagram at a time, on its own tab.** A row of tabs named by each diagram's
+  title (the storyboard first) sits above the diagrams, with arrow keys, Home and End.
+  The shown diagram fits the window whole by default, but never below ¾ of its natural
+  size, so a very tall flow stays readable and "fit to screen" shows it all. Notes,
+  j/k, the verdict's storyboard chip and the `#dg=` pop-out open the right tab. Print
+  and PDF export still carry every diagram.
+- **The file list is resizable.** Drag the rule between the list and the file, or
+  focus it and use ←/→ (Shift for bigger steps), Home and End. A double-click resets
+  it. The width stays between 200px and what leaves the file 360px, and is remembered
+  across maps.
+
+### Fixed
+- The zoom buttons no longer cover the right-most part of a diagram: they have a
+  column of their own.
+
 ## [0.50.0] — 2026-11-12
 
 ### Changed

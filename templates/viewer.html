@@ -116,7 +116,9 @@
   html { scrollbar-gutter: stable; }
   body { margin: 0; background: var(--canvas); color: var(--ink); font-family: var(--font-ui); font-size: 14px;
     line-height: 1.45; -webkit-font-smoothing: antialiased; font-variant-numeric: tabular-nums; }
-  .wrap { max-width: 1360px; margin: 0 auto; padding: 28px 24px 64px; position: relative; }
+  /* The report uses the whole window, IDE-style: no centred column, a small gutter.
+     Running text keeps its own measure (--measure) inside its block. */
+  .wrap { margin: 0; padding: 20px 20px 64px; position: relative; }
   /* Quick palette switch — three swatches in the top-right corner, each painted in
      its own palette's canvas + accent so it reads as a theme, not a button. */
   .themepick { position: absolute; top: 24px; right: 24px; display: inline-flex; gap: 5px; z-index: 6; }
@@ -326,8 +328,17 @@
   /* aside sub-tabs: Overview | Call graph */
   /* Files tab: IDE layout — a navigator on the left (mode switcher + list/map), the selected
      file's view in the main area on the right. */
-  .files-layout { display: flex; gap: 20px; align-items: flex-start; }
-  .files-nav { flex: none; width: 340px; min-width: 240px; align-self: stretch; }
+  .files-layout { display: flex; gap: 0; align-items: flex-start; }
+  .files-nav { flex: none; width: var(--nav-w, 340px); min-width: 0; align-self: stretch; }
+  /* The splitter between the navigator and the file: drag it (pointer capture), or focus it
+     and use ←/→ (Shift for bigger steps), Home/End; double-click resets. A 1px rule that
+     thickens on hover/drag; the hit area is the whole 14px gap. */
+  .files-split { flex: none; align-self: stretch; width: 14px; margin: 0 4px; cursor: col-resize; position: relative; touch-action: none; }
+  .files-split::before { content: ""; position: absolute; top: 0; bottom: 0; left: 6px; width: 1px; background: var(--line); transition: background var(--t), width var(--t), left var(--t); }
+  .files-split:hover::before, .files-split.dragging::before, .files-split:focus-visible::before { background: var(--accent); width: 3px; left: 5px; }
+  .files-split:focus-visible { outline: none; }
+  body.splitting { cursor: col-resize; user-select: none; }
+  #filesNav[hidden] + .files-split { display: none; }
   /* The navigator scrolls on its own, like an IDE's project pane: it sticks below the top
      of the window and always ends above the footer strip, so a long tree scrolls inside
      it while the file view scrolls with the page, and the tree stays put while you read
@@ -346,7 +357,7 @@
   .files-mode-btn:hover { color: var(--accent); }
   .files-mode-btn.on { color: var(--ink); border-bottom-color: var(--accent); }
   .files-mode-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-  @media (max-width: 900px) { .files-layout { flex-direction: column; } .files-nav { width: auto; align-self: stretch; }
+  @media (max-width: 900px) { .files-layout { flex-direction: column; } .files-nav { width: auto; align-self: stretch; } .files-split { display: none; }
     .files-nav-body { position: static; max-height: 45vh; } }
   .aside-subtabs { display: flex; gap: 4px; margin: 0 0 14px; }
   .aside-subtab { font: inherit; font-family: var(--mono); font-size: 13px; cursor: pointer; padding: 4px 10px;
@@ -474,7 +485,7 @@
      when served). */
   body.dg-focus .kicker, body.dg-focus #title, body.dg-focus .sub, body.dg-focus #statbar, body.dg-focus #verdict,
   body.dg-focus #scopebar, body.dg-focus #consistency, body.dg-focus .modebar,
-  body.dg-focus #tabs, body.dg-focus #diagramsHint, body.dg-focus .footstrip { display: none !important; }
+  body.dg-focus #tabs, body.dg-focus #diagramsHint, body.dg-focus .dg-tabs, body.dg-focus .footstrip { display: none !important; }
   body.dg-focus .wrap { max-width: none !important; padding: 12px 16px !important; }
   body.dg-focus .pane:not(#pane-diagrams) { display: none !important; }
   body.dg-focus #pane-diagrams .diagram { display: none; }
@@ -1079,6 +1090,8 @@
   .listcard { border: none; border-radius: 0; padding: 0; }
   .diagram { border: none; border-radius: 0; padding: 0; margin: 0 0 26px; }
   .diagram .mermaid-box { background: none; border-radius: 0; padding: 0; }
+  /* the zoom buttons sit in a column of their own on the right, never over the drawing */
+  @media screen { .diagram .mermaid-wrap:has(> .dg-zoom) > .mermaid-box { padding-right: 44px; } }
   /* Diff marking for diagrams. The generator now emits only the semantic class
      (`:::added`), never a classDef, and assemble.mjs strips any that survive in
      an older map — so these rules are the single place a diagram's diff colour
@@ -1227,6 +1240,27 @@
   .verdict { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 16px 0 4px;
     padding: 9px 14px; border-left: 3px solid var(--flag); background: var(--flag-soft); max-width: 100%; }
   .verdict[hidden] { display: none; }
+  /* Diagrams: one diagram at a time, picked from a row of named sub-tabs. An inactive
+     diagram is NOT display:none — mermaid must be able to measure it (it renders, fits and
+     re-renders on a palette switch) — it is taken out of flow and out of sight instead. */
+  .dg-tabs { display: flex; flex-wrap: wrap; gap: 2px 4px; margin: 0 0 16px; border-bottom: 1px solid var(--line); }
+  .dg-tab { font: inherit; font-size: 14px; cursor: pointer; padding: 7px 10px; max-width: 34ch; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap; border: none; border-bottom: 2px solid transparent; margin-bottom: -1px;
+    background: none; color: var(--ink-2); }
+  .dg-tab:hover { color: var(--ink); }
+  .dg-legend[hidden] { display: none; }
+  /* the heading is hidden (the tab names it), so the action buttons sit at the right of
+     the caption line instead of on an empty row of their own */
+  @media screen { body:not(.dg-focus):not(.dg-print) #pane-diagrams.dg-tabbed .diagram { position: relative; }
+    body:not(.dg-focus):not(.dg-print) #pane-diagrams.dg-tabbed .diagram .dg-head { position: absolute; top: -4px; right: 0; z-index: 2; }
+    body:not(.dg-focus):not(.dg-print) #pane-diagrams.dg-tabbed .diagram .cap { padding-right: 96px; min-height: 30px; } }
+  /* the tab already names the diagram on screen; the heading returns in print and pop-out */
+  @media screen { body:not(.dg-focus):not(.dg-print) #pane-diagrams.dg-tabbed .diagram .dg-head h3 { display: none; } }
+  .dg-tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+  .dg-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  #pane-diagrams { position: relative; }
+  #pane-diagrams .diagram.dg-off { position: absolute; top: 0; left: 0; right: 0; height: 0; overflow: hidden;
+    visibility: hidden; pointer-events: none; margin: 0; }
   .verdict .v-k { font-weight: 500; color: var(--ink); }
   .verdict .v-items { display: flex; flex-wrap: wrap; gap: 6px; }
   .verdict .v-chip { font: inherit; font-size: 14px; cursor: pointer; color: var(--flag); background: var(--panel);
@@ -1266,6 +1300,12 @@
   .pnref { display: none; font-size: 13px; vertical-align: super; line-height: 0; margin-left: 2px; }
   .pnref a { color: var(--accent); text-decoration: none; font-weight: 500; }
   .diagram .pn-diagram-notes { display: none; }
+  /* Print, and the app's PDF export while it lays the page out (body.dg-print, set by
+     preparePrint before printToPDF, so locator glyphs are placed on visible diagrams): every
+     diagram, in order, no tab row. */
+  @media print { #pane-diagrams .diagram.dg-off { position: static; height: auto; overflow: visible; visibility: visible; } }
+  body.dg-print #pane-diagrams .diagram.dg-off { position: static; height: auto; overflow: visible; visibility: visible; }
+  body.dg-print .dg-tabs { display: none; }
   @media print { .diagram .pn-diagram-notes { display: block; font-family: var(--mono); font-size: 13px; color: var(--muted); margin: 4px 0 0; } }
   /* A note is a comment on its place. In the browser print fallback it prints as a footnote
      right AT its place, so it reads on the same page as the fragment it belongs to. (The
@@ -1282,7 +1322,7 @@
     .askpanel, .askbar, .rail, .rc-grip, .rc-grip-pill, .rightcol, .modebar, .content-tools,
     #edges, #elabels, .elabels, .elabel, .dg-badges, .dg-region,
     .files-nav, .files-modebar, #filesCall,
-    .kicker, #title, .sub, #statbar, #verdict,
+    .kicker, #title, .sub, #statbar, #verdict, .dg-tabs, .files-split,
     #diagramsHint, #blastHint, .dg-actions, .dg-zoom, [data-pop] { display: none !important; }
     /* Clamp the whole reading column to the paper width. The PDF renderer lays out at the
        on-screen viewport width and crops to the page, so a full-width column would spill
@@ -1372,6 +1412,7 @@
               <div id="filesList" class="files-mode" hidden></div>
             </div>
           </nav>
+          <div class="files-split" id="filesSplit" role="separator" aria-orientation="vertical" aria-controls="filesNav" tabindex="0"></div>
           <div class="files-main" id="filesMain">
             <!-- Call graph: the card-map + the dependency tree render FULL-WIDTH here, above the
                  file view (mode=callgraph). A 2D map needs the width; a card click opens the file
@@ -1449,7 +1490,7 @@ const I18N = {
     statFiles: (c, n) => `files (${c} mod. + ${n} new)`,
     statLines: 'lines', statGroups: 'cause groups',
     statAttention: 'files need careful reading', statEnv: 'env changes',
-    vTitle: 'Check',
+    vTitle: 'Check', navResize: 'Resize the file list',
     vCareful: (n) => n === 1 ? '1 file to read carefully' : `${n} files to read carefully`,
     vStory: (n) => n === 1 ? '1 problem on the storyboard' : `${n} problems on the storyboard`,
     vStd: (n) => n === 1 ? '1 standards warning' : `${n} standards warnings`,
@@ -1619,7 +1660,7 @@ const I18N = {
     statFiles: (c, n) => `файлов (${c} изм. + ${n} новых)`,
     statLines: 'строк', statGroups: 'групп причин',
     statAttention: 'файла внимательного чтения', statEnv: 'env-изменений',
-    vTitle: 'Проверить',
+    vTitle: 'Проверить', navResize: 'Изменить ширину списка файлов',
     vCareful: (n) => `${n} ${ruN(n, 'файл', 'файла', 'файлов')} читать внимательно`,
     vStory: (n) => `${n} ${ruN(n, 'проблема', 'проблемы', 'проблем')} на схеме`,
     vStd: (n) => `${n} ${ruN(n, 'замечание', 'замечания', 'замечаний')} по стандартам`,
@@ -1867,7 +1908,7 @@ function renderVerdict() {
   const carefulFiles = new Set(careful.flatMap(g => g.files)).size
   if (carefulFiles) items.push({ n: carefulFiles, text: L.vCareful(carefulFiles), attr: `data-gogroup="${esc(careful[0].id)}"` })
   const sbWarn = (RM.storyboard?.cards || []).filter(c => c.warning).length
-  if (sbWarn) items.push({ text: L.vStory(sbWarn), attr: 'data-vtab="diagrams"' })
+  if (sbWarn) items.push({ text: L.vStory(sbWarn), attr: 'data-vtab="diagrams" data-vdg="story"' })
   const stdWarn = isGen('standards') ? (RM.standards || []).filter(s => s.severity === 'warn').length : 0
   if (stdWarn) items.push({ text: L.vStd(stdWarn), attr: 'data-vtab="standards"' })
   const gaps = isGen('tests') ? (RM.tests?.gaps || []).length : 0
@@ -1879,7 +1920,11 @@ function renderVerdict() {
   el.innerHTML = `<span class="v-k">${esc(L.vTitle)}</span><span class="v-items">` +
     items.map(i => `<button type="button" class="v-chip" ${i.attr}>${esc(i.text)}</button>`).join('') +
     `</span><span class="v-read" id="vRead"></span>`
-  el.addEventListener('click', (e) => { const t = e.target.closest('[data-vtab]'); if (t) setTab(t.dataset.vtab) })
+  el.addEventListener('click', (e) => {
+    const t = e.target.closest('[data-vtab]'); if (!t) return
+    setTab(t.dataset.vtab)
+    if (t.dataset.vdg) showDiagram(t.dataset.vdg)
+  })
 }
 
 // ── scopes & languages: which parts of the project the change touches ────────
@@ -2021,10 +2066,6 @@ let scopeFilter = null
     hint.innerHTML = ['added', 'changed', 'removed'].map(k => `<span class="lg">${swatchSVG('node', k)}${esc(L.sbTag[k])}</span>`).join('') +
       `<span class="lg lg-note">${esc(L.lgNodes)}</span>`
     hint.title = L.diagramsHint
-    // It explains the engineering diagrams, so it sits right above the first of them,
-    // after the storyboard (whose cards use edges, not fills).
-    const first = document.querySelector('#pane-diagrams .diagram[data-dg="0"]')
-    if (first && RM.storyboard) first.before(hint)
   } else hint.hidden = true
 }
 // A legend sample: a storyboard card with its status edge, or a diagram node with its mark.
@@ -2049,6 +2090,67 @@ function storyLabels() { return L.sbTag }
     legend.innerHTML = ['added', 'changed', 'removed'].map(k => `<span class="lg">${swatchSVG('edge', k)}${esc(L.sbTag[k])}</span>`).join('') +
       `<span class="lg warn">⚠ ${esc(L.lgWarn)}</span><span class="lg lg-note">${esc(L.lgClick)}</span>`
     sbEl.querySelector('.mermaid-wrap').after(legend)
+  }
+}
+// ── diagram sub-tabs ─────────────────────────────────────────────────────────
+// One diagram on screen at a time: a row of tabs named by each diagram's title (the
+// storyboard first), the WAI-ARIA tabs pattern (arrows/Home/End move, the selected tab is
+// the one tab stop). Inactive diagrams get .dg-off (measurable, rendered, printed — see the
+// CSS); everything that leads INTO a diagram (a note, j/k, the verdict, #dg=) goes through
+// showDiagram. The node legend explains the engineering diagrams, so it shows only for them.
+let activeDg = null
+function showDiagram(key, { focus = false } = {}) {
+  const diagrams = [...document.querySelectorAll('#pane-diagrams .diagram')]
+  if (!diagrams.length) return
+  const el = diagrams.find((d, pos) => dgKeyOf(d, pos) === String(key)) || diagrams[0]
+  activeDg = dgKeyOf(el, diagrams.indexOf(el))
+  diagrams.forEach(d => d.classList.toggle('dg-off', d !== el))
+  for (const t of document.querySelectorAll('#dgTabs .dg-tab')) {
+    const on = t.dataset.dgkey === activeDg
+    t.setAttribute('aria-selected', String(on)); t.tabIndex = on ? 0 : -1
+    if (on && focus) t.focus()
+  }
+  const hint = document.getElementById('diagramsHint')
+  if (hint && hint.classList.contains('dg-legend')) hint.hidden = activeDg === 'story'
+  requestAnimationFrame(() => { fitDiagrams(); window.__whydiffDrawMarks?.() })
+}
+// The diagram an element sits in becomes the shown one (used before scrolling to it).
+function revealDiagramOf(el) {
+  const dg = el?.closest?.('#pane-diagrams .diagram')
+  if (!dg || !dg.classList.contains('dg-off')) return
+  const all = [...document.querySelectorAll('#pane-diagrams .diagram')]
+  showDiagram(dgKeyOf(dg, all.indexOf(dg)))
+}
+{
+  const pane = document.getElementById('pane-diagrams')
+  const diagrams = [...pane.querySelectorAll('.diagram')]
+  if (diagrams.length > 1) {
+    const bar = document.createElement('div')
+    bar.className = 'dg-tabs'; bar.id = 'dgTabs'
+    bar.setAttribute('role', 'tablist'); bar.setAttribute('aria-label', L.tabs.diagrams)
+    diagrams.forEach((d, pos) => {
+      const key = dgKeyOf(d, pos)
+      const name = d.querySelector('h3')?.textContent.trim() || `${L.tabs.diagrams} ${pos + 1}`
+      const b = document.createElement('button')
+      b.type = 'button'; b.className = 'dg-tab'; b.dataset.dgkey = key
+      b.setAttribute('role', 'tab'); b.id = `dgtab-${key}`; b.title = name; b.textContent = name
+      d.setAttribute('role', 'tabpanel'); d.setAttribute('aria-labelledby', b.id)
+      b.addEventListener('click', () => showDiagram(key))
+      bar.appendChild(b)
+    })
+    bar.addEventListener('keydown', (e) => {
+      const tabs = [...bar.querySelectorAll('.dg-tab')], i = tabs.indexOf(document.activeElement)
+      if (i < 0) return
+      const to = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: tabs.length - 1 }[e.key]
+      if (to === undefined) return
+      e.preventDefault()
+      showDiagram(tabs[(to + tabs.length) % tabs.length].dataset.dgkey, { focus: true })
+    })
+    pane.insertBefore(bar, pane.firstChild)
+    pane.classList.add('dg-tabbed')
+    const hint = document.getElementById('diagramsHint')
+    if (hint) bar.after(hint)
+    showDiagram(dgKeyOf(diagrams[0], 0))
   }
 }
 // Fill each card's icon slot after mermaid rendered it (mermaid strips nothing we put in
@@ -2363,9 +2465,22 @@ function fitDiagrams() {
     const svg = box.querySelector('svg')
     if (!svg) continue
     const natural = svg.viewBox?.baseVal?.width || 0
-    const avail = box.clientWidth - 20 // minus the box padding
+    const cs = getComputedStyle(box)
+    const avail = box.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - 4 // inside the box padding
     if (!natural || avail <= 0) { svg.style.width = ''; continue }
-    svg.style.width = Math.round(Math.min(avail, natural * DIAGRAM_MAX_SCALE)) + 'px'
+    // With one diagram on screen at a time (the sub-tabs), the whole of it should fit the
+    // window: also cap the width so its HEIGHT fits what is left below the tab row. Zoom
+    // still goes bigger on demand.
+    const natH = svg.viewBox?.baseVal?.height || 0
+    // The room is what the window shows below where the diagram starts on the page (under
+    // the header and the tab row), above the footer strip, so the first screen shows all of it.
+    const foot = document.querySelector('.footstrip')?.getBoundingClientRect().height || 0
+    const top = box.getBoundingClientRect().top + scrollY
+    const roomH = Math.max(420, innerHeight - top - foot - 24)
+    // ...but never shrink below 3/4 of natural size to do it: a very tall, narrow flow would
+    // become unreadable. That one starts readable and "fit to screen" shows it whole.
+    const fitH = document.getElementById('dgTabs') && natH ? Math.max(roomH * natural / natH, natural * 0.75) : Infinity
+    svg.style.width = Math.round(Math.min(avail, natural * DIAGRAM_MAX_SCALE, fitH)) + 'px'
   }
   // Redraw the annotation marks for the new size. drawDiagramMarks lives inside the diagrams
   // IIFE below, so it is reachable only through this handle — a bare drawDiagramMarks() here
@@ -3278,6 +3393,7 @@ function applyDiagramFocus() {
   if (!el) return
   document.body.classList.add('dg-focus')
   setTab('diagrams')
+  showDiagram(m[1])
   el.classList.add('dg-focused')
   document.title = el.querySelector('h3')?.textContent || document.title
   requestAnimationFrame(() => { runDiagrams(); requestAnimationFrame(fitDiagrams) })
@@ -3447,6 +3563,7 @@ async function preparePrint({ tab = null, all = false, forComments = false } = {
   if (all || tab === 'diagrams') { setTab('diagrams'); try { await runDiagrams() } catch {} }
   if (tab && tab !== 'diagrams') setTab(tab)
   document.body.classList.toggle('print-all', !!all)
+  document.body.classList.add('dg-print') // every diagram on the page, not one tab
   document.body.classList.toggle('wdx-comments', !!forComments) // beforeprint must not rebuild notes now
   await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
   // Questions become in-document links + a Questions appendix. Notes: the browser fallback
@@ -3502,7 +3619,7 @@ window.addEventListener('beforeprint', () => {
   window.__whydiffBuildPrintNotes?.()
   fitDiagramsForPrint()
 })
-window.addEventListener('afterprint', () => { endPrintPalette(); document.body.classList.remove('wdx-comments'); document.querySelectorAll('.pnref, .pn-diagram-notes, .pn-inline-note, .wdx-loc, #pane-diagrams svg .wdx-loc-svg, #pane-diagrams svg .wdx-region').forEach((e) => e.remove()) })
+window.addEventListener('afterprint', () => { endPrintPalette(); document.body.classList.remove('wdx-comments', 'dg-print'); document.querySelectorAll('.pnref, .pn-diagram-notes, .pn-inline-note, .wdx-loc, #pane-diagrams svg .wdx-loc-svg, #pane-diagrams svg .wdx-region').forEach((e) => e.remove()) })
 
 // quiet ships; safe is the token block's own two-hue pair, so it is the one
 // spelling that clears the attribute rather than setting it.
@@ -3587,6 +3704,7 @@ function moveCursor(delta) {
   cursor = Math.max(0, Math.min(u.length - 1, (cursor < 0 ? (delta > 0 ? -1 : 0) : cursor) + delta))
   const el = u[cursor]
   el.classList.add('cursor-here')
+  if (currentTab === 'diagrams') { revealDiagramOf(el); return el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }) }
   el.scrollIntoView({ behavior: 'smooth', block: 'center' })
 }
 let fileCursor = -1
@@ -3700,6 +3818,51 @@ function fitFilesNav() {
   const foot = document.querySelector('.footstrip')
   const footH = foot && foot.getClientRects().length ? foot.getBoundingClientRect().height : 0
   filesNavBody.style.maxHeight = `${Math.max(160, innerHeight - top - footH - 12)}px`
+}
+// ── the navigator/file splitter ──────────────────────────────────────────────
+// Drag the rule between the file tree and the file to resize the tree, as in an IDE. The
+// width is the reader's preference, not the map's, so it is kept across maps.
+{
+  const split = document.getElementById('filesSplit'), layout = document.getElementById('filesLayout')
+  const KEY = 'whydiff:navWidth', MIN = 200, DEF = 340
+  // A hidden tab measures 0: then there is nothing to clamp against yet.
+  const max = () => layout.clientWidth ? Math.max(MIN, Math.min(layout.clientWidth - 360, layout.clientWidth * 0.7)) : Infinity
+  let width = DEF
+  try { width = +localStorage.getItem(KEY) || DEF } catch {}
+  const apply = (w, save) => {
+    width = Math.round(Math.max(MIN, Math.min(max(), w)))
+    layout.style.setProperty('--nav-w', `${width}px`)
+    split.setAttribute('aria-valuenow', String(width))
+    split.setAttribute('aria-valuemin', String(MIN)); if (max() !== Infinity) split.setAttribute('aria-valuemax', String(Math.round(max())))
+    if (save) try { localStorage.setItem(KEY, String(width)) } catch {}
+    requestAnimationFrame(drawEdges)
+  }
+  split.setAttribute('aria-label', L.navResize)
+  layout.style.setProperty('--nav-w', `${width}px`)
+  split.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return
+    e.preventDefault()
+    split.setPointerCapture(e.pointerId)
+    split.classList.add('dragging'); document.body.classList.add('splitting')
+    const x0 = e.clientX, w0 = document.getElementById('filesNav').getBoundingClientRect().width
+    const move = (ev) => apply(w0 + ev.clientX - x0, false)
+    const up = () => {
+      split.removeEventListener('pointermove', move); split.removeEventListener('pointerup', up); split.removeEventListener('pointercancel', up)
+      split.classList.remove('dragging'); document.body.classList.remove('splitting')
+      apply(width, true)
+    }
+    split.addEventListener('pointermove', move); split.addEventListener('pointerup', up); split.addEventListener('pointercancel', up)
+  })
+  split.addEventListener('keydown', (e) => {
+    const step = e.shiftKey ? 80 : 16
+    const to = { ArrowLeft: width - step, ArrowRight: width + step, Home: MIN, End: max() }[e.key]
+    if (to === undefined) return
+    e.preventDefault(); apply(to, true)
+  })
+  split.addEventListener('dblclick', () => apply(DEF, true))
+  // keep it inside the window when the window narrows
+  addEventListener('resize', () => { if (width > max()) apply(width, false) })
+  requestAnimationFrame(() => apply(width, false))
 }
 let fitNavRaf = 0
 const fitFilesNavSoon = () => { cancelAnimationFrame(fitNavRaf); fitNavRaf = requestAnimationFrame(fitFilesNav) }
@@ -4272,6 +4435,7 @@ if (SERVE?.token || EMBEDDED) (() => {
     // frames after the tab opens — wait for it rather than declaring it lost.
     if (!el && e.tab === 'diagrams' && tries < 40) return setTimeout(() => jumpTo(e, tries + 1), 100)
     if (el) {
+      revealDiagramOf(el)
       el.scrollIntoView({ behavior: 'smooth', block: 'center' })
       openFor(anchorOf(el))
     } else {

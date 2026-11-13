@@ -45,7 +45,7 @@ for (const [winName, viewport] of Object.entries(WINDOWS)) {
       expect(panes.length, 'tab set changed — update TABS deliberately').toBe(TAB_COUNT)
       for (const pane of panes) {
         await page.locator(`#tabs .tab[data-pane="${pane}"]`).click()
-        if (pane === 'diagrams') await expect(page.locator('#pane-diagrams svg').first()).toBeVisible()
+        if (pane === 'diagrams') await expect(page.locator('#pane-diagrams pre.mermaid > svg').first()).toBeVisible()
         await page.evaluate(() => document.fonts.ready)
         await page.mouse.move(0, 0)
         await expect.soft(page).toHaveScreenshot(`${pane}-${themeName}-${winName}.png`, { fullPage: true })
