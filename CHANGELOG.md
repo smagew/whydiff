@@ -37,6 +37,16 @@ to receive an update.
   the change deletes cannot be opened.
 - **Folder icons** in the file tree, open or closed with the folder.
 - **The Diagrams icon** is a flow chart, not a git branch.
+- **A section's own menu stays put.** The diagram tabs and Files' Overview / Files list
+  / Call graph are pinned under the title bar; only the content scrolls under them.
+  The file tree sticks below that menu.
+- **Two palettes: one dark, one light.** The third (`bond`) is gone; a map saved with it
+  opens in the light palette (`slate`), and PDF export prints in `slate`.
+- **Choose the report language.** A `lang:<code>` argument (`/whydiff lang:de`) wins
+  over the conversation's language; `scripts/run.mjs --lang <code>` passes it on (a
+  malformed code is a usage error). The desktop app gains a **Report language**
+  setting (English by default, plus Russian, Ukrainian, German, Spanish, French,
+  Portuguese, Italian, Polish, Turkish, Chinese, Japanese) applied to every new run.
 - **Scroll bars match the palette:** thin, in the palette's line colour, and native
   controls follow the palette's light or dark scheme. The file list keeps its numbers
   clear of the scroll bar.
@@ -45,7 +55,7 @@ to receive an update.
 - **Pinch and ⌘-wheel zoom on diagrams is smooth.** It multiplied by 1.12 per event,
   and a trackpad sends dozens per gesture, so a light pinch jumped to the maximum. The
   step now follows how far the fingers or wheel moved (e^(−k·delta), per frame), so a
-  gesture and its reverse cancel out and a wheel notch is one modest step.
+  gesture and its reverse cancel out and a wheel notch is one clear step (~×1.25).
 - Sticky panels (the chat panel, the file inspector, the Files navigator) stick below
   the title bar instead of sliding under it, and a sticky panel no longer rides off
   the top of the window at the end of a short page.

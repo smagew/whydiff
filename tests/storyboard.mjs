@@ -83,7 +83,7 @@ const inspect = () => page.evaluate(() => {
 })
 
 const want = sb.cards
-for (const pal of ['graphite', 'bond', 'slate']) {
+for (const pal of ['graphite', 'slate']) {
   await page.locator(`.themepick button[data-v="${pal}"]`).click()
   await page.waitForTimeout(700)
   const r = await inspect()

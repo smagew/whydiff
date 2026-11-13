@@ -50,6 +50,18 @@ export function openSettings(file, storage) {
     return theme
   }
 
+  // The language the report is written in. 'auto' leaves it to the skill (the language of
+  // the conversation, else English); a code is handed to the runner as --lang.
+  const REPORT_LANGS = ['auto', 'en', 'ru', 'uk', 'de', 'es', 'fr', 'pt', 'it', 'pl', 'tr', 'zh', 'ja']
+  const getReportLang = () => { const l = read(file).reportLang; return REPORT_LANGS.includes(l) ? l : 'auto' }
+  const setReportLang = (raw) => {
+    const lang = REPORT_LANGS.includes(raw) ? raw : 'auto'
+    const data = read(file)
+    data.reportLang = lang
+    write(file, data)
+    return lang
+  }
+
   // Decrypt for use in the main process only (e.g. GitHub API calls). Returns null if
   // nothing is stored or the keychain can't decrypt it (e.g. a different machine/user).
   const getToken = () => {
@@ -58,5 +70,5 @@ export function openSettings(file, storage) {
     try { return storage.decryptString(Buffer.from(enc, 'base64')) } catch { return null }
   }
 
-  return { hasToken, tokenStatus, setToken, clearToken, getToken, getTheme, setTheme }
+  return { hasToken, tokenStatus, setToken, clearToken, getToken, getTheme, setTheme, getReportLang, setReportLang, REPORT_LANGS }
 }

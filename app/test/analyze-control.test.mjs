@@ -45,4 +45,15 @@ const log = readFileSync(logPath, 'utf8')
 assert.match(log, /long run/, 'the log captures the run stderr')
 assert.match(log, /signal=SIGTERM/, 'the log records how the run ended (the cancel signal)')
 
-console.log('OK: analyze control (whichBin resolves/rejects executables on a PATH; a cancelled run rejects as cancelled not failure; the full run log is saved for Show-log)')
+// ── runAnalysis: the chosen report language reaches the runner as --lang ────────
+const argsOut = join(dir, 'args.json')
+const echo = join(dir, 'echo-run.mjs')
+writeFileSync(echo, `import { writeFileSync } from 'node:fs'\nwriteFileSync(${JSON.stringify(argsOut)}, JSON.stringify(process.argv.slice(2)))\nprocess.exit(1)\n`)
+for (const [lang, want] of [['ru', ['--lang', 'ru']], ['auto', []], ['', []]]) {
+  try { await runAnalysis(dir, '', { runScript: echo, lang }) } catch {}
+  const got = JSON.parse(readFileSync(argsOut, 'utf8'))
+  const i = got.indexOf('--lang')
+  assert.deepEqual(i < 0 ? [] : got.slice(i, i + 2), want, `lang "${lang}" → runner args ${JSON.stringify(want)}`)
+}
+
+console.log('OK: analyze control (whichBin resolves/rejects executables on a PATH; a cancelled run rejects as cancelled not failure; the full run log is saved for Show-log; the report language reaches the runner as --lang, auto adds nothing)')

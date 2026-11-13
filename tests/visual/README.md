@@ -1,7 +1,7 @@
 # Viewer screenshot baselines
 
 `viewer.spec.mjs` screenshots the reference example (`examples/rate-limit`) in every
-tab × the dark (`graphite`) and light (`bond`) palettes × a wide (1440) and a narrow
+tab × the dark (`graphite`) and light (`slate`) palettes × a wide (1440) and a narrow
 (900) window, and compares each against a committed PNG. The behaviour suites prove
 things *work*. This one proves they *look* right: no clipped diagram, no overlapping
 strip, no shifted layout.

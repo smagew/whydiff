@@ -103,7 +103,7 @@ const tab = async (p, id) => { await p.locator(`#tabs .tab[data-pane="${id}"]`).
 {
   const p = await open(url)
   await p.locator('#pane-diagrams .storyboard pre.mermaid > svg').waitFor()
-  for (const pal of ['graphite', 'bond', 'slate']) {
+  for (const pal of ['graphite', 'slate']) {
     await p.locator(`.themepick button[data-v="${pal}"]`).click(); await p.waitForTimeout(800)
     const cards = await p.evaluate(() => [...document.querySelectorAll('#pane-diagrams .storyboard g.node')].map(n => {
       const shape = n.querySelector(':scope > rect.label-container').getBoundingClientRect()

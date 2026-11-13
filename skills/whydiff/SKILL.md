@@ -23,8 +23,11 @@ code lazily behind a click; every claim traceable to a real line of the diff.
     merge-base range when the branch is checked out locally, otherwise warn that
     file drill-down may not match the working tree.
 - **Mode words** — never a ref: `full` / `sections:<ids>` (which optional passes to
-  run up front, step 3) and `headless` (a host delivers the map; skip step 6).
-- **Report language**: the language the user converses in. If unclear, use English.
+  run up front, step 3), `headless` (a host delivers the map; skip step 6) and
+  `lang:<code>` (the report language, below).
+- **Report language**: a `lang:<code>` argument (a BCP-47 tag: `lang:ru`, `lang:de`,
+  `lang:pt-BR`) wins: the user or the host chose it. Otherwise the language the user
+  converses in. If unclear, use English.
   This becomes `meta.lang` and governs ALL human-readable text in the map.
   Code identifiers, paths, and code fragments always stay as-is.
 

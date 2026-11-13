@@ -169,7 +169,7 @@ for (const width of [1400, 1100, 900]) {
 
   // …and it follows the palette. Switch it the way the UI does (see gotchas: setting data-p
   // directly skips applyPalette).
-  await page.locator('.themepick button[data-v="bond"]').click()
+  await page.locator('.themepick button[data-v="slate"]').click()
   await page.waitForTimeout(400)
   const ring2 = await page.evaluate(() => {
     const cs = getComputedStyle(document.querySelector('.elabel-t'))

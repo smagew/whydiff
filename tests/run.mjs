@@ -73,6 +73,17 @@ mkdirSync('.whydiff', { recursive: true })
 writeFileSync('.whydiff/review-map.json', ${JSON.stringify(JSON.stringify(MAP))})
 process.stdout.write(JSON.stringify({ type: 'result', subtype: 'success', result: 'full' }) + '\\n')
 `)
+// A stub that only succeeds when the prompt carries "lang:de" — proves --lang reaches
+// the skill as its mode word.
+const langStub = mkStub(`
+import { writeFileSync, mkdirSync } from 'node:fs'
+const a = process.argv.slice(2)
+const prompt = a[a.indexOf('-p') + 1] || ''
+if (!/(^|\\s)lang:de(\\s|$)/.test(prompt)) { console.error('prompt has no lang:de: ' + prompt); process.exit(8) }
+mkdirSync('.whydiff', { recursive: true })
+writeFileSync('.whydiff/review-map.json', ${JSON.stringify(JSON.stringify(MAP))})
+process.stdout.write(JSON.stringify({ type: 'result', subtype: 'success', result: 'lang' }) + '\\n')
+`)
 // A stub that finishes successfully but produces nothing.
 const emptyStub = mkStub(`
 const say = (o) => process.stdout.write(JSON.stringify(o) + '\\n')
@@ -109,6 +120,12 @@ const run = (args) => spawnSync('node', [join(root, 'scripts', 'run.mjs'), ...ar
   execFileSync('rm', ['-rf', join(repo, '.whydiff')])
   const noFull = run([repo, 'HEAD~1..HEAD', '--claude-cmd', fullStub, '--plugin-dir', root, '--quiet'])
   ok(noFull.status === 1, 'without --full the prompt should not say "full", so the full stub fails the run')
+  const withLang = run([repo, 'HEAD~1..HEAD', '--lang', 'de', '--claude-cmd', langStub, '--plugin-dir', root, '--no-assemble', '--quiet'])
+  ok(withLang.status === 0, `--lang de should reach the skill as "lang:de", exited ${withLang.status}: ${withLang.stderr}`)
+  const noLang = run([repo, 'HEAD~1..HEAD', '--claude-cmd', langStub, '--plugin-dir', root, '--no-assemble', '--quiet'])
+  ok(noLang.status === 1, 'without --lang the prompt names no language (the skill then follows the conversation)')
+  const badLang = run([repo, '--lang', 'ru; rm -rf', '--claude-cmd', langStub, '--plugin-dir', root, '--quiet'])
+  ok(badLang.status === 2, `a malformed --lang is a usage error, not passed on (exit ${badLang.status})`)
 }
 
 // ── --sections asks the skill for exactly those optional passes ──────────────
