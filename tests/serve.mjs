@@ -506,7 +506,14 @@ const pinnedBefore = await panelTop()
 await page.evaluate(() => scrollBy(0, 600))
 await page.waitForTimeout(250)
 const pinnedAfter = await panelTop()
-if (Math.abs(pinnedAfter - pinnedBefore) > 4) fail(`the chat panel scrolled away (${pinnedBefore} → ${pinnedAfter})`)
+// The goal is that the whole panel stays in view while reading: never under the title bar,
+// never past the bottom of the window. (Its top may rise from where it starts to the sticky
+// line, as any sticky column does.)
+const inView = await page.evaluate(() => {
+  const r = document.querySelector('.askpanel').getBoundingClientRect(), tb = document.getElementById('titlebar').getBoundingClientRect()
+  return { top: Math.round(r.top), bottom: Math.round(r.bottom), tb: Math.round(tb.bottom), vh: innerHeight }
+})
+if (inView.top < inView.tb || inView.bottom > inView.vh) fail(`the chat panel scrolled out of view (${pinnedBefore} → ${JSON.stringify(inView)})`)
 if (await page.evaluate(() => document.querySelector('.askpanel .dk-threads').scrollTop) !== 0) {
   fail('opening a thread jumped past the question to the end of the last answer')
 }

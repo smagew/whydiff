@@ -72,11 +72,8 @@ const tab = async (p, id) => { await p.locator(`#tabs .tab[data-pane="${id}"]`).
   const chips = await p.locator('#verdict .v-chip').allTextContents()
   check(await p.locator('#verdict').isVisible(), 'the verdict row shows when a pass found something')
   check(chips.length === want.length && want.every((w, i) => chips[i].includes(w)), `verdict chips ${JSON.stringify(chips)} want ${JSON.stringify(want)}`)
-  const order = await p.evaluate(() => {
-    const ids = ['title', 'intent', 'verdict', 'statbar'].map(id => document.getElementById(id))
-    return ids.every((el, i) => !i || (ids[i - 1].compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING))
-  })
-  check(order, 'the verdict sits under the intent, above the counts')
+  const where = await p.evaluate(() => ({ verdict: !!document.getElementById('verdict').closest('#titlebar'), counts: !!document.getElementById('statbar').closest('.footstrip') }))
+  check(where.verdict && where.counts, `the verdict is in the title bar, the counts in the status bar (${JSON.stringify(where)})`)
   check(!(await p.locator('#statbar .hot').count()), 'the counts line carries no red signal any more (the verdict does)')
   check(/0 of \d+ files read/.test(await p.locator('#vRead').textContent()), 'reading progress shows in the verdict row')
   // each chip goes where its finding lives

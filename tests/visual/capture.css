@@ -1,7 +1,13 @@
 /* Applied only while a screenshot is taken (toHaveScreenshot `stylePath`). A full-page
    capture stitches the page at its full height, so a position:fixed strip would be
    stamped across the middle of the image; let it sit at the end of the page instead. */
-.footstrip { position: static !important; }
+.footstrip { position: static; }
 /* The plugin version changes on every release; it must not invalidate every baseline.
    Hidden, not removed, so the strip's layout is still what users see. */
 .footstrip .fs-ver { visibility: hidden !important; }
+/* The side bar is fixed beside the content; in a stitched full-page image it would stop at
+   the first screen's height. Stretch it over the whole page instead. */
+@media (min-width: 901px) { .sidebar { position: absolute !important; bottom: 0 !important; } }
+.footstrip { position: relative !important; z-index: 50 !important; }
+/* A short page: push the (now static) status bar to the bottom of the window, as users see it. */
+.wrap { min-height: calc(100vh - var(--tb-h, 46px) - var(--foot-h, 48px)); box-sizing: border-box; }

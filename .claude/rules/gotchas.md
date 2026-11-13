@@ -11,6 +11,15 @@ future agents (and you) read this before touching the area.
 - **Measure only what is on screen.** A clamped note in a hidden pane measures 0, so a
   "does it clip?" check at render time never fires. Re-run it when the tab is shown
   (`revealNoteToggles` in `setTab('files')`).
+- **Sticky things stick at `--stick`, below the title bar.** The title bar is pinned to
+  the top, so anything `position: sticky` in the reading column must use `top:
+  var(--stick)`, not a few px, or it slides under the bar. A sticky panel as tall as the
+  window also rides up with the end of its column on a short page: cap its height to
+  leave room for what sits below the column (see `.askpanel, .inspector`).
+- **Section tabs live in the side bar.** `#tabs` is inside `#sidebar`; the Help button is
+  in the same list but is not a `.tab` (tests count tabs). Select a section with
+  `#tabs .tab[data-pane=…]`. The intent block (`.sub`) is hidden on screen (it is the
+  title's hover text) but still carries the prose measure the design test reads.
 - **Diagrams on other tabs are `.dg-off`, never `display:none`.** Mermaid must measure a
   diagram to render, fit or re-render it on a palette switch, so an inactive diagram is
   taken out of flow with `visibility:hidden` and height 0. Anything that leads into a

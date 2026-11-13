@@ -215,9 +215,12 @@ for (const palette of ['slate', 'graphite', 'bond']) {
       bodyColor: cs('body', 'color'), bodyBg: bg(document.body),
       subColor: cs('.sub', 'color'), subBg: bg(document.querySelector('.sub')),
       metaColor: cs('.kicker', 'color'), metaBg: bg(document.querySelector('.kicker')),
+      // The prose measure, read off the intent paragraph. On screen the intent is a hover
+      // tip in the title bar (the block is hidden), so show it just long enough to measure.
       subWidth: (() => { const e = document.querySelector('.sub'); if (!e) return null
+        const was = e.style.display; e.style.display = 'block'
         const pr = document.createElement('span'); pr.style.cssText = 'position:absolute;visibility:hidden;width:1ch'
-        e.appendChild(pr); const ch = pr.getBoundingClientRect().width; pr.remove()
+        e.appendChild(pr); const ch = pr.getBoundingClientRect().width; pr.remove(); e.style.display = was
         return ch ? parseFloat(getComputedStyle(e).maxWidth) / ch : null })(),
       fonts: [cs('body', 'fontFamily'), cs('.sub', 'fontFamily')],
       cards: document.querySelectorAll('.stat').length,
