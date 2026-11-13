@@ -19,6 +19,8 @@
 //                         separated ids: story, standards, tests, stories). The core
 //                         passes (Code map, Diagrams, Ops) always run. Mutually
 //                         exclusive with --full; omit both for a core-only run.
+//   --lang <code>         write the report in this language (BCP-47: en, ru, de…);
+//                         default: the skill's own rule (the conversation's language)
 //   --no-assemble         skip producing the standalone review-map.html
 //   --quiet               don't print per-step progress
 //
@@ -31,7 +33,7 @@ import { fileURLToPath } from 'node:url'
 
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), '..')
 const argv = process.argv.slice(2)
-const VALUE = new Set(['--plugin-dir', '--claude-cmd', '--timeout', '--sections'])
+const VALUE = new Set(['--plugin-dir', '--claude-cmd', '--timeout', '--sections', '--lang'])
 const BOOL = new Set(['--no-assemble', '--quiet', '--full', '--progress-json'])
 // The optional passes a caller may ask for by id (core passes always run).
 const OPTIONAL_SECTIONS = new Set(['story', 'standards', 'tests', 'stories'])
@@ -46,7 +48,7 @@ for (let i = 0; i < argv.length; i++) {
 }
 function die(code, msg) {
   console.error(msg)
-  if (code === 2) console.error('usage: run.mjs <repo> [<base..head>] [--full | --sections <ids>] [--plugin-dir <path>] [--claude-cmd <cmd>] [--timeout <ms>] [--no-assemble] [--quiet]')
+  if (code === 2) console.error('usage: run.mjs <repo> [<base..head>] [--full | --sections <ids>] [--plugin-dir <path>] [--claude-cmd <cmd>] [--timeout <ms>] [--lang <code>] [--no-assemble] [--quiet]')
   process.exit(code)
 }
 
@@ -60,6 +62,11 @@ if (opts['--sections']) {
   const bad = sections.filter(s => !OPTIONAL_SECTIONS.has(s))
   if (bad.length) die(2, `unknown section(s): ${bad.join(', ')} (valid: ${[...OPTIONAL_SECTIONS].join(', ')})`)
 }
+
+// The report language, when the host chose one: a BCP-47 tag, handed to the skill as
+// the `lang:<code>` mode word. Anything else is a usage error, not a silent default.
+const lang = opts['--lang'] || ''
+if (lang && !/^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/.test(lang)) die(2, `--lang wants a language code such as en, ru or pt-BR (got "${lang}")`)
 
 const repo = positional[0]
 if (!repo) die(2, 'a repo path is required')
@@ -94,7 +101,7 @@ const runPipeline = () => new Promise((ok, no) => {
     // `headless`: this runner (and the desktop app through it) delivers the map, so the
     // skill must stop once it is written. Without it the skill serves — and claude -p
     // then blocks on a server that never exits until the shell's 10-min timeout.
-    '-p', `/whydiff${range ? ` ${range}` : ''}${want} headless`,
+    '-p', `/whydiff${range ? ` ${range}` : ''}${want}${lang ? ` lang:${lang}` : ''} headless`,
     '--plugin-dir', pluginDir,
     '--output-format', 'stream-json', '--verbose',
   ], { cwd: repoAbs, stdio: ['ignore', 'pipe', 'pipe'] })

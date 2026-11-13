@@ -59,6 +59,8 @@ contextBridge.exposeInMainWorld('api', {
   // choice and what it currently resolves to.
   getTheme: () => ipcRenderer.invoke('theme:get'),
   setTheme: (preference) => ipcRenderer.invoke('theme:set', preference),
+  getReportLang: () => ipcRenderer.invoke('reportLang:get'),
+  setReportLang: (lang) => ipcRenderer.invoke('reportLang:set', lang),
 
   // About / updates — the running version, a manual update check, and opening a release.
   appVersion: () => ipcRenderer.invoke('app:version'),

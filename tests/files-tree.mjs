@@ -80,8 +80,8 @@ const browser = await chromium.launch()
   await page.evaluate(() => scrollTo(0, 1600))
   await page.waitForTimeout(150)
   const m1 = await nav.evaluate(n => ({ top: n.getBoundingClientRect().top, bottom: n.getBoundingClientRect().bottom, vh: innerHeight }))
-  // it sticks just under the title bar (the IDE shell's top line), never under it
-  const tbBottom = await page.evaluate(() => document.getElementById('titlebar')?.getBoundingClientRect().bottom || 0)
+  // it sticks just under the Files menu (itself pinned under the title bar), never under either
+  const tbBottom = await page.evaluate(() => Math.max(document.getElementById('titlebar')?.getBoundingClientRect().bottom || 0, document.getElementById('filesModebar')?.getBoundingClientRect().bottom || 0))
   check(m1.top >= tbBottom && m1.top < tbBottom + 40 && m1.bottom <= m1.vh + 1, `wide: after scrolling the page 1600px the navigator must stay in the window (top ${Math.round(m1.top)}, bottom ${Math.round(m1.bottom)})`)
   check((await firstRow()) === before, `wide: reading the file moved the tree (${before} → ${await firstRow()})`)
   // Wheel over the tree: the tree scrolls, the page does not.

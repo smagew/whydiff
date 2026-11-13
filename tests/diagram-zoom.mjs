@@ -102,7 +102,7 @@ ok(!zoomed, 'header Fit-to-width should leave zoom mode (the responsive fit-to-w
   // a light pinch-out on a trackpad: ~20 small events
   await pinch(-2, 20)
   const w1 = (await svgSize()).w
-  ok(w1 > w0 * 1.02 && w1 < w0 * 1.35, `a light pinch zooms in a little, not to the max (×${(w1 / w0).toFixed(2)})`)
+  ok(w1 > w0 * 1.12 && w1 < w0 * 1.4, `a light pinch zooms in noticeably, but not to the max (×${(w1 / w0).toFixed(2)})`)
   // the same gesture back returns to where it started
   await pinch(2, 20)
   const w2 = (await svgSize()).w
@@ -110,11 +110,11 @@ ok(!zoomed, 'header Fit-to-width should leave zoom mode (the responsive fit-to-w
   // one notch of a mouse wheel (deltaY 100 px, or 3 lines) is one modest step
   await pinch(-100, 1)
   const w3 = (await svgSize()).w
-  ok(w3 > w2 * 1.04 && w3 < w2 * 1.2, `one wheel notch is one modest step (×${(w3 / w2).toFixed(2)})`)
+  ok(w3 > w2 * 1.12 && w3 < w2 * 1.35, `one wheel notch is one clear step (×${(w3 / w2).toFixed(2)})`)
   await page.evaluate(({ sel, cx, cy }) => document.querySelector(sel).dispatchEvent(new WheelEvent('wheel', { deltaY: -3, deltaMode: 1, ctrlKey: true, clientX: cx, clientY: cy, bubbles: true, cancelable: true })), { sel: boxSel, cx, cy })
   await page.waitForTimeout(250)
   const w4 = (await svgSize()).w
-  ok(w4 > w3 * 1.04 && w4 < w3 * 1.2, `a line-mode wheel notch (Firefox, Windows) is the same modest step (×${(w4 / w3).toFixed(2)})`)
+  ok(w4 > w3 * 1.12 && w4 < w3 * 1.35, `a line-mode wheel notch (Firefox, Windows) is the same modest step (×${(w4 / w3).toFixed(2)})`)
 }
 
 if (errors.length) fail('page errors:\n' + errors.join('\n'))

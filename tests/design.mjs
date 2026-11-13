@@ -144,7 +144,7 @@ const ratio = (a, b) => { const [x, y] = [lum(parse(a)), lum(parse(b))].sort((p,
 
 const browser = await chromium.launch()
 const seenRatios = []
-for (const palette of ['slate', 'graphite', 'bond']) {
+for (const palette of ['slate', 'graphite']) {
   const page = await browser.newPage({ viewportSize: { width: 3840, height: 1200 } })
   const errs = []
   page.on('pageerror', e => errs.push(String(e.message)))

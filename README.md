@@ -52,7 +52,11 @@ chaining or substitution — goes through the normal permission flow
 /whydiff                    # working tree vs HEAD (incl. untracked)
 /whydiff HEAD~3             # a commit range
 /whydiff main..feature      # any git range
+/whydiff lang:de            # write the report in German (any language code: ru, pt-BR…)
 ```
+
+Without `lang:` the report is written in the language you talk to Claude in. The
+desktop app has a **Report language** setting for the same choice.
 
 The run **serves** the map on `http://127.0.0.1:<port>/` and opens it in your
 browser. Served means live: you can ask about any part of it, pin notes, instruct a
