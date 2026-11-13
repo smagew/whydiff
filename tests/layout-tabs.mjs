@@ -46,8 +46,8 @@ const tab = async (p, id) => { await p.locator(`#tabs .tab[data-pane="${id}"]`).
 // ── full window ────────────────────────────────────────────────────────────────
 {
   const p = await open()
-  const b = await p.locator('.board').boundingBox()
-  check(b.x <= 32 && b.x + b.width >= 1920 - 32, `the board spans the window with a small gutter (x ${Math.round(b.x)}, right ${Math.round(b.x + b.width)})`)
+  const b = await p.locator('.board').boundingBox(), sb = await p.locator('#sidebar').boundingBox()
+  check(b.x - (sb.x + sb.width) <= 32 && b.x + b.width >= 1920 - 32, `the board spans the window beside the side bar with a small gutter (x ${Math.round(b.x)}, side bar ends ${Math.round(sb.x + sb.width)}, right ${Math.round(b.x + b.width)})`)
   await p.close()
 }
 
