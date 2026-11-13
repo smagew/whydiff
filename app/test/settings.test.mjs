@@ -58,3 +58,10 @@ ok(openSettings(file, fakeStore).getTheme() === 'light', 'and survives a reopen'
 ok(s.setTheme('system') === 'system', 'following the OS stays available as a choice')
 ok(s.setTheme('nonsense') === 'dark', 'an unknown value falls back to the default rather than sticking')
 ok(openSettings(file, unavailable).getTheme() === 'dark', 'the theme is readable with no keychain at all')
+// The report language: auto by default (the skill follows the conversation), a chosen
+// code persists, anything unknown falls back to auto.
+ok(s.getReportLang() === 'auto', 'the report language defaults to auto')
+ok(s.setReportLang('de') === 'de' && s.getReportLang() === 'de', 'a chosen report language persists')
+ok(openSettings(file, fakeStore).getReportLang() === 'de', 'and survives a reopen')
+ok(s.setReportLang('ru; rm -rf /') === 'auto', 'an unknown value falls back to auto rather than reaching the runner')
+ok(s.REPORT_LANGS.includes('ru') && s.REPORT_LANGS.includes('en'), 'English and Russian are offered')

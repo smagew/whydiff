@@ -114,7 +114,7 @@ const tab = async (p, id) => { await p.locator(`#tabs .tab[data-pane="${id}"]`).
   }
   // a palette switch re-renders; then switching tabs shows a correctly drawn diagram
   await p.locator('#dgTabs .dg-tab[data-dgkey="story"]').click()
-  await p.locator('.themepick button[data-v="bond"]').click(); await p.waitForTimeout(1200)
+  await p.locator('.themepick button[data-v="slate"]').click(); await p.waitForTimeout(1200)
   await p.locator('#dgTabs .dg-tab[data-dgkey="1"]').click(); await p.waitForTimeout(500)
   const after = (await state()).find(d => d.key === '1')
   check(after.visible && after.nodes > 0 && !after.nan && after.fits, 'after a palette switch another tab shows its diagram drawn and whole')
