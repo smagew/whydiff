@@ -109,6 +109,26 @@ export const WORKDIR = '.whydiff'
 const isOwnArtifact = (path) => path === WORKDIR || path.startsWith(WORKDIR + '/')
 
 /**
+ * The one-line reason a run stops when the diff is empty, with the way out. The
+ * common case is a branch whose work is all committed: the working tree is clean,
+ * and what the user means to review is the branch against its base, so name that
+ * range. Used by run.mjs (before any model run) and gather.mjs (the skill's step 1).
+ */
+export function nothingToReview(repo, ref) {
+  if (ref) return `Nothing to review: ${ref} changes no files.`
+  const head = 'Nothing to review: the working tree has no uncommitted changes.'
+  const tryGit = (args) => { try { return git(repo, args).trim() } catch { return '' } }
+  const branch = tryGit(['rev-parse', '--abbrev-ref', 'HEAD'])
+  const remoteHead = tryGit(['symbolic-ref', '--short', 'refs/remotes/origin/HEAD'])
+  const base = [remoteHead.replace(/^origin\//, ''), 'main', 'master']
+    .find((b) => b && b !== branch && tryGit(['rev-parse', '--verify', '--quiet', b]))
+  if (!branch || branch === 'HEAD' || !base) return head
+  const ahead = Number(tryGit(['rev-list', '--count', `${base}..HEAD`])) || 0
+  if (!ahead) return head
+  return `${head} Branch ${branch} has ${ahead} commit${ahead === 1 ? '' : 's'} not in ${base}: compare ${base}..${branch} to review them.`
+}
+
+/**
  * Collects the real diff manifest from git.
  * ref semantics: undefined → working tree vs HEAD (staged + unstaged + untracked);
  * otherwise any revision/range accepted by `git diff <ref>`.

@@ -169,6 +169,48 @@ process.stdout.write(JSON.stringify({ type: 'result', subtype: 'success', result
   ok(/produced no .+review-map\.json|no .whydiff/.test(r.stdout + r.stderr), `the failure does not explain itself: ${r.stderr}`)
 }
 
+// ── a map left by an EARLIER run is never validated as this run's result ─────
+// The bug: a run that wrote nothing passed, or failed with "map lists a file that is
+// not in the diff" ×26, because the runner checked yesterday's review-map.json.
+{
+  execFileSync('rm', ['-rf', join(repo, '.whydiff')])
+  ok(run([repo, 'HEAD~1..HEAD', '--claude-cmd', goodStub, '--plugin-dir', root, '--no-assemble', '--quiet']).status === 0, 'seeding a map failed')
+  const r = run([repo, 'HEAD~1..HEAD', '--claude-cmd', emptyStub, '--no-assemble'])
+  ok(r.status === 1, `a run that wrote no new map must fail, got ${r.status}: ${r.stdout}`)
+  ok(/did not write a new .+review-map\.json/.test(r.stderr.trim().split('\n').pop()), `the stale map is not named as the cause: ${r.stderr}`)
+}
+
+// ── nothing to review: fail before spending a model run, and say what to do ──
+// A clean working tree on a branch whose work is all committed: the "working tree"
+// diff is empty. The runner must stop before claude starts (no tokens spent), and
+// its last line — what the desktop app shows — must say so and name the range that
+// holds the branch's commits.
+{
+  const clean = mkdtempSync(join(tmpdir(), 'whydiff-clean-'))
+  const g = (...a) => execFileSync('git', ['-C', clean, ...a], { encoding: 'utf8' })
+  g('init', '-q', '-b', 'main'); g('config', 'user.email', 't@e'); g('config', 'user.name', 'T')
+  writeFileSync(join(clean, 'a.txt'), 'a\n'); g('add', '-A'); g('commit', '-qm', 'base')
+  g('checkout', '-qb', 'feat/x')
+  writeFileSync(join(clean, 'b.txt'), 'b\n'); g('add', '-A'); g('commit', '-qm', 'one')
+  writeFileSync(join(clean, 'c.txt'), 'c\n'); g('add', '-A'); g('commit', '-qm', 'two')
+  // An old map in .whydiff must not rescue (or confuse) the run.
+  mkdirSync(join(clean, '.whydiff'))
+  writeFileSync(join(clean, '.whydiff', 'review-map.json'), JSON.stringify(MAP))
+  const marker = join(stubs, 'claude-was-called')
+  const spy = mkStub(`import { writeFileSync } from 'node:fs'; writeFileSync(${JSON.stringify(marker)}, '1')`)
+  const r = run([clean, '--claude-cmd', spy, '--plugin-dir', root])
+  ok(r.status === 1, `an empty working tree must fail, got ${r.status}`)
+  ok(!existsSync(marker), 'claude was started for an empty diff (a paid run for nothing)')
+  const last = r.stderr.trim().split('\n').pop()
+  ok(/nothing to review/i.test(last), `the last line does not say there is nothing to review: ${last}`)
+  ok(/2 commits/.test(last) && /main\.\.feat\/x/.test(last), `the last line does not point at the branch's commits: ${last}`)
+  // An empty explicit range says so too, and gather.mjs (the skill's step 1) stops on it.
+  const r2 = run([clean, 'HEAD..HEAD', '--claude-cmd', spy, '--plugin-dir', root])
+  ok(r2.status === 1 && !existsSync(marker) && /nothing to review/i.test(r2.stderr), `an empty range must fail before claude: ${r2.stderr}`)
+  const ga = spawnSync('node', [join(root, 'scripts', 'gather.mjs'), '--repo', clean], { encoding: 'utf8' })
+  ok(ga.status !== 0 && /nothing to review/i.test(ga.stderr) && /main\.\.feat\/x/.test(ga.stderr), `gather.mjs must stop on an empty diff: ${ga.status} ${ga.stderr}`)
+}
+
 // ── usage errors: missing repo, and a non-git path, exit 2 ───────────────────
 {
   ok(run([]).status === 2, 'a missing repo should exit 2')

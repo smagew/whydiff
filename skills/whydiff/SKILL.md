@@ -51,6 +51,11 @@ logs the `run_start`/`deterministic_done` timing events, and prints a per-file
 summary. Run it as a SINGLE command (do not re-expand it into a shell chain) — the
 plugin's own scripts are auto-approved, so this step needs no permission prompt.
 
+**An empty diff ends the run.** When gather prints `Nothing to review: …` and exits
+non-zero, relay that line to the user (it names the range to compare instead, e.g. a
+clean branch against its base) and STOP. Do not spawn passes, and never validate,
+assemble or serve a `review-map.json` already in `.whydiff/`: it is an earlier run's.
+
 Every pipeline run is timed (events land in `.whydiff/timing.jsonl`). This is
 measurement ONLY — never skip or shorten an analysis step to make the numbers look
 better. `timing.mjs log <event>` remains available for the later per-stage marks
