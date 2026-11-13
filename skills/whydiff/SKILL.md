@@ -23,8 +23,9 @@ code lazily behind a click; every claim traceable to a real line of the diff.
     merge-base range when the branch is checked out locally, otherwise warn that
     file drill-down may not match the working tree.
 - **Mode words** — never a ref: `full` / `sections:<ids>` (which optional passes to
-  run up front, step 3), `headless` (a host delivers the map; skip step 6) and
-  `lang:<code>` (the report language, below).
+  run up front, step 3), `headless` (a host delivers the map; skip step 6),
+  `lang:<code>` (the report language, below) and `translate:<code>` (translate the
+  map already in `.whydiff/` instead of analyzing — see "Translate an existing map").
 - **Report language**: a `lang:<code>` argument (a BCP-47 tag: `lang:ru`, `lang:de`,
   `lang:pt-BR`) wins: the user or the host chose it. Otherwise the language the user
   converses in. If unclear, use English.
@@ -37,6 +38,21 @@ Create `<repo>/.whydiff/` for intermediate and output files. The manifest exclud
 this directory, so the map never reviews the run's own artifacts even in a repo
 whose `.gitignore` does not cover it — but suggest adding `.whydiff/` anyway so the
 files stay out of the user's commits (do not edit `.gitignore` without a go-ahead).
+
+## Translate an existing map (`translate:<code>`)
+
+No analysis runs: the map is already there, and only its reader-facing text is
+translated into a catalog beside it (`.whydiff/translations/<code>.json`). The map
+itself is never rewritten; the report gets a language switch.
+
+1. `node ${CLAUDE_PLUGIN_ROOT}/scripts/translate.mjs extract <repo>/.whydiff/review-map.json --lang <code>`
+   — prints the IN and OUT paths, or that the translation is already complete (then
+   skip to 4). If there is no map yet, say so and stop.
+2. Spawn `whydiff:translator` once with `IN: <in path>`, `OUT: <out path>`,
+   `TARGET_LANGUAGE: <code>`.
+3. `node ${CLAUDE_PLUGIN_ROOT}/scripts/translate.mjs apply <repo>/.whydiff/review-map.json --lang <code>`
+4. Deliver as in step 6 (serve, or `headless`: stop). The language menu in the
+   report's title bar switches between the original and every translation.
 
 ## Pipeline
 

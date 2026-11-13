@@ -30,6 +30,13 @@ future agents (and you) read this before touching the area.
   in the same list but is not a `.tab` (tests count tabs). Select a section with
   `#tabs .tab[data-pane=…]`. The intent block (`.sub`) is hidden on screen (it is the
   title's hover text) but still carries the prose measure the design test reads.
+- **A translation is a catalog over the map, never a rewrite.** `translatableStrings`
+  (templates/viewer-logic.mjs) is the one list of reader-facing text; a new prose field in
+  the schema must be added to its `TEXT_PATHS` or it stays untranslated. Diagrams are baked
+  per language by assemble.mjs into `<template data-dg-lang>`, swapped in at startup before
+  anything reads the cards. Node anchors key by the ORIGINAL label (`labelOrigin`), or notes
+  vanish when the language changes. An ER relation label is bare in the source: once
+  translated into several words it must be quoted, or the diagram falls back.
 - **Diagrams on other tabs are `.dg-off`, never `display:none`.** Mermaid must measure a
   diagram to render, fit or re-render it on a palette switch, so an inactive diagram is
   taken out of flow with `visibility:hidden` and height 0. Anything that leads into a

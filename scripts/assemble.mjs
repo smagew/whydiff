@@ -9,12 +9,13 @@
 // When the map has diagrams, the mermaid UMD bundle (node_modules/mermaid) is
 // inlined so diagrams render anywhere — local file://, artifact hosting, CI.
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs'
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 'node:fs'
 import { resolve, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { validateStructure, logTiming } from './lib.mjs'
 import { checkSchema } from './schema-check.mjs'
 import { readReview, turns, coverage } from './review.mjs'
+import { applyTranslation } from '../templates/viewer-logic.mjs'
 
 const args = process.argv.slice(2)
 const jsonPath = args.find(a => !a.startsWith('--'))
@@ -93,7 +94,7 @@ const ICON = {
 // One diagram card: header (title + Fit/Pop-out), caption, the zoomable mermaid box, file
 // chips. `key` is its stable data-dg ("0", "1", … — its RM.diagrams index — or "story"):
 // notes are anchored by it, so the storyboard going first never shifts them.
-const diagramCard = ({ key, title, caption, src, files = [], cls = '' }) => `
+const diagramCard = ({ key, title, caption, src, srcOrig = '', files = [], cls = '' }) => `
   <div class="diagram${cls ? ` ${cls}` : ''}" data-dg="${key}">
     <div class="dg-head">
       <h3>${esc(title)}</h3>
@@ -103,18 +104,43 @@ const diagramCard = ({ key, title, caption, src, files = [], cls = '' }) => `
       </span>
     </div>
     ${caption ? `<p class="cap">${prose(caption)}</p>` : ''}
-    <div class="mermaid-wrap"><div class="mermaid-box"><pre class="mermaid"${key === 'story' ? ' data-story' : ''}>${esc(src)}</pre></div><div class="dg-zoom"><button class="dg-btn" data-dg-zoom="in" type="button" title="Zoom in">${ICON.zin}</button><button class="dg-btn" data-dg-zoom="out" type="button" title="Zoom out">${ICON.zout}</button><button class="dg-btn" data-dg-fit="screen" type="button" title="Fit the whole diagram on screen">${ICON.reset}</button></div></div>
+    <div class="mermaid-wrap"><div class="mermaid-box"><pre class="mermaid"${key === 'story' ? ' data-story' : ''}${srcOrig ? ` data-src-orig="${esc(srcOrig).replace(/"/g, '&quot;')}"` : ''}>${esc(src)}</pre></div><div class="dg-zoom"><button class="dg-btn" data-dg-zoom="in" type="button" title="Zoom in">${ICON.zin}</button><button class="dg-btn" data-dg-zoom="out" type="button" title="Zoom out">${ICON.zout}</button><button class="dg-btn" data-dg-fit="screen" type="button" title="Fit the whole diagram on screen">${ICON.reset}</button></div></div>
     ${files.length ? `<div class="step-files">${files.map(p =>
       `<button class="fchip" data-goto="${esc(p)}">${esc(p.split('/').slice(-2).join('/'))}</button>`).join('')}</div>` : ''}
   </div>`
 // The storyboard goes first: it is the picture a non-author reads. Its mermaid source is
 // built in the viewer (storyboardMermaid, with the report-language tag words), so the
 // <pre> starts empty; its title falls back to the viewer's own wording.
-const sb = rm.storyboard
-const storyFiles = sb ? [...new Set((sb.cards || []).flatMap(c => c.files || []))] : []
+// The cards of one language's diagrams. A translated diagram also carries its original
+// source (data-src-orig): when a translated label breaks the syntax, the viewer draws
+// the original instead of the "invalid diagram" fallback.
+const bakeDiagrams = (m, orig = null) => {
+  const sb = m.storyboard
+  const storyFiles = sb ? [...new Set((sb.cards || []).flatMap(c => c.files || []))] : []
+  return [
+    ...(sb ? [diagramCard({ key: 'story', title: sb.title || '', caption: sb.caption, src: '', files: storyFiles, cls: 'storyboard' })] : []),
+    ...(m.diagrams || []).map((d, i) => diagramCard({
+      key: String(i), title: d.title, caption: d.caption, src: stripDiagramColour(d.mermaid), files: d.files || [],
+      srcOrig: orig && d.mermaid !== orig.diagrams[i].mermaid ? stripDiagramColour(orig.diagrams[i].mermaid) : '',
+    })),
+  ].join('\n')
+}
+// Translations of this report (.whydiff/translations/<lang>.json, written by a translate
+// run). Each is a catalog laid over the map; the diagrams are baked per language into a
+// <template> the viewer swaps in, so the mermaid source it draws is already translated.
+const translations = {}
+const trDir = join(dirname(resolve(jsonPath)), 'translations')
+if (existsSync(trDir)) {
+  for (const f of readdirSync(trDir).filter(f => /^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*\.json$/.test(f)).sort()) {
+    try {
+      const c = JSON.parse(readFileSync(join(trDir, f), 'utf8'))
+      if (c && typeof c.strings === 'object') translations[f.replace(/\.json$/, '')] = { strings: c.strings, ui: c.ui || null }
+    } catch (e) { console.warn(`warning: skipped translation ${f} (${e.message})`) }
+  }
+}
 const diagramsHtml = [
-  ...(sb ? [diagramCard({ key: 'story', title: sb.title || '', caption: sb.caption, src: '', files: storyFiles, cls: 'storyboard' })] : []),
-  ...diagrams.map((d, i) => diagramCard({ key: String(i), title: d.title, caption: d.caption, src: stripDiagramColour(d.mermaid), files: d.files || [] })),
+  bakeDiagrams(rm),
+  ...Object.entries(translations).map(([lang, t]) => `<template data-dg-lang="${esc(lang)}">${bakeDiagrams(applyTranslation(rm, t.strings), rm)}</template>`),
 ].join('\n')
 
 // The storyboard's card icons: a small Lucide subset (ISC — templates/storyboard-icons.LICENSE.md).
@@ -185,6 +211,7 @@ const html = template
   .replace('__STORY_ICONS__', () => storyIcons)
   .replace('__THREADS__', () => threadsJson)
   .replace('__REVIEW__', () => reviewJson)
+  .replace('__TRANSLATIONS__', () => JSON.stringify(translations).replace(/<\//g, '<\\/'))
   .replace('__REVIEW_MAP_JSON__', () => json)
 
 mkdirSync(dirname(resolve(out)), { recursive: true })
