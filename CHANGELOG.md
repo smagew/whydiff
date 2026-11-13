@@ -4,25 +4,9 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
-## [0.52.0] — 2026-11-13
+## [0.53.0] — 2026-11-13
 
 ### Changed
-- **An IDE shell around the report.** The tall header (title, intent, verdict band,
-  numbers) is replaced by:
-  - **a title bar**, one line, pinned to the top: project / ref / change name (the
-    intent on hover), then what to check as short chips with a number and a word
-    ("3 to read", "1 standards", "3 untested"; the full sentence on hover), reading
-    progress, PDF and the palette;
-  - **a side bar of sections** on the left instead of the tab row. Every section shows
-    its name with its icon and its count, red where it holds a problem. A labelled
-    toggle at the bottom switches it between narrow (name under the icon) and wide
-    (name and count beside it); the choice is remembered across maps. On a narrow
-    window it becomes a labelled row under the title bar.
-  - **the change's numbers** (files, lines, groups, scopes, languages) in the status
-    bar at the bottom.
-
-  No text block sits above any section any more: every section starts right under
-  the title bar. The frame around the content is gone.
 - **The title reads like a shell prompt:** the project's badge and name, the branch
   with a git mark (and what it is compared with, or "● uncommitted" for a working
   tree), a `❯`, then the change's name. The "Change map:" prefix is gone; the full ref
@@ -56,6 +40,28 @@ to receive an update.
   and a trackpad sends dozens per gesture, so a light pinch jumped to the maximum. The
   step now follows how far the fingers or wheel moved (e^(−k·delta), per frame), so a
   gesture and its reverse cancel out and a wheel notch is one clear step (~×1.25).
+
+## [0.52.0] — 2026-11-13
+
+### Changed
+- **An IDE shell around the report.** The tall header (title, intent, verdict band,
+  numbers) is replaced by:
+  - **a title bar**, one line, pinned to the top: project / ref / change name (the
+    intent on hover), then what to check as short chips with a number and a word
+    ("3 to read", "1 standards", "3 untested"; the full sentence on hover), reading
+    progress, PDF and the palette;
+  - **a side bar of sections** on the left instead of the tab row. Every section shows
+    its name with its icon and its count, red where it holds a problem. A labelled
+    toggle at the bottom switches it between narrow (name under the icon) and wide
+    (name and count beside it); the choice is remembered across maps. On a narrow
+    window it becomes a labelled row under the title bar.
+  - **the change's numbers** (files, lines, groups, scopes, languages) in the status
+    bar at the bottom.
+
+  No text block sits above any section any more: every section starts right under
+  the title bar. The frame around the content is gone.
+
+### Fixed
 - Sticky panels (the chat panel, the file inspector, the Files navigator) stick below
   the title bar instead of sliding under it, and a sticky panel no longer rides off
   the top of the window at the end of a short page.
