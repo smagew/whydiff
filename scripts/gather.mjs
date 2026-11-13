@@ -14,7 +14,7 @@
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { collectManifest, logTiming } from './lib.mjs'
+import { collectManifest, logTiming, nothingToReview } from './lib.mjs'
 
 const args = process.argv.slice(2)
 const opt = (name) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : null }
@@ -26,6 +26,12 @@ mkdirSync(dir, { recursive: true })
 logTiming(dir, 'run_start', { ref: ref || 'working tree' }, { create: true })
 
 const { rows, totals } = collectManifest(repo, ref)
+// An empty diff ends the run here: there is nothing to analyze, and a map left by an
+// earlier run must not be passed off as this one's.
+if (!rows.length) {
+  console.error(nothingToReview(repo, ref))
+  process.exit(3)
+}
 writeFileSync(join(dir, 'manifest.json'), JSON.stringify({ repo, ref: ref || 'working tree', totals, rows }, null, 2))
 
 const diffArgs = ['-C', repo, 'diff', ...(ref ? [ref] : [])]

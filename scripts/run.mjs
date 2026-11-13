@@ -27,7 +27,8 @@
 // Exit 0 on a valid map; 1 on a run/validate failure; 2 on a usage error.
 
 import { spawn, execFileSync } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, statSync } from 'node:fs'
+import { collectManifest, nothingToReview } from './lib.mjs'
 import { join, dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -162,10 +163,17 @@ const node = (script, ...a) => execFileSync(process.execPath, [join(rootDir, 'sc
 
 try {
   log(`whydiff: ${range || 'working tree'} in ${repoAbs}`)
+  // An empty diff is decided here, by git, before a model run is paid for.
+  if (!collectManifest(repoAbs, range || undefined).rows.length) die(1, nothingToReview(repoAbs, range || undefined))
+
+  // A map from an earlier run may sit in .whydiff; only one this run writes counts.
+  const mapPath = join(repoAbs, '.whydiff', 'review-map.json')
+  const mtime = () => { try { return statSync(mapPath).mtimeMs } catch { return 0 } }
+  const before = mtime()
   await runPipeline()
 
-  const mapPath = join(repoAbs, '.whydiff', 'review-map.json')
   if (!existsSync(mapPath)) die(1, 'the run finished but produced no .whydiff/review-map.json')
+  if (mtime() <= before) die(1, 'the run finished but did not write a new .whydiff/review-map.json (the one there is from an earlier run)')
 
   // Prove the map matches the real diff, not just that it is well-formed. The
   // pipeline validates internally too; re-checking here is the runner's contract.

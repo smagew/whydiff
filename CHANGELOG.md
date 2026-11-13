@@ -4,6 +4,11 @@ Notable changes to the whydiff plugin. Versions follow semver; the plugin
 version in `.claude-plugin/plugin.json` must be bumped for installed users
 to receive an update.
 
+## [0.53.1] — 2026-11-13
+
+### Fixed
+- **An empty diff stops the run with a clear reason.** Analyzing a clean working tree (a branch whose work is all committed) used to start a model run and then fail with "map lists a file that is not in the diff" for every file, because the runner validated the map an earlier run left in `.whydiff/`. Now `run.mjs` checks the diff before starting Claude (no tokens spent) and says "Nothing to review", naming the range that holds the branch's commits (`compare master..feat/x`); `gather.mjs` and the skill stop the same way; and the runner refuses a map the run did not write itself.
+
 ## [0.53.0] — 2026-11-13
 
 ### Changed

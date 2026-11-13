@@ -156,6 +156,10 @@ future agents (and you) read this before touching the area.
 
 ## Generator (`scripts/`, `agents/`, `skills/`)
 
+- **`.whydiff/` outlives a run.** A map from yesterday sits there until it is overwritten, so
+  "the file exists" proves nothing about this run. `run.mjs` checks the diff is non-empty
+  before starting Claude and refuses a map whose mtime did not move. A clean working tree on
+  a committed branch once failed with 26 "not in the diff" errors from exactly this.
 - **`serve.mjs` assembles once at startup.** It builds the served HTML from the
   template when it boots (and on a generate). Editing `templates/viewer.html` while
   a `serve`/`serve-<fixture>` is running shows nothing until you restart it.
