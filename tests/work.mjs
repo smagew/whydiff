@@ -180,7 +180,7 @@ page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`))
 page.on('console', (m) => { if (m.type() === 'error') errors.push(`console: ${m.text()}`) })
 await page.goto(base + '/')
 await page.waitForTimeout(500)
-await page.locator('.modebar .modetab').nth(1).click()
+await page.locator('#tabs .tab[data-pane="tasks"]').click()
 await page.waitForTimeout(300)
 
 const card2 = page.locator('.tkcard[data-id="t_w2"]')
@@ -224,7 +224,7 @@ if (t3.state !== 'open' || t3.resolution) fail(`an empty run did not hand the ta
 appendEvents(reviewDir, { type: 'anchor.rebound', by: 'claude', oldKey: 'gap:0', how: 'stale', mapId: 'm_next' })
 await page.reload()
 await page.waitForTimeout(400)
-await page.locator('.modebar .modetab').nth(1).click()
+await page.locator('#tabs .tab[data-pane="tasks"]').click()
 await page.waitForTimeout(300)
 // t_w1 is applied, so it has folded into the decided history — which must still be
 // reachable and still carry what the remark was attached to.

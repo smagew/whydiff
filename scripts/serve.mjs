@@ -22,7 +22,7 @@ import { tmpdir } from 'node:os'
 import { createServer } from 'node:http'
 import { spawn, execFileSync } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
-import { resolve, dirname, join } from 'node:path'
+import { resolve, dirname, join, sep, isAbsolute } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { anchorOffers, appendEvents, coverage, migrateThreads, newId, readReview, threadOf, turns, REVIEW_LOG } from './review.mjs'
 
@@ -756,6 +756,26 @@ const server = createServer(async (req, res) => {
   let payload
   try { payload = await readBody(req) } catch (e) { return json(res, 400, { error: e.message }) }
 
+  // Open a diff file in the editor the user's OS assigns to it (the Files context menu).
+  // Only a file inside the repo: a relative path that resolves under it and exists.
+  if (url.pathname === '/api/open') {
+    const rel = typeof payload?.path === 'string' ? payload.path : ''
+    const file = resolve(repo, rel)
+    if (!rel || isAbsolute(rel) || !file.startsWith(resolve(repo) + sep)) return json(res, 400, { error: 'not a path in this repo' })
+    // A file the diff deleted (or a map from another checkout) is not an error of the request.
+    if (!existsSync(file)) return json(res, 200, { ok: false, error: 'no such file in the working tree' })
+    // WHYDIFF_OPEN_CMD overrides the opener (tests use it so nothing launches on the machine).
+    const [cmd, args] = process.env.WHYDIFF_OPEN_CMD ? [process.env.WHYDIFF_OPEN_CMD, [file]]
+      : process.platform === 'darwin' ? ['open', [file]]
+      : process.platform === 'win32' ? ['cmd', ['/c', 'start', '""', file]]
+        : ['xdg-open', [file]]
+    try {
+      const child = spawn(cmd, args, { detached: true, stdio: 'ignore' })
+      child.on('error', () => {})
+      child.unref()
+      return json(res, 200, { ok: true })
+    } catch (e) { return json(res, 500, { error: e.message }) }
+  }
   if (url.pathname === '/api/ask') return exchange(res, payload, 'ask')
   if (url.pathname === '/api/instruct') return exchange(res, payload, 'instruct')
   if (url.pathname === '/api/propose') return exchange(res, payload, 'propose')
